@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"os"
@@ -24,25 +25,44 @@ func NewFCMService(credentialsFile string) (*FCMService, error) {
 	var app *firebase.App
 	var err error
 
-	// Vérifier si FIREBASE_CREDENTIALS_JSON existe (pour Railway/Cloud)
-	credentialsJSON := os.Getenv("FIREBASE_CREDENTIALS_JSON")
+	// Vérifier si FIREBASE_CREDENTIALS_BASE64 existe (pour Railway/Cloud)
+	credentialsBase64 := os.Getenv("FIREBASE_CREDENTIALS_BASE64")
 	
-	if credentialsJSON != "" {
-		// Lire depuis la variable d'environnement
-		log.Println("📦 Utilisation des credentials Firebase depuis FIREBASE_CREDENTIALS_JSON")
+	if credentialsBase64 != "" {
+		// Décoder depuis base64
+		log.Println("📦 Utilisation des credentials Firebase depuis FIREBASE_CREDENTIALS_BASE64")
+		
+		credentialsJSON, err := base64.StdEncoding.DecodeString(credentialsBase64)
+		if err != nil {
+			return nil, fmt.Errorf("erreur décodage base64: %w", err)
+		}
 		
 		// Configuration Firebase avec project_id explicite
 		config := &firebase.Config{
 			ProjectID: "premier-de-lan",
 		}
 		
-		opt := option.WithCredentialsJSON([]byte(credentialsJSON))
+		opt := option.WithCredentialsJSON(credentialsJSON)
 		app, err = firebase.NewApp(ctx, config, opt)
 	} else {
-		// Lire depuis le fichier (développement local)
-		log.Printf("📦 Utilisation des credentials Firebase depuis le fichier: %s", credentialsFile)
-		opt := option.WithCredentialsFile(credentialsFile)
-		app, err = firebase.NewApp(ctx, nil, opt)
+		// Vérifier si FIREBASE_CREDENTIALS_JSON existe (fallback)
+		credentialsJSON := os.Getenv("FIREBASE_CREDENTIALS_JSON")
+		
+		if credentialsJSON != "" {
+			log.Println("📦 Utilisation des credentials Firebase depuis FIREBASE_CREDENTIALS_JSON")
+			
+			config := &firebase.Config{
+				ProjectID: "premier-de-lan",
+			}
+			
+			opt := option.WithCredentialsJSON([]byte(credentialsJSON))
+			app, err = firebase.NewApp(ctx, config, opt)
+		} else {
+			// Lire depuis le fichier (développement local)
+			log.Printf("📦 Utilisation des credentials Firebase depuis le fichier: %s", credentialsFile)
+			opt := option.WithCredentialsFile(credentialsFile)
+			app, err = firebase.NewApp(ctx, nil, opt)
+		}
 	}
 
 	if err != nil {
