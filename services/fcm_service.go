@@ -30,8 +30,14 @@ func NewFCMService(credentialsFile string) (*FCMService, error) {
 	if credentialsJSON != "" {
 		// Lire depuis la variable d'environnement
 		log.Println("📦 Utilisation des credentials Firebase depuis FIREBASE_CREDENTIALS_JSON")
+		
+		// Configuration Firebase avec project_id explicite
+		config := &firebase.Config{
+			ProjectID: "premier-de-lan",
+		}
+		
 		opt := option.WithCredentialsJSON([]byte(credentialsJSON))
-		app, err = firebase.NewApp(ctx, nil, opt)
+		app, err = firebase.NewApp(ctx, config, opt)
 	} else {
 		// Lire depuis le fichier (développement local)
 		log.Printf("📦 Utilisation des credentials Firebase depuis le fichier: %s", credentialsFile)
