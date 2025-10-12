@@ -234,7 +234,7 @@ func (h *AdminHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	// Créer l'événement
 	event := &models.Event{
 		Titre:       req.Titre,
-		Date:        req.Date.Time,
+		Date:        req.Date,
 		Description: req.Description,
 		Capacite:    req.Capacite,
 		Lieu:        req.Lieu,
@@ -292,7 +292,7 @@ func (h *AdminHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		update["titre"] = req.Titre
 	}
 	if !req.Date.Time.IsZero() {
-		update["date"] = req.Date.Time
+		update["date"] = req.Date
 	}
 	if req.Description != "" {
 		update["description"] = req.Description
