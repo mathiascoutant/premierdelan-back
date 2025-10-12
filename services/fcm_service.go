@@ -15,7 +15,8 @@ import (
 
 // FCMService gère l'envoi des notifications via Firebase Cloud Messaging
 type FCMService struct {
-	client *messaging.Client
+	client  *messaging.Client
+	enabled bool // Indique si Firebase est configuré
 }
 
 // NewFCMService crée une nouvelle instance de FCMService
@@ -66,24 +67,49 @@ func NewFCMService(credentialsFile string) (*FCMService, error) {
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("erreur lors de l'initialisation de Firebase: %w", err)
+		log.Printf("⚠️  Impossible d'initialiser Firebase: %v", err)
+		// Retourner un service désactivé au lieu d'une erreur
+		return &FCMService{
+			client:  nil,
+			enabled: false,
+		}, nil
 	}
 
 	// Créer le client messaging
 	client, err := app.Messaging(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("erreur lors de la création du client FCM: %w", err)
+		log.Printf("⚠️  Impossible de créer le client FCM: %v", err)
+		return &FCMService{
+			client:  nil,
+			enabled: false,
+		}, nil
 	}
 
 	log.Println("✓ Firebase Cloud Messaging initialisé")
 
 	return &FCMService{
-		client: client,
+		client:  client,
+		enabled: true,
 	}, nil
+}
+
+// NewDisabledFCMService crée un service FCM désactivé (pour quand Firebase n'est pas configuré)
+func NewDisabledFCMService() *FCMService {
+	log.Println("⚠️  FCM Service créé en mode désactivé")
+	return &FCMService{
+		client:  nil,
+		enabled: false,
+	}
 }
 
 // SendToToken envoie une notification à un token spécifique
 func (s *FCMService) SendToToken(token string, title, body string, data map[string]string) error {
+	// Si Firebase n'est pas activé, ne rien faire
+	if !s.enabled || s.client == nil {
+		log.Println("⚠️  FCM désactivé - notification non envoyée")
+		return nil
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -163,6 +189,12 @@ func (s *FCMService) SendToMultipleTokens(tokens []string, title, body string, d
 
 // SendToAll envoie une notification à tous les tokens fournis
 func (s *FCMService) SendToAll(tokens []string, title, body string, data map[string]string) (success int, failed int, failedTokens []string) {
+	// Si Firebase n'est pas activé, ne rien faire
+	if !s.enabled || s.client == nil {
+		log.Println("⚠️  FCM désactivé - notifications non envoyées")
+		return 0, len(tokens), tokens
+	}
+
 	// FCM a une limite de 500 tokens par requête
 	const batchSize = 500
 

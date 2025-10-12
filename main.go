@@ -30,16 +30,20 @@ func main() {
 	}
 	defer database.Close()
 
-	// Initialiser Firebase Cloud Messaging
+	// Initialiser Firebase Cloud Messaging (optionnel pour Railway)
 	fcmService, err := services.NewFCMService(cfg.FirebaseCredentialsFile)
 	if err != nil {
-		log.Fatalf("❌ Erreur d'initialisation Firebase: %v", err)
+		log.Printf("⚠️  Erreur d'initialisation Firebase: %v", err)
+		log.Println("⚠️  Le serveur démarre SANS notifications push")
+		log.Println("💡 Pour activer Firebase : configurez FIREBASE_CREDENTIALS_BASE64 dans Railway")
+		fcmService = services.NewDisabledFCMService()
+	} else {
+		log.Println("✓ Firebase Cloud Messaging initialisé")
+		
+		// Initialiser et démarrer le cron job pour les notifications automatiques
+		notificationCron := services.NewNotificationCron(database.DB, fcmService)
+		notificationCron.Start()
 	}
-	log.Println("✓ Firebase Cloud Messaging initialisé")
-
-	// Initialiser et démarrer le cron job pour les notifications automatiques
-	notificationCron := services.NewNotificationCron(database.DB, fcmService)
-	notificationCron.Start()
 
 	// Créer le routeur
 	router := mux.NewRouter()
