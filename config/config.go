@@ -31,7 +31,7 @@ func Load() (*Config, error) {
 
 	config := &Config{
 		Port:                    getEnv("PORT", "8090"),
-		Host:                    getEnv("HOST", "localhost"),
+		Host:                    getEnv("HOST", "0.0.0.0"), // 0.0.0.0 pour Railway/Cloud
 		MongoURI:                getEnv("MONGO_URI", "mongodb://localhost:27017"),
 		MongoDB:                 getEnv("MONGO_DB", "premier_an_db"),
 		JWTSecret:               getEnv("JWT_SECRET", ""),
