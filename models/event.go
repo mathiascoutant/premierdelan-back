@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -10,7 +11,7 @@ import (
 type Event struct {
 	ID                        primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	Titre                     string             `json:"titre" bson:"titre"`
-	Date                      FlexibleTime       `json:"date" bson:"date"`
+	Date                      time.Time          `json:"date" bson:"date"` // Retour à time.Time standard
 	Description               string             `json:"description" bson:"description"`
 	Capacite                  int                `json:"capacite" bson:"capacite"`
 	Inscrits                  int                `json:"inscrits" bson:"inscrits"`
@@ -18,8 +19,8 @@ type Event struct {
 	Statut                    string             `json:"statut" bson:"statut"` // "ouvert", "complet", "annule", "termine", "prochainement"
 	Lieu                      string             `json:"lieu" bson:"lieu"`
 	CodeSoiree                string             `json:"code_soiree" bson:"code_soiree"`
-	DateOuvertureInscription  *FlexibleTime      `json:"date_ouverture_inscription,omitempty" bson:"date_ouverture_inscription,omitempty"`
-	DateFermetureInscription  *FlexibleTime      `json:"date_fermeture_inscription,omitempty" bson:"date_fermeture_inscription,omitempty"`
+	DateOuvertureInscription  *time.Time         `json:"date_ouverture_inscription,omitempty" bson:"date_ouverture_inscription,omitempty"` // Retour à *time.Time
+	DateFermetureInscription  *time.Time         `json:"date_fermeture_inscription,omitempty" bson:"date_fermeture_inscription,omitempty"` // Retour à *time.Time
 	NotificationSentOpening   bool               `json:"notification_sent_opening" bson:"notification_sent_opening"`
 	CreatedAt                 time.Time          `json:"created_at" bson:"created_at"`
 	UpdatedAt                 time.Time          `json:"updated_at" bson:"updated_at"`
@@ -68,5 +69,49 @@ type AdminStatsResponse struct {
 	EvenementsActifs   int `json:"evenements_actifs"`
 	TotalInscrits      int `json:"total_inscrits"`
 	TotalPhotos        int `json:"total_photos"`
+}
+
+// MarshalJSON implémente un marshaller JSON personnalisé pour Event
+// pour formater les dates en heure française (Europe/Paris)
+func (e Event) MarshalJSON() ([]byte, error) {
+	// Charger la timezone de Paris
+	paris, err := time.LoadLocation("Europe/Paris")
+	if err != nil {
+		paris = time.FixedZone("CET", 2*3600)
+	}
+
+	// Créer un type alias pour éviter la récursion infinie
+	type Alias Event
+	
+	// Convertir les dates en heure française
+	dateStr := ""
+	if !e.Date.IsZero() {
+		dateStr = e.Date.In(paris).Format("2006-01-02T15:04:05")
+	}
+	
+	dateOuvertureStr := (*string)(nil)
+	if e.DateOuvertureInscription != nil && !e.DateOuvertureInscription.IsZero() {
+		s := e.DateOuvertureInscription.In(paris).Format("2006-01-02T15:04:05")
+		dateOuvertureStr = &s
+	}
+	
+	dateFermetureStr := (*string)(nil)
+	if e.DateFermetureInscription != nil && !e.DateFermetureInscription.IsZero() {
+		s := e.DateFermetureInscription.In(paris).Format("2006-01-02T15:04:05")
+		dateFermetureStr = &s
+	}
+
+	// Créer une structure temporaire avec les dates formatées
+	return json.Marshal(&struct {
+		*Alias
+		Date                     string  `json:"date"`
+		DateOuvertureInscription *string `json:"date_ouverture_inscription,omitempty"`
+		DateFermetureInscription *string `json:"date_fermeture_inscription,omitempty"`
+	}{
+		Alias:                    (*Alias)(&e),
+		Date:                     dateStr,
+		DateOuvertureInscription: dateOuvertureStr,
+		DateFermetureInscription: dateFermetureStr,
+	})
 }
 

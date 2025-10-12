@@ -234,7 +234,7 @@ func (h *AdminHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	// Créer l'événement
 	event := &models.Event{
 		Titre:       req.Titre,
-		Date:        req.Date,
+		Date:        req.Date.Time, // Convertir FlexibleTime en time.Time
 		Description: req.Description,
 		Capacite:    req.Capacite,
 		Lieu:        req.Lieu,
@@ -244,10 +244,12 @@ func (h *AdminHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	// Ajouter les dates d'inscription si fournies
 	if req.DateOuvertureInscription != nil && !req.DateOuvertureInscription.Time.IsZero() {
-		event.DateOuvertureInscription = req.DateOuvertureInscription
+		t := req.DateOuvertureInscription.Time
+		event.DateOuvertureInscription = &t
 	}
 	if req.DateFermetureInscription != nil && !req.DateFermetureInscription.Time.IsZero() {
-		event.DateFermetureInscription = req.DateFermetureInscription
+		t := req.DateFermetureInscription.Time
+		event.DateFermetureInscription = &t
 	}
 
 	if err := h.eventRepo.Create(event); err != nil {
@@ -292,7 +294,7 @@ func (h *AdminHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		update["titre"] = req.Titre
 	}
 	if !req.Date.Time.IsZero() {
-		update["date"] = req.Date
+		update["date"] = req.Date.Time // Convertir FlexibleTime en time.Time
 	}
 	if req.Description != "" {
 		update["description"] = req.Description

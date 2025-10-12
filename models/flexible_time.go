@@ -87,24 +87,33 @@ func (ft *FlexibleTime) MarshalBSONValue() (bsontype.Type, []byte, error) {
 
 // UnmarshalBSONValue permet au driver MongoDB de décoder une date en FlexibleTime
 func (ft *FlexibleTime) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
-	if t != bsontype.DateTime {
-		return fmt.Errorf("cannot decode %v into FlexibleTime", t)
+	// Si c'est une date MongoDB, on la decode
+	if t == bsontype.DateTime {
+		// Vérifier qu'on a assez de bytes pour un timestamp (8 bytes = int64)
+		if len(data) < 8 {
+			return fmt.Errorf("invalid DateTime data: need 8 bytes, got %d", len(data))
+		}
+		
+		// Lire le timestamp MongoDB (int64 en little-endian, en millisecondes depuis Unix epoch)
+		timestampMs := int64(binary.LittleEndian.Uint64(data[:8]))
+		
+		// Convertir millisecondes en secondes et nanosecondes
+		seconds := timestampMs / 1000
+		nanos := (timestampMs % 1000) * 1000000
+		
+		// Créer le time.Time
+		ft.Time = time.Unix(seconds, nanos)
+		return nil
 	}
 	
-	// Vérifier qu'on a assez de bytes pour un timestamp (8 bytes = int64)
-	if len(data) < 8 {
-		return fmt.Errorf("invalid DateTime data: need 8 bytes, got %d", len(data))
+	// Si c'est null, on retourne une date vide
+	if t == bsontype.Null {
+		ft.Time = time.Time{}
+		return nil
 	}
 	
-	// Lire le timestamp MongoDB (int64 en little-endian, en millisecondes depuis Unix epoch)
-	timestampMs := int64(binary.LittleEndian.Uint64(data[:8]))
-	
-	// Convertir millisecondes en secondes et nanosecondes
-	seconds := timestampMs / 1000
-	nanos := (timestampMs % 1000) * 1000000
-	
-	// Créer le time.Time
-	ft.Time = time.Unix(seconds, nanos)
-	return nil
+	// Pour tout autre type, on essaie de décoder comme un time.Time standard
+	// Cela peut arriver si l'événement a été créé d'une autre manière
+	return fmt.Errorf("cannot decode %v into FlexibleTime (expected DateTime, got %v)", t, t)
 }
 
