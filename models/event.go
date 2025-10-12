@@ -10,7 +10,7 @@ import (
 type Event struct {
 	ID                        primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	Titre                     string             `json:"titre" bson:"titre"`
-	Date                      time.Time          `json:"date" bson:"date"`
+	Date                      FlexibleTime       `json:"date" bson:"date"`
 	Description               string             `json:"description" bson:"description"`
 	Capacite                  int                `json:"capacite" bson:"capacite"`
 	Inscrits                  int                `json:"inscrits" bson:"inscrits"`
