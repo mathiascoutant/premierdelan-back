@@ -52,12 +52,8 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("JWT_SECRET est requis")
 	}
 
-	// Les clés VAPID sont optionnelles en développement
-	if config.Environment == "production" {
-		if config.VAPIDPublicKey == "" || config.VAPIDPrivateKey == "" {
-			return nil, fmt.Errorf("VAPID_PUBLIC_KEY et VAPID_PRIVATE_KEY sont requis en production")
-		}
-	}
+	// Les clés VAPID sont optionnelles (on utilise FCM maintenant)
+	// Pas besoin de les valider en production
 
 	return config, nil
 }
