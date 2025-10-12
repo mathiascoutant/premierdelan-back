@@ -1,0 +1,9 @@
+[phases.setup]
+nixPkgs = ["go_1_21"]
+
+[phases.build]
+cmds = ["go build -o bin/main ."]
+
+[phases.start]
+cmd = "./bin/main"
+
