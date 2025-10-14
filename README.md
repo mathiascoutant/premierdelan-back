@@ -352,3 +352,4 @@ Code propre et bien structuré suivant les bonnes pratiques Go :
 
 Projet privé - Tous droits réservés
 # Force redeploy
+# Force new deployment - Railway recovery
