@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"premier-an-backend/database"
+	"premier-an-backend/middleware"
 	"premier-an-backend/models"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -44,15 +45,15 @@ func (h *ThemeHandler) GetGlobalTheme(w http.ResponseWriter, r *http.Request) {
 
 // SetGlobalTheme définit le thème global du site (admin uniquement)
 func (h *ThemeHandler) SetGlobalTheme(w http.ResponseWriter, r *http.Request) {
-	// Récupérer l'ID utilisateur depuis le token JWT
-	userID, ok := r.Context().Value("userID").(string)
-	if !ok {
+	// Récupérer les claims depuis le contexte
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
 		http.Error(w, "Token invalide", http.StatusUnauthorized)
 		return
 	}
 
 	// Convertir l'ID en ObjectID
-	objectID, err := primitive.ObjectIDFromHex(userID)
+	objectID, err := primitive.ObjectIDFromHex(claims.UserID)
 	if err != nil {
 		http.Error(w, "ID utilisateur invalide", http.StatusBadRequest)
 		return
