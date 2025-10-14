@@ -52,6 +52,10 @@ func main() {
 	router.Use(middleware.Logging)
 	router.Use(middleware.CORS(cfg.CORSOrigins))
 
+	// Créer les repositories
+	siteSettingRepo := database.NewSiteSettingRepository(database.DB)
+	userRepo := database.NewUserRepository(database.DB)
+
 	// Créer les handlers
 	authHandler := handlers.NewAuthHandler(database.DB, cfg.JWTSecret, fcmService)
 	notificationHandler := handlers.NewNotificationHandler(
@@ -66,6 +70,7 @@ func main() {
 	inscriptionHandler := handlers.NewInscriptionHandler(database.DB, fcmService)
 	mediaHandler := handlers.NewMediaHandler(database.DB)
 	alertHandler := handlers.NewAlertHandler(database.DB, fcmService)
+	themeHandler := handlers.NewThemeHandler(siteSettingRepo, userRepo)
 
 	// Middleware Guest pour empêcher l'accès si déjà connecté
 	guestMiddleware := middleware.Guest(cfg.JWTSecret)
@@ -97,6 +102,9 @@ func main() {
 
 	// Route d'alertes critiques (publique - pas d'auth pour permettre les alertes en cas d'erreur)
 	router.HandleFunc("/api/alerts/critical", alertHandler.SendCriticalAlert).Methods("POST", "OPTIONS")
+
+	// Route thème global (publique)
+	router.HandleFunc("/api/theme", themeHandler.GetGlobalTheme).Methods("GET", "OPTIONS")
 
 	// Routes de notifications (publiques)
 	router.HandleFunc("/api/notifications/vapid-public-key", notificationHandler.GetVAPIDPublicKey).Methods("GET", "OPTIONS")
@@ -171,6 +179,9 @@ func main() {
 	
 	// Route pour récupérer les événements auxquels l'utilisateur est inscrit
 	protected.HandleFunc("/mes-evenements", inscriptionHandler.GetMesEvenements).Methods("GET", "OPTIONS")
+
+	// Route thème global (protégée - admin uniquement)
+	protected.HandleFunc("/theme", themeHandler.SetGlobalTheme).Methods("POST", "OPTIONS")
 
 	// Routes médias (protégées - authentification requise)
 	protected.HandleFunc("/evenements/{event_id}/medias", mediaHandler.CreateMedia).Methods("POST", "OPTIONS")
