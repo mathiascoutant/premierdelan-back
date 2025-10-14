@@ -351,3 +351,4 @@ Code propre et bien structuré suivant les bonnes pratiques Go :
 ## 📄 Licence
 
 Projet privé - Tous droits réservés
+# Force redeploy
