@@ -124,10 +124,9 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Répondre avec le token et les informations de l'utilisateur
-	response := map[string]interface{}{
-		"success": true,
-		"token":   token,
-		"user":    *user,
+	response := models.AuthResponse{
+		Token: token,
+		User:  *user,
 	}
 
 	log.Printf("✓ Nouvel utilisateur inscrit: %s (ID: %s)", user.Email, user.ID.Hex())
@@ -236,10 +235,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Répondre avec le token et les informations de l'utilisateur
-	response := map[string]interface{}{
-		"success": true,
-		"token":   token,
-		"user":    *user,
+	response := models.AuthResponse{
+		Token: token,
+		User:  *user,
 	}
 
 	log.Printf("✓ Utilisateur connecté: %s (ID: %s)", user.Email, user.ID.Hex())

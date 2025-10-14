@@ -55,6 +55,8 @@ func main() {
 	// Créer les repositories
 	siteSettingRepo := database.NewSiteSettingRepository(database.DB)
 	userRepo := database.NewUserRepository(database.DB)
+	chatRepo := database.NewChatRepository(database.DB)
+	fcmTokenRepo := database.NewFCMTokenRepository(database.DB)
 
 	// Créer les handlers
 	authHandler := handlers.NewAuthHandler(database.DB, cfg.JWTSecret, fcmService)
@@ -71,6 +73,7 @@ func main() {
 	mediaHandler := handlers.NewMediaHandler(database.DB)
 	alertHandler := handlers.NewAlertHandler(database.DB, fcmService)
 	themeHandler := handlers.NewThemeHandler(siteSettingRepo, userRepo)
+	chatHandler := handlers.NewChatHandler(chatRepo, userRepo, fcmTokenRepo, fcmService)
 
 	// Middleware Guest pour empêcher l'accès si déjà connecté
 	guestMiddleware := middleware.Guest(cfg.JWTSecret)
@@ -156,6 +159,16 @@ func main() {
 	adminRouter.HandleFunc("/codes-soiree", adminHandler.GetAllCodesSoiree).Methods("GET", "OPTIONS")
 	adminRouter.HandleFunc("/code-soiree/generate", adminHandler.GenerateCodeSoiree).Methods("POST", "OPTIONS")
 	adminRouter.HandleFunc("/code-soiree/current", adminHandler.GetCurrentCodeSoiree).Methods("GET", "OPTIONS")
+	
+	// Chat admin
+	adminRouter.HandleFunc("/chat/conversations", chatHandler.GetConversations).Methods("GET", "OPTIONS")
+	adminRouter.HandleFunc("/chat/conversations/messages", chatHandler.GetMessages).Methods("GET", "OPTIONS")
+	adminRouter.HandleFunc("/chat/conversations/messages", chatHandler.SendMessage).Methods("POST", "OPTIONS")
+	adminRouter.HandleFunc("/chat/admins/search", chatHandler.SearchAdmins).Methods("GET", "OPTIONS")
+	adminRouter.HandleFunc("/chat/invitations", chatHandler.SendInvitation).Methods("POST", "OPTIONS")
+	adminRouter.HandleFunc("/chat/invitations", chatHandler.GetInvitations).Methods("GET", "OPTIONS")
+	adminRouter.HandleFunc("/chat/invitations/respond", chatHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
+	adminRouter.HandleFunc("/chat/notifications/send", chatHandler.SendChatNotification).Methods("POST", "OPTIONS")
 	
 	// Route protégée exemple
 	protected.HandleFunc("/protected/profile", func(w http.ResponseWriter, r *http.Request) {
