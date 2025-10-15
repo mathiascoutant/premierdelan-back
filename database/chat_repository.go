@@ -375,9 +375,13 @@ func (r *ChatRepository) getSentInvitations(ctx context.Context, userID primitiv
 // RespondToInvitation répond à une invitation
 func (r *ChatRepository) RespondToInvitation(ctx context.Context, invitationID primitive.ObjectID, action string) (*models.Conversation, error) {
 	now := time.Now()
+	
+	// Convertir "accept" en "accepted" et "reject" en "rejected"
+	status := action + "ed"
+	
 	update := bson.M{
 		"$set": bson.M{
-			"status":       action,
+			"status":       status,
 			"responded_at": now,
 		},
 	}
@@ -392,7 +396,7 @@ func (r *ChatRepository) RespondToInvitation(ctx context.Context, invitationID p
 	}
 
 	// Si acceptée, créer la conversation
-	if action == "accepted" {
+	if action == "accept" {
 		// Récupérer l'invitation pour créer la conversation
 		var invitation models.ChatInvitation
 		err = r.InvitationCollection.FindOne(ctx, bson.M{"_id": invitationID}).Decode(&invitation)
