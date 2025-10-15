@@ -10,6 +10,7 @@ import (
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
 	"premier-an-backend/services"
+	chatws "premier-an-backend/websocket"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
@@ -22,15 +23,17 @@ type ChatHandler struct {
 	userRepo     *database.UserRepository
 	fcmTokenRepo *database.FCMTokenRepository
 	fcmService   *services.FCMService
+	wsHub        *chatws.Hub
 }
 
 // NewChatHandler crée un nouveau handler pour le chat
-func NewChatHandler(chatRepo *database.ChatRepository, userRepo *database.UserRepository, fcmTokenRepo *database.FCMTokenRepository, fcmService *services.FCMService) *ChatHandler {
+func NewChatHandler(chatRepo *database.ChatRepository, userRepo *database.UserRepository, fcmTokenRepo *database.FCMTokenRepository, fcmService *services.FCMService, wsHub *chatws.Hub) *ChatHandler {
 	return &ChatHandler{
 		chatRepo:     chatRepo,
 		userRepo:     userRepo,
 		fcmTokenRepo: fcmTokenRepo,
 		fcmService:   fcmService,
+		wsHub:        wsHub,
 	}
 }
 
@@ -244,8 +247,22 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Envoyer une notification aux autres participants
+	// Envoyer une notification aux autres participants (FCM)
 	go h.sendMessageNotification(conversation, message, userID)
+
+	// Notifier via WebSocket en temps réel
+	if h.wsHub != nil {
+		h.wsHub.NotifyConversation(conversationID.Hex(), "new_message", map[string]interface{}{
+			"conversation_id": conversationID.Hex(),
+			"message": map[string]interface{}{
+				"id":         message.ID.Hex(),
+				"content":    message.Content,
+				"senderId":   message.SenderID.Hex(),
+				"timestamp":  message.CreatedAt,
+				"isRead":     message.IsRead,
+			},
+		})
+	}
 
 	response := models.ChatResponse{
 		Success: true,
@@ -387,8 +404,26 @@ func (h *ChatHandler) SendInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Envoyer une notification
+	// Envoyer une notification (FCM)
 	go h.sendInvitationNotification(invitation, user)
+
+	// Notifier via WebSocket en temps réel
+	if h.wsHub != nil {
+		h.wsHub.NotifyUser(toUserID.Hex(), "new_invitation", map[string]interface{}{
+			"invitation": map[string]interface{}{
+				"id":         invitation.ID.Hex(),
+				"fromUser": map[string]interface{}{
+					"id":        user.ID.Hex(),
+					"firstname": user.Firstname,
+					"lastname":  user.Lastname,
+					"email":     user.Email,
+				},
+				"message":   invitation.Message,
+				"status":    invitation.Status,
+				"createdAt": invitation.CreatedAt,
+			},
+		})
+	}
 
 	response := models.ChatResponse{
 		Success: true,
@@ -510,6 +545,19 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 	// Si acceptée, envoyer une notification au demandeur
 	if request.Action == "accept" && conversation != nil {
 		go h.sendAcceptedInvitationNotification(&invitation, user)
+		
+		// Notifier via WebSocket en temps réel
+		if h.wsHub != nil {
+			h.wsHub.NotifyUser(invitation.FromUserID.Hex(), "invitation_accepted", map[string]interface{}{
+				"conversation_id": conversation.ID.Hex(),
+				"participant": map[string]interface{}{
+					"id":        user.ID.Hex(),
+					"firstname": user.Firstname,
+					"lastname":  user.Lastname,
+					"email":     user.Email,
+				},
+			})
+		}
 	}
 
 	response := models.ChatResponse{
