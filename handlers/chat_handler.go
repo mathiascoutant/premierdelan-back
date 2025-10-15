@@ -611,12 +611,17 @@ func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation,
 				continue
 			}
 
-			title := "Nouveau message"
-			body := sender.Firstname + " " + sender.Lastname + ": " + message.Content
+			title := sender.Firstname + " " + sender.Lastname
+			body := message.Content
+			if len(body) > 100 {
+				body = body[:100] // Limiter à 100 caractères
+			}
 			data := map[string]interface{}{
-				"type":            "chat_message",
-				"conversation_id": conversation.ID.Hex(),
-				"sender_id":       senderID.Hex(),
+				"type":           "chat_message",
+				"conversationId": conversation.ID.Hex(),
+				"messageId":      message.ID.Hex(),
+				"senderId":       senderID.Hex(),
+				"senderName":     sender.Firstname + " " + sender.Lastname,
 			}
 
 			// Récupérer les tokens FCM du participant
@@ -644,12 +649,13 @@ func (h *ChatHandler) sendInvitationNotification(invitation *models.ChatInvitati
 		return
 	}
 
-	title := "Nouvelle invitation de chat"
-	body := fromUser.Firstname + " " + fromUser.Lastname + " vous a invité à discuter"
+	title := fromUser.Firstname + " vous a invité à discuter"
+	body := "Nouvelle invitation de chat"
 	data := map[string]interface{}{
-		"type":           "chat_invitation",
-		"invitation_id":  invitation.ID.Hex(),
-		"from_user_id":   fromUser.ID.Hex(),
+		"type":         "chat_invitation",
+		"invitationId": invitation.ID.Hex(),
+		"fromUserId":   fromUser.ID.Hex(),
+		"fromUserName": fromUser.Firstname + " " + fromUser.Lastname,
 	}
 
 	// Récupérer les tokens FCM du destinataire
