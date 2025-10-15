@@ -662,8 +662,8 @@ func (h *ChatHandler) sendInvitationNotification(invitation *models.ChatInvitati
 		return
 	}
 
-	title := fromUser.Firstname + " vous a invité à discuter"
-	body := "Nouvelle invitation de chat"
+	title := "Nouvelle invitation de chat"
+	body := fromUser.Firstname + " " + fromUser.Lastname + " vous invite à discuter"
 	data := map[string]interface{}{
 		"type":         "chat_invitation",
 		"invitationId": invitation.ID.Hex(),
