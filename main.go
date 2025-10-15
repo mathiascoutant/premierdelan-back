@@ -162,12 +162,12 @@ func main() {
 	
 	// Chat admin
 	adminRouter.HandleFunc("/chat/conversations", chatHandler.GetConversations).Methods("GET", "OPTIONS")
-	adminRouter.HandleFunc("/chat/conversations/messages", chatHandler.GetMessages).Methods("GET", "OPTIONS")
-	adminRouter.HandleFunc("/chat/conversations/messages", chatHandler.SendMessage).Methods("POST", "OPTIONS")
+	adminRouter.HandleFunc("/chat/conversations/{id}/messages", chatHandler.GetMessages).Methods("GET", "OPTIONS")
+	adminRouter.HandleFunc("/chat/conversations/{id}/messages", chatHandler.SendMessage).Methods("POST", "OPTIONS")
 	adminRouter.HandleFunc("/chat/admins/search", chatHandler.SearchAdmins).Methods("GET", "OPTIONS")
 	adminRouter.HandleFunc("/chat/invitations", chatHandler.SendInvitation).Methods("POST", "OPTIONS")
 	adminRouter.HandleFunc("/chat/invitations", chatHandler.GetInvitations).Methods("GET", "OPTIONS")
-	adminRouter.HandleFunc("/chat/invitations/respond", chatHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
+	adminRouter.HandleFunc("/chat/invitations/{id}/respond", chatHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
 	adminRouter.HandleFunc("/chat/notifications/send", chatHandler.SendChatNotification).Methods("POST", "OPTIONS")
 	
 	// Route protégée exemple
@@ -198,12 +198,12 @@ func main() {
 
 	// Routes de chat (protégées - admin uniquement, pour compatibilité frontend)
 	protected.HandleFunc("/chat/conversations", chatHandler.GetConversations).Methods("GET", "OPTIONS")
-	protected.HandleFunc("/chat/conversations/messages", chatHandler.GetMessages).Methods("GET", "OPTIONS")
-	protected.HandleFunc("/chat/conversations/messages", chatHandler.SendMessage).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/chat/conversations/{id}/messages", chatHandler.GetMessages).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/chat/conversations/{id}/messages", chatHandler.SendMessage).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/chat/admins/search", chatHandler.SearchAdmins).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/chat/invitations", chatHandler.SendInvitation).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/chat/invitations", chatHandler.GetInvitations).Methods("GET", "OPTIONS")
-	protected.HandleFunc("/chat/invitations/respond", chatHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
+	protected.HandleFunc("/chat/invitations/{id}/respond", chatHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
 	protected.HandleFunc("/chat/notifications/send", chatHandler.SendChatNotification).Methods("POST", "OPTIONS")
 
 	// Routes médias (protégées - authentification requise)

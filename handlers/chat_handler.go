@@ -11,6 +11,7 @@ import (
 	"premier-an-backend/models"
 	"premier-an-backend/services"
 
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -96,8 +97,9 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Récupérer l'ID de la conversation depuis l'URL
-	conversationIDStr := r.URL.Query().Get("conversation_id")
+	// Récupérer l'ID de la conversation depuis les paramètres d'URL
+	vars := mux.Vars(r)
+	conversationIDStr := vars["id"]
 	if conversationIDStr == "" {
 		http.Error(w, "ID de conversation requis", http.StatusBadRequest)
 		return
@@ -179,8 +181,9 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Récupérer l'ID de la conversation depuis l'URL
-	conversationIDStr := r.URL.Query().Get("conversation_id")
+	// Récupérer l'ID de la conversation depuis les paramètres d'URL
+	vars := mux.Vars(r)
+	conversationIDStr := vars["id"]
 	if conversationIDStr == "" {
 		http.Error(w, "ID de conversation requis", http.StatusBadRequest)
 		return
@@ -461,8 +464,9 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Récupérer l'ID de l'invitation depuis l'URL
-	invitationIDStr := r.URL.Query().Get("invitation_id")
+	// Récupérer l'ID de l'invitation depuis les paramètres d'URL
+	vars := mux.Vars(r)
+	invitationIDStr := vars["id"]
 	if invitationIDStr == "" {
 		http.Error(w, "ID d'invitation requis", http.StatusBadRequest)
 		return
