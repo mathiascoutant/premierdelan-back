@@ -196,6 +196,16 @@ func main() {
 	// Route thème global (protégée - admin uniquement)
 	protected.HandleFunc("/theme", themeHandler.SetGlobalTheme).Methods("POST", "OPTIONS")
 
+	// Routes de chat (protégées - admin uniquement, pour compatibilité frontend)
+	protected.HandleFunc("/chat/conversations", chatHandler.GetConversations).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/chat/conversations/messages", chatHandler.GetMessages).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/chat/conversations/messages", chatHandler.SendMessage).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/chat/admins/search", chatHandler.SearchAdmins).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/chat/invitations", chatHandler.SendInvitation).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/chat/invitations", chatHandler.GetInvitations).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/chat/invitations/respond", chatHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
+	protected.HandleFunc("/chat/notifications/send", chatHandler.SendChatNotification).Methods("POST", "OPTIONS")
+
 	// Routes médias (protégées - authentification requise)
 	protected.HandleFunc("/evenements/{event_id}/medias", mediaHandler.CreateMedia).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/evenements/{event_id}/medias/{media_id}", mediaHandler.DeleteMedia).Methods("DELETE", "OPTIONS")
