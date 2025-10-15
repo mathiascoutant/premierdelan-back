@@ -84,7 +84,7 @@ type MessageRequest struct {
 
 // InvitationRequest représente la requête d'invitation
 type InvitationRequest struct {
-	ToUserID string `json:"to_user_id" validate:"required"`
+	ToUserID string `json:"toUserId" validate:"required"`
 	Message  string `json:"message" validate:"required"`
 }
 
