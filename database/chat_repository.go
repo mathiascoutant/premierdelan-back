@@ -258,8 +258,18 @@ func (r *ChatRepository) SearchAdmins(ctx context.Context, query string, limit i
 func (r *ChatRepository) CreateInvitation(ctx context.Context, invitation *models.ChatInvitation) error {
 	invitation.CreatedAt = time.Now()
 	invitation.Status = "pending"
-	_, err := r.InvitationCollection.InsertOne(ctx, invitation)
-	return err
+	
+	result, err := r.InvitationCollection.InsertOne(ctx, invitation)
+	if err != nil {
+		return err
+	}
+	
+	// Définir l'ID généré par MongoDB
+	if insertedID, ok := result.InsertedID.(primitive.ObjectID); ok {
+		invitation.ID = insertedID
+	}
+	
+	return nil
 }
 
 // GetInvitations récupère les invitations reçues par un utilisateur
