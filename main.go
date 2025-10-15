@@ -12,7 +12,6 @@ import (
 	"premier-an-backend/middleware"
 	"premier-an-backend/services"
 	"premier-an-backend/utils"
-	chatws "premier-an-backend/websocket"
 	"syscall"
 
 	"github.com/gorilla/mux"
@@ -46,11 +45,6 @@ func main() {
 		notificationCron.Start()
 	}
 
-	// Initialiser le Hub WebSocket pour le chat en temps réel
-	wsHub := chatws.NewHub()
-	go wsHub.Run()
-	log.Println("✓ WebSocket Hub démarré pour le chat en temps réel")
-
 	// Créer le routeur
 	router := mux.NewRouter()
 
@@ -79,8 +73,7 @@ func main() {
 	mediaHandler := handlers.NewMediaHandler(database.DB)
 	alertHandler := handlers.NewAlertHandler(database.DB, fcmService)
 	themeHandler := handlers.NewThemeHandler(siteSettingRepo, userRepo)
-	chatHandler := handlers.NewChatHandler(chatRepo, userRepo, fcmTokenRepo, fcmService, wsHub)
-	wsHandler := chatws.NewHandler(wsHub, cfg.JWTSecret)
+	chatHandler := handlers.NewChatHandler(chatRepo, userRepo, fcmTokenRepo, fcmService)
 
 	// Middleware Guest pour empêcher l'accès si déjà connecté
 	guestMiddleware := middleware.Guest(cfg.JWTSecret)
@@ -115,9 +108,6 @@ func main() {
 
 	// Route thème global (publique)
 	router.HandleFunc("/api/theme", themeHandler.GetGlobalTheme).Methods("GET", "OPTIONS")
-
-	// Route WebSocket pour le chat en temps réel (publique mais authentification requise via WebSocket)
-	router.HandleFunc("/ws/chat", wsHandler.ServeWS).Methods("GET")
 
 	// Routes de notifications (publiques)
 	router.HandleFunc("/api/notifications/vapid-public-key", notificationHandler.GetVAPIDPublicKey).Methods("GET", "OPTIONS")
