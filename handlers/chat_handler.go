@@ -56,8 +56,8 @@ func (h *ChatHandler) GetConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Récupérer les conversations
-	conversations, err := h.chatRepo.GetConversations(r.Context(), userID)
+	// Récupérer les conversations ET les invitations envoyées
+	conversations, err := h.chatRepo.GetConversationsAndInvitations(r.Context(), userID)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return

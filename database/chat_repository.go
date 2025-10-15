@@ -30,7 +30,27 @@ func NewChatRepository(db *mongo.Database) *ChatRepository {
 	}
 }
 
-// GetConversations récupère les conversations d'un utilisateur
+// GetConversationsAndInvitations récupère les conversations ET les invitations envoyées d'un utilisateur
+func (r *ChatRepository) GetConversationsAndInvitations(ctx context.Context, userID primitive.ObjectID) ([]models.ConversationResponse, error) {
+	var allConversations []models.ConversationResponse
+	
+	// 1. Récupérer les conversations acceptées
+	conversations, err := r.GetConversations(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	allConversations = append(allConversations, conversations...)
+	
+	// 2. Récupérer les invitations envoyées (status: pending)
+	sentInvitations, err := r.getSentInvitations(ctx, userID)
+	if err == nil {
+		allConversations = append(allConversations, sentInvitations...)
+	}
+	
+	return allConversations, nil
+}
+
+// GetConversations récupère les conversations acceptées d'un utilisateur
 func (r *ChatRepository) GetConversations(ctx context.Context, userID primitive.ObjectID) ([]models.ConversationResponse, error) {
 	pipeline := []bson.M{
 		{
@@ -276,6 +296,67 @@ func (r *ChatRepository) GetInvitations(ctx context.Context, userID primitive.Ob
 	var invitations []bson.M
 	if err = cursor.All(ctx, &invitations); err != nil {
 		return nil, err
+	}
+
+	return invitations, nil
+}
+
+// getSentInvitations récupère les invitations envoyées par un utilisateur
+func (r *ChatRepository) getSentInvitations(ctx context.Context, userID primitive.ObjectID) ([]models.ConversationResponse, error) {
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"from_user_id": userID,
+				"status":       "pending",
+			},
+		},
+		{
+			"$lookup": bson.M{
+				"from":         "users",
+				"localField":   "to_user_id",
+				"foreignField": "_id",
+				"as":           "to_user",
+			},
+		},
+		{
+			"$unwind": "$to_user",
+		},
+		{
+			"$sort": bson.M{"created_at": -1},
+		},
+	}
+
+	cursor, err := r.invitationCollection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var invitations []models.ConversationResponse
+	for cursor.Next(ctx) {
+		var doc bson.M
+		if err := cursor.Decode(&doc); err != nil {
+			continue
+		}
+
+		// Extraire les informations de l'invitation
+		invitationID := doc["_id"].(primitive.ObjectID).Hex()
+
+		// Extraire le participant (destinataire)
+		var participant models.UserInfo
+		if toUser, ok := doc["to_user"].(bson.M); ok {
+			participant.ID = toUser["_id"].(primitive.ObjectID).Hex()
+			participant.Firstname = toUser["firstname"].(string)
+			participant.Lastname = toUser["lastname"].(string)
+			participant.Email = toUser["email"].(string)
+		}
+
+		invitations = append(invitations, models.ConversationResponse{
+			ID:          invitationID,
+			Participant: participant,
+			Status:      "pending",
+			UnreadCount: 0,
+		})
 	}
 
 	return invitations, nil
