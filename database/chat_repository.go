@@ -16,7 +16,7 @@ import (
 type ChatRepository struct {
 	conversationCollection *mongo.Collection
 	messageCollection      *mongo.Collection
-	invitationCollection   *mongo.Collection
+	InvitationCollection   *mongo.Collection // Exporté pour accès depuis le handler
 	userCollection         *mongo.Collection
 }
 
@@ -25,7 +25,7 @@ func NewChatRepository(db *mongo.Database) *ChatRepository {
 	return &ChatRepository{
 		conversationCollection: db.Collection("conversations"),
 		messageCollection:      db.Collection("messages"),
-		invitationCollection:   db.Collection("chat_invitations"),
+		InvitationCollection:   db.Collection("chat_invitations"),
 		userCollection:         db.Collection("users"),
 	}
 }
@@ -258,7 +258,7 @@ func (r *ChatRepository) SearchAdmins(ctx context.Context, query string, limit i
 func (r *ChatRepository) CreateInvitation(ctx context.Context, invitation *models.ChatInvitation) error {
 	invitation.CreatedAt = time.Now()
 	invitation.Status = "pending"
-	_, err := r.invitationCollection.InsertOne(ctx, invitation)
+	_, err := r.InvitationCollection.InsertOne(ctx, invitation)
 	return err
 }
 
@@ -287,7 +287,7 @@ func (r *ChatRepository) GetInvitations(ctx context.Context, userID primitive.Ob
 		},
 	}
 
-	cursor, err := r.invitationCollection.Aggregate(ctx, pipeline)
+	cursor, err := r.InvitationCollection.Aggregate(ctx, pipeline)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +326,7 @@ func (r *ChatRepository) getSentInvitations(ctx context.Context, userID primitiv
 		},
 	}
 
-	cursor, err := r.invitationCollection.Aggregate(ctx, pipeline)
+	cursor, err := r.InvitationCollection.Aggregate(ctx, pipeline)
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +372,7 @@ func (r *ChatRepository) RespondToInvitation(ctx context.Context, invitationID p
 		},
 	}
 
-	_, err := r.invitationCollection.UpdateOne(
+	_, err := r.InvitationCollection.UpdateOne(
 		ctx,
 		bson.M{"_id": invitationID},
 		update,
@@ -385,7 +385,7 @@ func (r *ChatRepository) RespondToInvitation(ctx context.Context, invitationID p
 	if action == "accepted" {
 		// Récupérer l'invitation pour créer la conversation
 		var invitation models.ChatInvitation
-		err = r.invitationCollection.FindOne(ctx, bson.M{"_id": invitationID}).Decode(&invitation)
+		err = r.InvitationCollection.FindOne(ctx, bson.M{"_id": invitationID}).Decode(&invitation)
 		if err != nil {
 			return nil, err
 		}

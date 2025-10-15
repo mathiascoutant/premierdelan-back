@@ -12,6 +12,7 @@ import (
 	"premier-an-backend/services"
 
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -491,11 +492,24 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Récupérer l'invitation pour avoir les IDs
+	var invitation models.ChatInvitation
+	err = h.chatRepo.InvitationCollection.FindOne(r.Context(), bson.M{"_id": invitationID}).Decode(&invitation)
+	if err != nil {
+		http.Error(w, "Invitation non trouvée", http.StatusNotFound)
+		return
+	}
+
 	// Répondre à l'invitation
 	conversation, err := h.chatRepo.RespondToInvitation(r.Context(), invitationID, request.Action)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
+	}
+
+	// Si acceptée, envoyer une notification au demandeur
+	if request.Action == "accept" && conversation != nil {
+		go h.sendAcceptedInvitationNotification(&invitation, user)
 	}
 
 	response := models.ChatResponse{
@@ -692,6 +706,44 @@ func (h *ChatHandler) sendInvitationNotification(invitation *models.ChatInvitati
 			}
 		}
 		// Envoyer à tous les tokens du destinataire
+		for _, token := range fcmTokens {
+			h.fcmService.SendToToken(token.Token, title, body, fcmData)
+		}
+	}
+}
+
+// sendAcceptedInvitationNotification envoie une notification quand une invitation est acceptée
+func (h *ChatHandler) sendAcceptedInvitationNotification(invitation *models.ChatInvitation, acceptedByUser *models.User) {
+	if h.fcmService == nil {
+		return
+	}
+
+	title := "Invitation acceptée"
+	body := acceptedByUser.Firstname + " " + acceptedByUser.Lastname + " a accepté votre invitation"
+	data := map[string]interface{}{
+		"type":         "chat_invitation_accepted",
+		"invitationId": invitation.ID.Hex(),
+		"acceptedBy":   acceptedByUser.ID.Hex(),
+		"acceptedByName": acceptedByUser.Firstname + " " + acceptedByUser.Lastname,
+	}
+
+	// Récupérer l'utilisateur demandeur pour obtenir son email
+	fromUser, err := h.userRepo.FindByID(invitation.FromUserID)
+	if err != nil {
+		return
+	}
+	
+	// Récupérer les tokens FCM du demandeur (par email)
+	fcmTokens, err := h.fcmTokenRepo.FindByUserID(fromUser.Email)
+	if err == nil && len(fcmTokens) > 0 {
+		// Convertir les données en map[string]string pour FCM
+		fcmData := make(map[string]string)
+		for k, v := range data {
+			if str, ok := v.(string); ok {
+				fcmData[k] = str
+			}
+		}
+		// Envoyer à tous les tokens du demandeur
 		for _, token := range fcmTokens {
 			h.fcmService.SendToToken(token.Token, title, body, fcmData)
 		}
