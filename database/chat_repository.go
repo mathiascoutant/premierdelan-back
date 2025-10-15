@@ -142,9 +142,15 @@ func (r *ChatRepository) GetConversations(ctx context.Context, userID primitive.
 		// Extraire le dernier message
 		var lastMessage *models.MessageInfo
 		if lastMsg, ok := doc["last_message"].(bson.M); ok {
+			// Convertir primitive.DateTime en time.Time
+			var timestamp time.Time
+			if createdAt, ok := lastMsg["created_at"].(primitive.DateTime); ok {
+				timestamp = createdAt.Time()
+			}
+			
 			lastMessage = &models.MessageInfo{
 				Content:   lastMsg["content"].(string),
-				Timestamp: lastMsg["created_at"].(time.Time),
+				Timestamp: timestamp,
 				IsRead:    lastMsg["is_read"].(bool),
 			}
 		}
