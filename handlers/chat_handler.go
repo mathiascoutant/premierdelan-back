@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -624,15 +625,21 @@ func (h *ChatHandler) SendChatNotification(w http.ResponseWriter, r *http.Reques
 // sendMessageNotification envoie une notification pour un nouveau message
 func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation, message *models.Message, senderID primitive.ObjectID) {
 	if h.fcmService == nil {
+		log.Println("⚠️  FCM Service non disponible pour les notifications de message")
 		return
 	}
+
+	log.Printf("📨 Envoi de notification pour le message: %s", message.ID.Hex())
 
 	// Trouver les autres participants
 	for _, participant := range conversation.Participants {
 		if participant.UserID != senderID {
+			log.Printf("👤 Participant trouvé: %s", participant.UserID.Hex())
+			
 			// Récupérer les informations de l'expéditeur
 			sender, err := h.userRepo.FindByID(senderID)
 			if err != nil {
+				log.Printf("❌ Erreur récupération expéditeur: %v", err)
 				continue
 			}
 
@@ -652,12 +659,22 @@ func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation,
 			// Récupérer l'utilisateur pour obtenir son email
 			participantUser, err := h.userRepo.FindByID(participant.UserID)
 			if err != nil {
+				log.Printf("❌ Erreur récupération participant: %v", err)
 				continue
 			}
 			
+			log.Printf("📧 Email du participant: %s", participantUser.Email)
+			
 			// Récupérer les tokens FCM du participant (par email)
 			fcmTokens, err := h.fcmTokenRepo.FindByUserID(participantUser.Email)
-			if err == nil && len(fcmTokens) > 0 {
+			if err != nil {
+				log.Printf("❌ Erreur récupération tokens FCM: %v", err)
+				continue
+			}
+			
+			log.Printf("🔑 Tokens FCM trouvés: %d", len(fcmTokens))
+			
+			if len(fcmTokens) > 0 {
 				// Convertir les données en map[string]string pour FCM
 				fcmData := make(map[string]string)
 				for k, v := range data {
@@ -667,8 +684,15 @@ func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation,
 				}
 				// Envoyer à tous les tokens du participant
 				for _, token := range fcmTokens {
-					h.fcmService.SendToToken(token.Token, title, body, fcmData)
+					err := h.fcmService.SendToToken(token.Token, title, body, fcmData)
+					if err != nil {
+						log.Printf("❌ Erreur envoi FCM: %v", err)
+					} else {
+						log.Printf("✅ Notification envoyée à %s (token: %s...)", participantUser.Email, token.Token[:20])
+					}
 				}
+			} else {
+				log.Printf("⚠️  Aucun token FCM trouvé pour %s", participantUser.Email)
 			}
 		}
 	}
