@@ -565,8 +565,15 @@ func (h *ChatHandler) SendChatNotification(w http.ResponseWriter, r *http.Reques
 
 	// Envoyer la notification
 	if h.fcmService != nil {
-		// Récupérer les tokens FCM de l'utilisateur
-		fcmTokens, err := h.fcmTokenRepo.FindByUserID(toUserID.Hex())
+		// Récupérer l'utilisateur destinataire pour obtenir son email
+		toUser, err := h.userRepo.FindByID(toUserID)
+		if err != nil {
+			http.Error(w, "Utilisateur destinataire non trouvé", http.StatusNotFound)
+			return
+		}
+		
+		// Récupérer les tokens FCM de l'utilisateur (par email)
+		fcmTokens, err := h.fcmTokenRepo.FindByUserID(toUser.Email)
 		if err == nil && len(fcmTokens) > 0 {
 			// Convertir les données en map[string]string pour FCM
 			fcmData := make(map[string]string)
@@ -624,8 +631,14 @@ func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation,
 				"senderName":     sender.Firstname + " " + sender.Lastname,
 			}
 
-			// Récupérer les tokens FCM du participant
-			fcmTokens, err := h.fcmTokenRepo.FindByUserID(participant.UserID.Hex())
+			// Récupérer l'utilisateur pour obtenir son email
+			participantUser, err := h.userRepo.FindByID(participant.UserID)
+			if err != nil {
+				continue
+			}
+			
+			// Récupérer les tokens FCM du participant (par email)
+			fcmTokens, err := h.fcmTokenRepo.FindByUserID(participantUser.Email)
 			if err == nil && len(fcmTokens) > 0 {
 				// Convertir les données en map[string]string pour FCM
 				fcmData := make(map[string]string)
@@ -658,8 +671,14 @@ func (h *ChatHandler) sendInvitationNotification(invitation *models.ChatInvitati
 		"fromUserName": fromUser.Firstname + " " + fromUser.Lastname,
 	}
 
-	// Récupérer les tokens FCM du destinataire
-	fcmTokens, err := h.fcmTokenRepo.FindByUserID(invitation.ToUserID.Hex())
+	// Récupérer l'utilisateur destinataire pour obtenir son email
+	toUser, err := h.userRepo.FindByID(invitation.ToUserID)
+	if err != nil {
+		return
+	}
+	
+	// Récupérer les tokens FCM du destinataire (par email)
+	fcmTokens, err := h.fcmTokenRepo.FindByUserID(toUser.Email)
 	if err == nil && len(fcmTokens) > 0 {
 		// Convertir les données en map[string]string pour FCM
 		fcmData := make(map[string]string)
