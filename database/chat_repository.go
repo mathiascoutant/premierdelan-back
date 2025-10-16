@@ -345,6 +345,11 @@ func (r *ChatRepository) GetInvitations(ctx context.Context, userID primitive.Ob
 			"$unwind": "$from_user",
 		},
 		{
+			"$addFields": bson.M{
+				"id": "$_id", // Ajouter un champ 'id' pour le frontend
+			},
+		},
+		{
 			"$sort": bson.M{"created_at": -1},
 		},
 	}
