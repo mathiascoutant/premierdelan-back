@@ -113,19 +113,27 @@ func (s *FCMService) SendToToken(token string, title, body string, data map[stri
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Préparer UNIQUEMENT des data messages (pas de Notification pour éviter "from ...")
+	// Préparer le message avec Notification ET Data (requis pour iOS/Safari PWA)
 	if data == nil {
 		data = make(map[string]string)
 	}
-	data["title"] = title
-	data["message"] = body
 	
 	message := &messaging.Message{
 		Token: token,
-		Data:  data, // UNIQUEMENT data, pas de Notification
+		Notification: &messaging.Notification{
+			Title: title,
+			Body:  body,
+		},
+		Data: data, // Data additionnelles pour le service worker
 		Webpush: &messaging.WebpushConfig{
 			Headers: map[string]string{
 				"Urgency": "high",
+			},
+			Notification: &messaging.WebpushNotification{
+				Title: title,
+				Body:  body,
+				Icon:  "/icon-192x192.png",
+				Badge: "/icon-192x192.png",
 			},
 		},
 	}
@@ -148,18 +156,26 @@ func (s *FCMService) SendToMultipleTokens(tokens []string, title, body string, d
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Préparer UNIQUEMENT des data messages (pas de Notification pour éviter "from ...")
+	// Préparer le message avec Notification ET Data (requis pour iOS/Safari PWA)
 	if data == nil {
 		data = make(map[string]string)
 	}
-	data["title"] = title
-	data["message"] = body
 	
 	message := &messaging.MulticastMessage{
-		Data: data, // UNIQUEMENT data, pas de Notification
+		Notification: &messaging.Notification{
+			Title: title,
+			Body:  body,
+		},
+		Data: data, // Data additionnelles pour le service worker
 		Webpush: &messaging.WebpushConfig{
 			Headers: map[string]string{
 				"Urgency": "high",
+			},
+			Notification: &messaging.WebpushNotification{
+				Title: title,
+				Body:  body,
+				Icon:  "/icon-192x192.png",
+				Badge: "/icon-192x192.png",
 			},
 		},
 		Tokens: tokens,
