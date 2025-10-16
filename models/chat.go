@@ -33,6 +33,8 @@ type Message struct {
 	Type           string             `json:"type" bson:"type"` // "text", "image", "file"
 	IsRead         bool               `json:"is_read" bson:"is_read"`
 	ReadBy         []ReadReceipt      `json:"read_by" bson:"read_by"`
+	DeliveredAt    *time.Time         `json:"delivered_at,omitempty" bson:"delivered_at,omitempty"` // Quand le message a été distribué
+	ReadAt         *time.Time         `json:"read_at,omitempty" bson:"read_at,omitempty"`           // Quand le message a été lu
 	CreatedAt      time.Time          `json:"created_at" bson:"created_at"`
 }
 

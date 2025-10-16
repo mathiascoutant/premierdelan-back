@@ -142,8 +142,8 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Récupérer les messages
-	messages, err := h.chatRepo.GetMessages(r.Context(), conversationID, limit)
+	// Récupérer les messages (et marquer automatiquement comme distribués)
+	messages, err := h.chatRepo.GetMessages(r.Context(), conversationID, userID, limit)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -153,6 +153,78 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Data: map[string]interface{}{
 			"messages": messages,
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// MarkConversationAsRead marque tous les messages d'une conversation comme lus
+func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Request) {
+	// Récupérer les claims depuis le contexte
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Token invalide", http.StatusUnauthorized)
+		return
+	}
+
+	// Convertir l'ID en ObjectID
+	userID, err := primitive.ObjectIDFromHex(claims.UserID)
+	if err != nil {
+		http.Error(w, "ID utilisateur invalide", http.StatusBadRequest)
+		return
+	}
+
+	// Récupérer l'ID de la conversation depuis les paramètres d'URL
+	vars := mux.Vars(r)
+	conversationIDStr := vars["id"]
+	if conversationIDStr == "" {
+		http.Error(w, "ID de conversation requis", http.StatusBadRequest)
+		return
+	}
+
+	conversationID, err := primitive.ObjectIDFromHex(conversationIDStr)
+	if err != nil {
+		http.Error(w, "ID de conversation invalide", http.StatusBadRequest)
+		return
+	}
+
+	// Vérifier que l'utilisateur fait partie de la conversation
+	conversation, err := h.chatRepo.GetConversationByID(r.Context(), conversationID)
+	if err != nil {
+		http.Error(w, "Conversation non trouvée", http.StatusNotFound)
+		return
+	}
+
+	// Vérifier que l'utilisateur est participant
+	isParticipant := false
+	for _, participant := range conversation.Participants {
+		if participant.UserID == userID {
+			isParticipant = true
+			break
+		}
+	}
+
+	if !isParticipant {
+		http.Error(w, "Accès refusé à cette conversation", http.StatusForbidden)
+		return
+	}
+
+	// Marquer les messages comme lus
+	markedCount, err := h.chatRepo.MarkConversationAsRead(r.Context(), conversationID, userID)
+	if err != nil {
+		log.Printf("❌ Erreur marquage lu: %v", err)
+		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("✅ %d messages marqués comme lus dans la conversation %s", markedCount, conversationIDStr)
+
+	response := models.ChatResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"marked_read": markedCount,
 		},
 	}
 

@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"premier-an-backend/models"
@@ -174,7 +175,7 @@ func (r *ChatRepository) GetConversations(ctx context.Context, userID primitive.
 }
 
 // GetMessages récupère les messages d'une conversation
-func (r *ChatRepository) GetMessages(ctx context.Context, conversationID primitive.ObjectID, limit int) ([]models.Message, error) {
+func (r *ChatRepository) GetMessages(ctx context.Context, conversationID primitive.ObjectID, userID primitive.ObjectID, limit int) ([]models.Message, error) {
 	filter := bson.M{"conversation_id": conversationID}
 	opts := options.Find().SetSort(bson.D{{"created_at", -1}}).SetLimit(int64(limit))
 
@@ -194,7 +195,52 @@ func (r *ChatRepository) GetMessages(ctx context.Context, conversationID primiti
 		messages[i], messages[j] = messages[j], messages[i]
 	}
 
+	// Marquer automatiquement comme distribués les messages reçus
+	now := time.Now()
+	_, err = r.messageCollection.UpdateMany(
+		ctx,
+		bson.M{
+			"conversation_id": conversationID,
+			"sender_id":       bson.M{"$ne": userID}, // Pas mes messages
+			"delivered_at":    nil,                    // Pas encore distribué
+		},
+		bson.M{
+			"$set": bson.M{
+				"delivered_at": now,
+			},
+		},
+	)
+	if err != nil {
+		log.Printf("⚠️  Erreur marquage distribué: %v", err)
+	}
+
 	return messages, nil
+}
+
+// MarkConversationAsRead marque tous les messages d'une conversation comme lus
+func (r *ChatRepository) MarkConversationAsRead(ctx context.Context, conversationID primitive.ObjectID, userID primitive.ObjectID) (int, error) {
+	now := time.Now()
+	
+	result, err := r.messageCollection.UpdateMany(
+		ctx,
+		bson.M{
+			"conversation_id": conversationID,
+			"sender_id":       bson.M{"$ne": userID}, // Pas mes messages
+			"is_read":         false,                  // Pas encore lu
+		},
+		bson.M{
+			"$set": bson.M{
+				"read_at": now,
+				"is_read": true,
+			},
+		},
+	)
+	
+	if err != nil {
+		return 0, err
+	}
+	
+	return int(result.ModifiedCount), nil
 }
 
 // SendMessage envoie un message dans une conversation
