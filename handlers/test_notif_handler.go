@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"premier-de-lan/database"
-	"premier-de-lan/services"
+	"premier-an-backend/database"
+	"premier-an-backend/services"
 )
 
 // TestNotifHandler - Handler ultra simple pour tester les notifications
