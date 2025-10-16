@@ -74,6 +74,7 @@ func main() {
 	alertHandler := handlers.NewAlertHandler(database.DB, fcmService)
 	themeHandler := handlers.NewThemeHandler(siteSettingRepo, userRepo)
 	chatHandler := handlers.NewChatHandler(chatRepo, userRepo, fcmTokenRepo, fcmService)
+	testNotifHandler := handlers.NewTestNotifHandler(fcmTokenRepo, fcmService)
 
 	// Middleware Guest pour empêcher l'accès si déjà connecté
 	guestMiddleware := middleware.Guest(cfg.JWTSecret)
@@ -132,6 +133,9 @@ func main() {
 	// Routes FCM (Firebase Cloud Messaging) - RECOMMANDÉ
 	protected.HandleFunc("/fcm/send", fcmHandler.SendNotification).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/fcm/send-to-user", fcmHandler.SendToUser).Methods("POST", "OPTIONS")
+	
+	// 🧪 ROUTE DE TEST ULTRA SIMPLE
+	protected.HandleFunc("/test/simple-notif", testNotifHandler.SendSimpleTest).Methods("POST", "OPTIONS")
 	
 	// Routes Admin (protégées par Auth + RequireAdmin)
 	adminRouter := protected.PathPrefix("/admin").Subrouter()
