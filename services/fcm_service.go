@@ -186,12 +186,15 @@ func (s *FCMService) SendToMultipleTokens(tokens []string, title, body string, d
 		return 0, 0, nil, fmt.Errorf("erreur lors de l'envoi multicast: %w", err)
 	}
 
-	// Collecter les tokens qui ont échoué
+	// Collecter les tokens qui ont échoué et logger les détails
 	failedTokens = make([]string, 0)
 	for idx, resp := range response.Responses {
 		if !resp.Success {
 			failedTokens = append(failedTokens, tokens[idx])
 			log.Printf("❌ Échec pour le token %s: %v", tokens[idx][:20]+"...", resp.Error)
+		} else {
+			// Logger les succès aussi pour voir le MessageID
+			log.Printf("✅ Succès token %s - MessageID: %s", tokens[idx][:20]+"...", resp.MessageID)
 		}
 	}
 
