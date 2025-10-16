@@ -96,3 +96,54 @@ func (h *TestNotifHandler) SendSimpleTest(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// ListMyTokens - Liste tous les tokens FCM d'un utilisateur
+func (h *TestNotifHandler) ListMyTokens(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+	
+	if req.Email == "" {
+		req.Email = "mathiascoutant@icloud.com"
+	}
+	
+	log.Printf("🔍 Liste des tokens pour: %s", req.Email)
+	
+	tokens, err := h.fcmTokenRepo.FindByUserID(req.Email)
+	if err != nil {
+		log.Printf("❌ Erreur: %v", err)
+		http.Error(w, "Error", http.StatusInternalServerError)
+		return
+	}
+	
+	log.Printf("📱 Nombre de tokens: %d", len(tokens))
+	
+	result := make([]map[string]interface{}, len(tokens))
+	for i, t := range tokens {
+		tokenPreview := t.Token
+		if len(tokenPreview) > 50 {
+			tokenPreview = tokenPreview[:50] + "..."
+		}
+		
+		result[i] = map[string]interface{}{
+			"id":         t.ID.Hex(),
+			"token":      tokenPreview,
+			"device":     t.Device,
+			"created_at": t.CreatedAt,
+		}
+		
+		log.Printf("   %d. %s (Device: %s, Created: %v)", i+1, tokenPreview, t.Device, t.CreatedAt)
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"count":   len(tokens),
+		"tokens":  result,
+	})
+}
+

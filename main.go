@@ -134,8 +134,9 @@ func main() {
 	protected.HandleFunc("/fcm/send", fcmHandler.SendNotification).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/fcm/send-to-user", fcmHandler.SendToUser).Methods("POST", "OPTIONS")
 	
-	// 🧪 ROUTE DE TEST ULTRA SIMPLE
+	// 🧪 ROUTES DE TEST ULTRA SIMPLE
 	protected.HandleFunc("/test/simple-notif", testNotifHandler.SendSimpleTest).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/test/list-tokens", testNotifHandler.ListMyTokens).Methods("POST", "OPTIONS")
 	
 	// Routes Admin (protégées par Auth + RequireAdmin)
 	adminRouter := protected.PathPrefix("/admin").Subrouter()
