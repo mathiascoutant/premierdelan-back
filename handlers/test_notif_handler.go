@@ -43,14 +43,14 @@ func (h *TestNotifHandler) SendSimpleTest(w http.ResponseWriter, r *http.Request
 	log.Printf("📧 Email: %s", req.Email)
 	
 	// Récupérer le token
-	tokens, err := h.fcmTokenRepo.FindByUserID(req.Email)
+	fcmTokens, err := h.fcmTokenRepo.FindByUserID(req.Email)
 	if err != nil {
 		log.Printf("❌ Erreur DB: %v", err)
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 	
-	if len(tokens) == 0 {
+	if len(fcmTokens) == 0 {
 		log.Printf("⚠️  Aucun token pour: %s", req.Email)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -60,8 +60,9 @@ func (h *TestNotifHandler) SendSimpleTest(w http.ResponseWriter, r *http.Request
 		return
 	}
 	
-	token := tokens[0]
-	log.Printf("📱 Token trouvé: %s...", token[:30])
+	// Extraire le token string
+	tokenString := fcmTokens[0].Token
+	log.Printf("📱 Token trouvé: %s...", tokenString[:30])
 	
 	// Message ULTRA SIMPLE
 	title := "TEST"
@@ -70,10 +71,10 @@ func (h *TestNotifHandler) SendSimpleTest(w http.ResponseWriter, r *http.Request
 	log.Printf("📤 Envoi notification...")
 	log.Printf("   Title: %s", title)
 	log.Printf("   Message: %s", message)
-	log.Printf("   Token: %s...", token[:30])
+	log.Printf("   Token: %s...", tokenString[:30])
 	
 	// Envoyer
-	err = h.fcmService.SendToToken(token, title, message, nil)
+	err = h.fcmService.SendToToken(tokenString, title, message, nil)
 	if err != nil {
 		log.Printf("❌ ERREUR ENVOI: %v", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -91,7 +92,7 @@ func (h *TestNotifHandler) SendSimpleTest(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"message": "Notification sent",
-		"token":   token[:30] + "...",
+		"token":   tokenString[:30] + "...",
 	})
 }
 
