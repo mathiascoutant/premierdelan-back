@@ -715,8 +715,8 @@ func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation,
 				continue
 			}
 
-			// Format optimisé : Nom de la personne dans le titre, message dans le body
-			title := sender.Firstname + " " + sender.Lastname
+			// Format ultra simple : Juste le nom et le message
+			title := sender.Firstname + " " + strings.ToUpper(sender.Lastname)
 			body := message.Content
 			if len(body) > 240 {
 				body = body[:240] // Limiter à 240 caractères
@@ -777,9 +777,9 @@ func (h *ChatHandler) sendInvitationNotification(invitation *models.ChatInvitati
 		return
 	}
 
-	// Format optimisé : Nom de la personne dans le titre
-	title := fromUser.Firstname + " " + fromUser.Lastname + " vous invite à discuter"
-	body := "Appuyez pour répondre"
+	// Format ultra simple : Juste le nom et un message court
+	title := fromUser.Firstname + " " + strings.ToUpper(fromUser.Lastname)
+	body := "Vous invite à discuter"
 	data := map[string]interface{}{
 		"type":         "chat_invitation",
 		"invitationId": invitation.ID.Hex(),
@@ -816,9 +816,9 @@ func (h *ChatHandler) sendAcceptedInvitationNotification(invitation *models.Chat
 		return
 	}
 
-	// Format optimisé : Nom de la personne dans le titre
-	title := acceptedByUser.Firstname + " " + acceptedByUser.Lastname + " a accepté votre invitation"
-	body := "Commencez à discuter"
+	// Format ultra simple : Juste le nom et un message court
+	title := acceptedByUser.Firstname + " " + strings.ToUpper(acceptedByUser.Lastname)
+	body := "A accepté votre invitation"
 	data := map[string]interface{}{
 		"type":         "chat_invitation_accepted",
 		"invitationId": invitation.ID.Hex(),
