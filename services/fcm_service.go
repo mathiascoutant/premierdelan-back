@@ -130,10 +130,10 @@ func (s *FCMService) SendToToken(token string, title, body string, data map[stri
 		},
 	}
 
-	// ⚠️ CRUCIAL pour iOS : Link AVEC ?conversation=... maintenant que le scope est configuré
+	// ⚠️ CRUCIAL pour iOS : Utiliser # (hash) au lieu de ? (query) pour éviter Safari Preview
 	if conversationId, ok := data["conversationId"]; ok && conversationId != "" {
 		webpushConfig.FCMOptions = &messaging.WebpushFCMOptions{
-			Link: "https://mathiascoutant.github.io/premierdelan/chat?conversation=" + conversationId,
+			Link: "https://mathiascoutant.github.io/premierdelan/chat#conversation=" + conversationId,
 		}
 	}
 
@@ -182,10 +182,10 @@ func (s *FCMService) SendToMultipleTokens(tokens []string, title, body string, d
 		},
 	}
 
-	// ⚠️ CRUCIAL pour iOS : Link AVEC ?conversation=... maintenant que le scope est configuré
+	// ⚠️ CRUCIAL pour iOS : Utiliser # (hash) au lieu de ? (query) pour éviter Safari Preview
 	if conversationId, ok := data["conversationId"]; ok && conversationId != "" {
 		webpushConfig.FCMOptions = &messaging.WebpushFCMOptions{
-			Link: "https://mathiascoutant.github.io/premierdelan/chat?conversation=" + conversationId,
+			Link: "https://mathiascoutant.github.io/premierdelan/chat#conversation=" + conversationId,
 		}
 	}
 
