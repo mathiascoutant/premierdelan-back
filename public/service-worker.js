@@ -1,5 +1,5 @@
 // Service Worker pour les notifications PWA
-const SW_VERSION = 'v2.0.0';
+const SW_VERSION = 'v2.2.0';
 console.log('🔔 Service Worker chargé -', SW_VERSION);
 
 // Force l'activation immédiate du nouveau service worker
@@ -66,72 +66,50 @@ self.addEventListener('push', function(event) {
 
 // Gérer le clic sur la notification
 self.addEventListener('notificationclick', function(event) {
-  console.log('👆 Notification cliquée');
-  
   event.notification.close();
   
   // Récupérer les données de la notification
   const notificationData = event.notification.data || {};
-  console.log('📦 Données notification:', notificationData);
-  console.log('📦 Type:', notificationData.type);
-  console.log('📦 ConversationId:', notificationData.conversationId);
   
-  // Obtenir l'URL de base (origin)
-  const baseUrl = self.location.origin;
-  
-  // Déterminer l'URL de destination selon le type de notification
-  let targetUrl = baseUrl + '/';
+  // Construire l'URL de destination
+  let urlPath = '/';
   
   if (notificationData.type === 'chat_message' && notificationData.conversationId) {
-    // Rediriger vers la conversation spécifique
-    targetUrl = baseUrl + `/messages?conversation=${notificationData.conversationId}`;
-    console.log('💬 Chat message détecté');
+    urlPath = '/chat?conversation=' + notificationData.conversationId;
   } else if (notificationData.type === 'chat_invitation') {
-    // Rediriger vers la page des messages (invitations)
-    targetUrl = baseUrl + '/messages';
-    console.log('✉️ Chat invitation détecté');
+    urlPath = '/chat';
   } else if (notificationData.type === 'new_inscription' && notificationData.event_id) {
-    // Rediriger vers l'événement
-    targetUrl = baseUrl + `/admin/evenements/${notificationData.event_id}`;
-    console.log('📝 Nouvelle inscription détectée');
+    urlPath = '/admin/evenements/' + notificationData.event_id;
   } else if (notificationData.type === 'alert') {
-    // Rediriger vers les alertes
-    targetUrl = baseUrl + '/alertes';
-    console.log('🚨 Alerte détectée');
+    urlPath = '/alertes';
   }
   
-  console.log('🎯 URL cible complète:', targetUrl);
+  const fullUrl = self.location.origin + urlPath;
   
-  // Ouvrir ou focus sur votre site
   event.waitUntil(
     clients.matchAll({ 
       type: 'window',
       includeUncontrolled: true 
     }).then(function(clientList) {
-      console.log('🔍 Clients trouvés:', clientList.length);
-      
-      // Si une fenêtre est déjà ouverte
-      if (clientList.length > 0) {
-        const client = clientList[0];
-        console.log('🪟 Focus sur client existant');
-        
-        // Essayer de naviguer avec postMessage (plus fiable sur Safari)
-        client.postMessage({
-          type: 'NOTIFICATION_CLICK',
-          url: targetUrl,
-          data: notificationData
-        });
-        
-        return client.focus();
+      // Chercher un client qui correspond à l'origin
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        if (client.url.indexOf(self.location.origin) === 0 && 'focus' in client) {
+          // Envoyer le message au client avant de le focus
+          client.postMessage({
+            type: 'NOTIFICATION_CLICK',
+            path: urlPath,
+            conversationId: notificationData.conversationId,
+            data: notificationData
+          });
+          return client.focus();
+        }
       }
       
-      // Sinon ouvrir une nouvelle fenêtre avec l'URL cible
-      console.log('🆕 Ouverture nouvelle fenêtre');
+      // Aucun client trouvé, ouvrir une nouvelle fenêtre
       if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+        return clients.openWindow(fullUrl);
       }
-    }).catch(function(error) {
-      console.error('❌ Erreur lors du clic notification:', error);
     })
   );
 });
