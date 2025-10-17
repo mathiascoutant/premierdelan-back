@@ -1,5 +1,19 @@
 // Service Worker pour les notifications PWA
-console.log('🔔 Service Worker chargé');
+const SW_VERSION = 'v2.0.0';
+console.log('🔔 Service Worker chargé -', SW_VERSION);
+
+// Force l'activation immédiate du nouveau service worker
+self.addEventListener('install', (event) => {
+  console.log('📥 Installation du service worker', SW_VERSION);
+  self.skipWaiting(); // Force le nouveau SW à s'activer immédiatement
+});
+
+self.addEventListener('activate', (event) => {
+  console.log('✅ Activation du service worker', SW_VERSION);
+  event.waitUntil(
+    clients.claim() // Prend le contrôle de tous les clients immédiatement
+  );
+});
 
 // Écouter les notifications push
 self.addEventListener('push', function(event) {
