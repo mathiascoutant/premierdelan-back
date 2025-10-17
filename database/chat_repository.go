@@ -34,20 +34,20 @@ func NewChatRepository(db *mongo.Database) *ChatRepository {
 // GetConversationsAndInvitations récupère les conversations ET les invitations envoyées d'un utilisateur
 func (r *ChatRepository) GetConversationsAndInvitations(ctx context.Context, userID primitive.ObjectID) ([]models.ConversationResponse, error) {
 	var allConversations []models.ConversationResponse
-	
+
 	// 1. Récupérer les conversations acceptées
 	conversations, err := r.GetConversations(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	allConversations = append(allConversations, conversations...)
-	
+
 	// 2. Récupérer les invitations envoyées (status: pending)
 	sentInvitations, err := r.getSentInvitations(ctx, userID)
 	if err == nil {
 		allConversations = append(allConversations, sentInvitations...)
 	}
-	
+
 	return allConversations, nil
 }
 
@@ -57,7 +57,7 @@ func (r *ChatRepository) GetConversations(ctx context.Context, userID primitive.
 		{
 			"$match": bson.M{
 				"participants.user_id": userID,
-				"status": bson.M{"$in": []string{"accepted", "active"}},
+				"status":               bson.M{"$in": []string{"accepted", "active"}},
 			},
 		},
 		{
@@ -70,8 +70,8 @@ func (r *ChatRepository) GetConversations(ctx context.Context, userID primitive.
 		},
 		{
 			"$lookup": bson.M{
-				"from":         "users",
-				"let":          bson.M{"participants": "$participants"},
+				"from": "users",
+				"let":  bson.M{"participants": "$participants"},
 				"pipeline": []bson.M{
 					{
 						"$match": bson.M{
@@ -99,7 +99,7 @@ func (r *ChatRepository) GetConversations(ctx context.Context, userID primitive.
 							"cond": bson.M{
 								"$and": []bson.M{
 									{"$ne": []interface{}{"$$this.sender_id", userID}},
-									{"$not": bson.M{"$in": []interface{}{userID, "$$this.read_by.user_id"}}},
+									{"$eq": []interface{}{"$$this.is_read", false}},
 								},
 							},
 						},
@@ -148,7 +148,7 @@ func (r *ChatRepository) GetConversations(ctx context.Context, userID primitive.
 			if createdAt, ok := lastMsg["created_at"].(primitive.DateTime); ok {
 				timestamp = createdAt.Time()
 			}
-			
+
 			lastMessage = &models.MessageInfo{
 				Content:   lastMsg["content"].(string),
 				Timestamp: timestamp,
@@ -163,11 +163,11 @@ func (r *ChatRepository) GetConversations(ctx context.Context, userID primitive.
 		}
 
 		conversations = append(conversations, models.ConversationResponse{
-			ID:           conversationID,
-			Participant:  participant,
-			LastMessage:  lastMessage,
-			Status:       status,
-			UnreadCount:  unreadCount,
+			ID:          conversationID,
+			Participant: participant,
+			LastMessage: lastMessage,
+			Status:      status,
+			UnreadCount: unreadCount,
 		})
 	}
 
@@ -202,7 +202,7 @@ func (r *ChatRepository) GetMessages(ctx context.Context, conversationID primiti
 		bson.M{
 			"conversation_id": conversationID,
 			"sender_id":       bson.M{"$ne": userID}, // Pas mes messages
-			"delivered_at":    nil,                    // Pas encore distribué
+			"delivered_at":    nil,                   // Pas encore distribué
 		},
 		bson.M{
 			"$set": bson.M{
@@ -220,13 +220,13 @@ func (r *ChatRepository) GetMessages(ctx context.Context, conversationID primiti
 // MarkConversationAsRead marque tous les messages d'une conversation comme lus
 func (r *ChatRepository) MarkConversationAsRead(ctx context.Context, conversationID primitive.ObjectID, userID primitive.ObjectID) (int, error) {
 	now := time.Now()
-	
+
 	result, err := r.messageCollection.UpdateMany(
 		ctx,
 		bson.M{
 			"conversation_id": conversationID,
 			"sender_id":       bson.M{"$ne": userID}, // Pas mes messages
-			"is_read":         false,                  // Pas encore lu
+			"is_read":         false,                 // Pas encore lu
 		},
 		bson.M{
 			"$set": bson.M{
@@ -235,11 +235,11 @@ func (r *ChatRepository) MarkConversationAsRead(ctx context.Context, conversatio
 			},
 		},
 	)
-	
+
 	if err != nil {
 		return 0, err
 	}
-	
+
 	return int(result.ModifiedCount), nil
 }
 
@@ -310,17 +310,17 @@ func (r *ChatRepository) SearchAdmins(ctx context.Context, query string, limit i
 func (r *ChatRepository) CreateInvitation(ctx context.Context, invitation *models.ChatInvitation) error {
 	invitation.CreatedAt = time.Now()
 	invitation.Status = "pending"
-	
+
 	result, err := r.InvitationCollection.InsertOne(ctx, invitation)
 	if err != nil {
 		return err
 	}
-	
+
 	// Définir l'ID généré par MongoDB
 	if insertedID, ok := result.InsertedID.(primitive.ObjectID); ok {
 		invitation.ID = insertedID
 	}
-	
+
 	return nil
 }
 
@@ -432,10 +432,10 @@ func (r *ChatRepository) getSentInvitations(ctx context.Context, userID primitiv
 // RespondToInvitation répond à une invitation
 func (r *ChatRepository) RespondToInvitation(ctx context.Context, invitationID primitive.ObjectID, action string) (*models.Conversation, error) {
 	now := time.Now()
-	
+
 	// Convertir "accept" en "accepted" et "reject" en "rejected"
 	status := action + "ed"
-	
+
 	update := bson.M{
 		"$set": bson.M{
 			"status":       status,
