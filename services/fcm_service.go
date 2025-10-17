@@ -118,6 +118,7 @@ func (s *FCMService) SendToToken(token string, title, body string, data map[stri
 		data = make(map[string]string)
 	}
 
+	// Construire l'URL de redirection si conversationId présent
 	webpushConfig := &messaging.WebpushConfig{
 		Headers: map[string]string{
 			"Urgency": "high",
@@ -127,6 +128,13 @@ func (s *FCMService) SendToToken(token string, title, body string, data map[stri
 			Body:  body,
 			Icon:  "/icon-192x192.png",
 		},
+	}
+
+	// ⚠️ CRUCIAL pour iOS : ajouter l'URL de redirection
+	if conversationId, ok := data["conversationId"]; ok && conversationId != "" {
+		webpushConfig.FCMOptions = &messaging.WebpushFCMOptions{
+			Link: "https://mathiascoutant.github.io/premierdelan/chat?conversation=" + conversationId,
+		}
 	}
 
 	message := &messaging.Message{
@@ -162,6 +170,7 @@ func (s *FCMService) SendToMultipleTokens(tokens []string, title, body string, d
 		data = make(map[string]string)
 	}
 
+	// Construire l'URL de redirection si conversationId présent
 	webpushConfig := &messaging.WebpushConfig{
 		Headers: map[string]string{
 			"Urgency": "high",
@@ -171,6 +180,13 @@ func (s *FCMService) SendToMultipleTokens(tokens []string, title, body string, d
 			Body:  body,
 			Icon:  "/icon-192x192.png",
 		},
+	}
+
+	// ⚠️ CRUCIAL pour iOS : ajouter l'URL de redirection
+	if conversationId, ok := data["conversationId"]; ok && conversationId != "" {
+		webpushConfig.FCMOptions = &messaging.WebpushFCMOptions{
+			Link: "https://mathiascoutant.github.io/premierdelan/chat?conversation=" + conversationId,
+		}
 	}
 
 	message := &messaging.MulticastMessage{
