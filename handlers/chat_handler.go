@@ -662,7 +662,7 @@ func (h *ChatHandler) SendChatNotification(w http.ResponseWriter, r *http.Reques
 			http.Error(w, "Utilisateur destinataire non trouvé", http.StatusNotFound)
 			return
 		}
-		
+
 		// Récupérer les tokens FCM de l'utilisateur (par email)
 		fcmTokens, err := h.fcmTokenRepo.FindByUserID(toUser.Email)
 		if err == nil && len(fcmTokens) > 0 {
@@ -673,7 +673,7 @@ func (h *ChatHandler) SendChatNotification(w http.ResponseWriter, r *http.Reques
 					fcmData[k] = str
 				}
 			}
-			
+
 			// Envoyer à tous les tokens de l'utilisateur
 			for _, token := range fcmTokens {
 				err = h.fcmService.SendToToken(token.Token, request.Title, request.Body, fcmData)
@@ -707,7 +707,7 @@ func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation,
 	for _, participant := range conversation.Participants {
 		if participant.UserID != senderID {
 			log.Printf("👤 Participant trouvé: %s", participant.UserID.Hex())
-			
+
 			// Récupérer les informations de l'expéditeur
 			sender, err := h.userRepo.FindByID(senderID)
 			if err != nil {
@@ -735,18 +735,18 @@ func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation,
 				log.Printf("❌ Erreur récupération participant: %v", err)
 				continue
 			}
-			
+
 			log.Printf("📧 Email du participant: %s", participantUser.Email)
-			
+
 			// Récupérer les tokens FCM du participant (par email)
 			fcmTokens, err := h.fcmTokenRepo.FindByUserID(participantUser.Email)
 			if err != nil {
 				log.Printf("❌ Erreur récupération tokens FCM: %v", err)
 				continue
 			}
-			
+
 			log.Printf("🔑 Tokens FCM trouvés: %d", len(fcmTokens))
-			
+
 			if len(fcmTokens) > 0 {
 				// Convertir les données en map[string]string pour FCM
 				fcmData := make(map[string]string)
@@ -755,6 +755,13 @@ func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation,
 						fcmData[k] = str
 					}
 				}
+
+				// 🔍 LOGS CRITIQUES - Vérifier que conversationId est bien présent
+				log.Printf("📤 Données FCM à envoyer:")
+				log.Printf("   type: %s", fcmData["type"])
+				log.Printf("   conversationId: %s", fcmData["conversationId"])
+				log.Printf("   messageId: %s", fcmData["messageId"])
+
 				// Envoyer à tous les tokens du participant
 				for _, token := range fcmTokens {
 					err := h.fcmService.SendToToken(token.Token, title, body, fcmData)
@@ -792,7 +799,7 @@ func (h *ChatHandler) sendInvitationNotification(invitation *models.ChatInvitati
 	if err != nil {
 		return
 	}
-	
+
 	// Récupérer les tokens FCM du destinataire (par email)
 	fcmTokens, err := h.fcmTokenRepo.FindByUserID(toUser.Email)
 	if err == nil && len(fcmTokens) > 0 {
@@ -820,9 +827,9 @@ func (h *ChatHandler) sendAcceptedInvitationNotification(invitation *models.Chat
 	title := acceptedByUser.Firstname + " " + strings.ToUpper(acceptedByUser.Lastname)
 	body := "A accepté votre invitation"
 	data := map[string]interface{}{
-		"type":         "chat_invitation_accepted",
-		"invitationId": invitation.ID.Hex(),
-		"acceptedBy":   acceptedByUser.ID.Hex(),
+		"type":           "chat_invitation_accepted",
+		"invitationId":   invitation.ID.Hex(),
+		"acceptedBy":     acceptedByUser.ID.Hex(),
 		"acceptedByName": acceptedByUser.Firstname + " " + acceptedByUser.Lastname,
 	}
 
@@ -831,7 +838,7 @@ func (h *ChatHandler) sendAcceptedInvitationNotification(invitation *models.Chat
 	if err != nil {
 		return
 	}
-	
+
 	// Récupérer les tokens FCM du demandeur (par email)
 	fcmTokens, err := h.fcmTokenRepo.FindByUserID(fromUser.Email)
 	if err == nil && len(fcmTokens) > 0 {
