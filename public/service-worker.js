@@ -35,11 +35,19 @@ self.addEventListener('push', function(event) {
   
   console.log('📨 Notification data:', notificationData);
   
+  // ⚠️ Sur iOS avec FCMOptions.Link, ne PAS afficher de notification ici
+  // iOS affiche automatiquement la notification avec l'URL
+  // Afficher uniquement si type n'est pas chat_message (pour éviter doublons)
+  if (notificationData.type === 'chat_message') {
+    console.log('🍎 Notification chat - iOS gère automatiquement via FCMOptions.Link');
+    return; // Ne rien faire, iOS s'en occupe
+  }
+  
   const options = {
     body: body,
     icon: '/icon-192x192.png',
     badge: '/badge-72x72.png',
-    data: notificationData, // Les données FCM sont ici
+    data: notificationData,
     vibrate: [200, 100, 200],
     tag: 'notification-' + Date.now(),
     requireInteraction: false
