@@ -5,21 +5,48 @@ console.log('🔔 Service Worker chargé');
 self.addEventListener('push', function(event) {
   console.log('📩 Notification push reçue');
   
-  const data = event.data ? event.data.json() : {};
+  let payload = {};
+  let title = 'Notification';
+  let body = 'Nouvelle notification';
+  let notificationData = {};
+  
+  if (event.data) {
+    try {
+      payload = event.data.json();
+      console.log('📦 Payload reçu:', payload);
+      
+      // FCM envoie les données dans payload.data
+      if (payload.data) {
+        notificationData = payload.data;
+      }
+      
+      // Le titre et le body peuvent être dans notification ou directement dans payload
+      if (payload.notification) {
+        title = payload.notification.title || title;
+        body = payload.notification.body || body;
+      } else {
+        title = payload.title || title;
+        body = payload.body || body;
+      }
+    } catch (e) {
+      console.error('❌ Erreur parsing payload:', e);
+    }
+  }
+  
+  console.log('📨 Notification data:', notificationData);
   
   const options = {
-    body: data.body || 'Nouvelle notification',
-    icon: data.icon || '/icon-192x192.png',
-    badge: data.badge || '/badge-72x72.png',
-    data: data.data || {},
+    body: body,
+    icon: '/icon-192x192.png',
+    badge: '/badge-72x72.png',
+    data: notificationData, // Les données FCM sont ici
     vibrate: [200, 100, 200],
     tag: 'notification-' + Date.now(),
-    requireInteraction: false,
-    actions: data.actions || []
+    requireInteraction: false
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Notification', options)
+    self.registration.showNotification(title, options)
   );
 });
 
