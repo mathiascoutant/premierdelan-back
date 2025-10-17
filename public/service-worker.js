@@ -36,11 +36,10 @@ self.addEventListener('push', function(event) {
   console.log('📨 Notification data:', notificationData);
   
   // ⚠️ Sur iOS avec FCMOptions.Link, ne PAS afficher de notification ici
-  // iOS affiche automatiquement la notification avec l'URL
-  // Afficher uniquement si type n'est pas chat_message (pour éviter doublons)
+  // iOS affiche automatiquement la notification avec l'URL (qui ouvre Safari)
   if (notificationData.type === 'chat_message') {
-    console.log('🍎 Notification chat - iOS gère automatiquement via FCMOptions.Link');
-    return; // Ne rien faire, iOS s'en occupe
+    console.log('🍎 iOS gère automatiquement via FCMOptions.Link');
+    return;
   }
   
   const options = {
