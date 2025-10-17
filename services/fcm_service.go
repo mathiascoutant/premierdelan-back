@@ -28,34 +28,34 @@ func NewFCMService(credentialsFile string) (*FCMService, error) {
 
 	// Vérifier si FIREBASE_CREDENTIALS_BASE64 existe (pour Railway/Cloud)
 	credentialsBase64 := os.Getenv("FIREBASE_CREDENTIALS_BASE64")
-	
+
 	if credentialsBase64 != "" {
 		// Décoder depuis base64
 		log.Println("📦 Utilisation des credentials Firebase depuis FIREBASE_CREDENTIALS_BASE64")
-		
+
 		credentialsJSON, err := base64.StdEncoding.DecodeString(credentialsBase64)
 		if err != nil {
 			return nil, fmt.Errorf("erreur décodage base64: %w", err)
 		}
-		
+
 		// Configuration Firebase avec project_id explicite
 		config := &firebase.Config{
 			ProjectID: "premier-de-lan",
 		}
-		
+
 		opt := option.WithCredentialsJSON(credentialsJSON)
 		app, err = firebase.NewApp(ctx, config, opt)
 	} else {
 		// Vérifier si FIREBASE_CREDENTIALS_JSON existe (fallback)
 		credentialsJSON := os.Getenv("FIREBASE_CREDENTIALS_JSON")
-		
+
 		if credentialsJSON != "" {
 			log.Println("📦 Utilisation des credentials Firebase depuis FIREBASE_CREDENTIALS_JSON")
-			
+
 			config := &firebase.Config{
 				ProjectID: "premier-de-lan",
 			}
-			
+
 			opt := option.WithCredentialsJSON([]byte(credentialsJSON))
 			app, err = firebase.NewApp(ctx, config, opt)
 		} else {
@@ -117,24 +117,26 @@ func (s *FCMService) SendToToken(token string, title, body string, data map[stri
 	if data == nil {
 		data = make(map[string]string)
 	}
-	
+
+	webpushConfig := &messaging.WebpushConfig{
+		Headers: map[string]string{
+			"Urgency": "high",
+		},
+		Notification: &messaging.WebpushNotification{
+			Title: title,
+			Body:  body,
+			Icon:  "/icon-192x192.png",
+		},
+	}
+
 	message := &messaging.Message{
 		Token: token,
 		Notification: &messaging.Notification{
 			Title: title,
 			Body:  body,
 		},
-		Data: data,
-		Webpush: &messaging.WebpushConfig{
-			Headers: map[string]string{
-				"Urgency": "high",
-			},
-			Notification: &messaging.WebpushNotification{
-				Title: title,
-				Body:  body,
-				Icon:  "/icon-192x192.png",
-			},
-		},
+		Data:    data,
+		Webpush: webpushConfig,
 	}
 
 	response, err := s.client.Send(ctx, message)
@@ -159,24 +161,26 @@ func (s *FCMService) SendToMultipleTokens(tokens []string, title, body string, d
 	if data == nil {
 		data = make(map[string]string)
 	}
-	
+
+	webpushConfig := &messaging.WebpushConfig{
+		Headers: map[string]string{
+			"Urgency": "high",
+		},
+		Notification: &messaging.WebpushNotification{
+			Title: title,
+			Body:  body,
+			Icon:  "/icon-192x192.png",
+		},
+	}
+
 	message := &messaging.MulticastMessage{
 		Notification: &messaging.Notification{
 			Title: title,
 			Body:  body,
 		},
-		Data: data,
-		Webpush: &messaging.WebpushConfig{
-			Headers: map[string]string{
-				"Urgency": "high",
-			},
-			Notification: &messaging.WebpushNotification{
-				Title: title,
-				Body:  body,
-				Icon:  "/icon-192x192.png",
-			},
-		},
-		Tokens: tokens,
+		Data:    data,
+		Webpush: webpushConfig,
+		Tokens:  tokens,
 	}
 
 	response, err := s.client.SendEachForMulticast(ctx, message)
@@ -227,7 +231,7 @@ func (s *FCMService) SendToAll(tokens []string, title, body string, data map[str
 
 		batch := tokens[i:end]
 		s, f, ft, err := s.SendToMultipleTokens(batch, title, body, data)
-		
+
 		if err != nil {
 			log.Printf("❌ Erreur pour le batch %d: %v", i/batchSize+1, err)
 			totalFailed += len(batch)
