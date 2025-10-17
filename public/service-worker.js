@@ -1,17 +1,5 @@
 // Service Worker pour les notifications PWA
-const SW_VERSION = 'v2.4.0';
-console.log('🔔 Service Worker chargé -', SW_VERSION);
-
-// Force l'activation immédiate du nouveau service worker
-self.addEventListener('install', (event) => {
-  console.log('📥 Installation du service worker', SW_VERSION);
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  console.log('✅ Activation du service worker', SW_VERSION);
-  event.waitUntil(clients.claim());
-});
+console.log('🔔 Service Worker chargé');
 
 // Écouter les notifications push
 self.addEventListener('push', function(event) {
@@ -64,22 +52,27 @@ self.addEventListener('push', function(event) {
 
 // Gérer le clic sur la notification
 self.addEventListener('notificationclick', function(event) {
+  console.log('👆 Notification cliquée');
+  
   event.notification.close();
   
-  const data = event.notification.data || {};
-  let url = 'https://mathiascoutant.github.io/premierdelan/';
-
-  if (data.type === 'chat_message' && data.conversationId) {
-    url = 'https://mathiascoutant.github.io/premierdelan/chat?conversation=' + data.conversationId;
-  } else if (data.type === 'chat_invitation') {
-    url = 'https://mathiascoutant.github.io/premierdelan/chat';
-  } else if (data.type === 'new_inscription' && data.event_id) {
-    url = 'https://mathiascoutant.github.io/premierdelan/admin/evenements/' + data.event_id;
-  } else if (data.type === 'alert') {
-    url = 'https://mathiascoutant.github.io/premierdelan/alertes';
-  }
-  
-  event.waitUntil(clients.openWindow(url));
+  // Ouvrir ou focus sur votre site
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(function(clientList) {
+        // Si une fenêtre est déjà ouverte, la focus
+        for (let i = 0; i < clientList.length; i++) {
+          const client = clientList[i];
+          if (client.url === '/' && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        // Sinon ouvrir une nouvelle fenêtre
+        if (clients.openWindow) {
+          return clients.openWindow('/');
+        }
+      })
+  );
 });
 
 // Gérer la fermeture de la notification
