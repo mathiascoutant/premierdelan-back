@@ -1,5 +1,5 @@
 // Service Worker pour les notifications PWA
-const SW_VERSION = 'v2.2.0';
+const SW_VERSION = 'v2.3.0';
 console.log('🔔 Service Worker chargé -', SW_VERSION);
 
 // Force l'activation immédiate du nouveau service worker
@@ -71,20 +71,26 @@ self.addEventListener('notificationclick', function(event) {
   // Récupérer les données de la notification
   const notificationData = event.notification.data || {};
   
+  // Détecter le base path (pour GitHub Pages: /premierdelan/)
+  // On le détecte depuis l'URL du service worker lui-même
+  const swUrl = self.location.pathname;
+  const basePath = swUrl.substring(0, swUrl.lastIndexOf('/') + 1);
+  
   // Construire l'URL de destination
-  let urlPath = '/';
+  let urlPath = '';
   
   if (notificationData.type === 'chat_message' && notificationData.conversationId) {
-    urlPath = '/chat?conversation=' + notificationData.conversationId;
+    urlPath = 'chat?conversation=' + notificationData.conversationId;
   } else if (notificationData.type === 'chat_invitation') {
-    urlPath = '/chat';
+    urlPath = 'chat';
   } else if (notificationData.type === 'new_inscription' && notificationData.event_id) {
-    urlPath = '/admin/evenements/' + notificationData.event_id;
+    urlPath = 'admin/evenements/' + notificationData.event_id;
   } else if (notificationData.type === 'alert') {
-    urlPath = '/alertes';
+    urlPath = 'alertes';
   }
   
-  const fullUrl = self.location.origin + urlPath;
+  // Construire l'URL complète avec le base path
+  const fullUrl = self.location.origin + basePath + urlPath;
   
   event.waitUntil(
     clients.matchAll({ 
