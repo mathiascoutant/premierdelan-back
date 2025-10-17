@@ -132,9 +132,9 @@ func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Re
 	placesRestantes := event.Capacite - event.Inscrits
 	if req.NombrePersonnes > placesRestantes {
 		utils.RespondJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"error":             "Plus assez de places disponibles",
-			"places_restantes":  placesRestantes,
-			"demande":           req.NombrePersonnes,
+			"error":            "Plus assez de places disponibles",
+			"places_restantes": placesRestantes,
+			"demande":          req.NombrePersonnes,
 		})
 		return
 	}
@@ -170,7 +170,7 @@ func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Re
 	go h.notifyAdminsNewInscription(req.UserEmail, event, req.NombrePersonnes)
 
 	utils.RespondJSON(w, http.StatusCreated, map[string]interface{}{
-		"message": "Inscription réussie",
+		"message":     "Inscription réussie",
 		"inscription": inscription,
 		"evenement": map[string]interface{}{
 			"id":       event.ID.Hex(),
@@ -211,14 +211,14 @@ func (h *InscriptionHandler) GetInscription(w http.ResponseWriter, r *http.Reque
 	}
 
 	if inscription == nil {
-		utils.RespondJSON(w, http.StatusNotFound, map[string]interface{}{
-			"error":   "Aucune inscription trouvée",
+		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 			"inscrit": false,
 		})
 		return
 	}
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"inscrit":     true,
 		"inscription": inscription,
 	})
 }
@@ -309,8 +309,8 @@ func (h *InscriptionHandler) UpdateInscription(w http.ResponseWriter, r *http.Re
 		placesRestantes := event.Capacite - event.Inscrits
 		if difference > placesRestantes {
 			utils.RespondJSON(w, http.StatusBadRequest, map[string]interface{}{
-				"error":                  "Plus assez de places pour cette modification",
-				"places_restantes":       placesRestantes,
+				"error":                 "Plus assez de places pour cette modification",
+				"places_restantes":      placesRestantes,
 				"augmentation_demandee": difference,
 			})
 			return
@@ -502,13 +502,13 @@ func (h *InscriptionHandler) GetInscrits(w http.ResponseWriter, r *http.Request)
 	}
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"event_id":       event.ID.Hex(),
-		"titre":          event.Titre,
-		"total_inscrits": len(inscriptions),
+		"event_id":        event.ID.Hex(),
+		"titre":           event.Titre,
+		"total_inscrits":  len(inscriptions),
 		"total_personnes": totalPersonnes,
-		"total_adultes":  totalAdultes,
-		"total_mineurs":  totalMineurs,
-		"inscriptions":   inscriptionsWithInfo,
+		"total_adultes":   totalAdultes,
+		"total_mineurs":   totalMineurs,
+		"inscriptions":    inscriptionsWithInfo,
 	})
 }
 
@@ -743,14 +743,14 @@ func (h *InscriptionHandler) notifyAdminsNewInscription(userEmail string, event 
 
 	// Préparer la notification
 	title := "🎉 Nouvelle inscription à un événement !"
-	message := fmt.Sprintf("%s %s s'est inscrit à %s (%d/%d personnes)", 
-		user.Firstname, 
-		user.Lastname, 
+	message := fmt.Sprintf("%s %s s'est inscrit à %s (%d/%d personnes)",
+		user.Firstname,
+		user.Lastname,
 		event.Titre,
 		event.Inscrits,
 		event.Capacite,
 	)
-	
+
 	data := map[string]string{
 		"type":             "new_inscription",
 		"event_id":         event.ID.Hex(),
@@ -829,4 +829,3 @@ func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Req
 		"evenements": evenements,
 	})
 }
-
