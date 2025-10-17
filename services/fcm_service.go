@@ -130,11 +130,11 @@ func (s *FCMService) SendToToken(token string, title, body string, data map[stri
 		},
 	}
 
-	// ⚠️ CRUCIAL pour iOS : inclure ?conversation=... dans l'URL
-	// NOTE: Ça ouvre Safari (pas la PWA) à cause du scope iOS, mais le frontend le demande
-	if conversationId, ok := data["conversationId"]; ok && conversationId != "" {
+	// ⚠️ CRUCIAL pour iOS : Link SANS paramètres pour ouvrir la PWA proprement
+	// Le frontend lit conversationId depuis Data (pas depuis l'URL)
+	if _, ok := data["conversationId"]; ok {
 		webpushConfig.FCMOptions = &messaging.WebpushFCMOptions{
-			Link: "https://mathiascoutant.github.io/premierdelan/chat?conversation=" + conversationId,
+			Link: "https://mathiascoutant.github.io/premierdelan/chat",
 		}
 	}
 
@@ -183,11 +183,11 @@ func (s *FCMService) SendToMultipleTokens(tokens []string, title, body string, d
 		},
 	}
 
-	// ⚠️ CRUCIAL pour iOS : inclure ?conversation=... dans l'URL
-	// NOTE: Ça ouvre Safari (pas la PWA) à cause du scope iOS, mais le frontend le demande
-	if conversationId, ok := data["conversationId"]; ok && conversationId != "" {
+	// ⚠️ CRUCIAL pour iOS : Link SANS paramètres pour ouvrir la PWA proprement
+	// Le frontend lit conversationId depuis Data (pas depuis l'URL)
+	if _, ok := data["conversationId"]; ok {
 		webpushConfig.FCMOptions = &messaging.WebpushFCMOptions{
-			Link: "https://mathiascoutant.github.io/premierdelan/chat?conversation=" + conversationId,
+			Link: "https://mathiascoutant.github.io/premierdelan/chat",
 		}
 	}
 
