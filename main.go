@@ -48,8 +48,11 @@ func main() {
 
 	// Créer le routeur
 	router := mux.NewRouter()
+	
+	// Créer un routeur sans middleware pour WebSocket
+	rawRouter := mux.NewRouter()
 
-	// Appliquer les middlewares globaux
+	// Appliquer les middlewares globaux (SAUF pour WebSocket)
 	router.Use(middleware.Logging)
 	router.Use(middleware.CORS(cfg.CORSOrigins))
 
@@ -146,8 +149,9 @@ func main() {
 	protected.HandleFunc("/test/simple-notif", testNotifHandler.SendSimpleTest).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/test/list-tokens", testNotifHandler.ListMyTokens).Methods("POST", "OPTIONS")
 	
-	// 🔌 ROUTE WEBSOCKET CHAT (Render.com - WebSocket supporté !)
-	router.HandleFunc("/ws/chat", wsHandler.ServeWS).Methods("GET")
+	// 🔌 ROUTE WEBSOCKET CHAT (SANS middleware - Render.com supporté !)
+	// La route WebSocket doit être sur rawRouter pour éviter le wrapping du ResponseWriter
+	rawRouter.HandleFunc("/ws/chat", wsHandler.ServeWS).Methods("GET")
 	
 	// Routes Admin (protégées par Auth + RequireAdmin)
 	adminRouter := protected.PathPrefix("/admin").Subrouter()
@@ -233,11 +237,22 @@ func main() {
 	adminRouter.HandleFunc("/evenements/{event_id}/inscrits/{inscription_id}", inscriptionHandler.DeleteInscriptionAdmin).Methods("DELETE", "OPTIONS")
 	adminRouter.HandleFunc("/evenements/{event_id}/inscrits/{inscription_id}/accompagnant/{index}", inscriptionHandler.DeleteAccompagnant).Methods("DELETE", "OPTIONS")
 
+	// Créer un multiplexeur qui combine les deux routers
+	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Si c'est une requête WebSocket, utiliser rawRouter (sans middleware)
+		if r.URL.Path == "/ws/chat" {
+			rawRouter.ServeHTTP(w, r)
+		} else {
+			// Sinon, utiliser le router normal (avec middleware)
+			router.ServeHTTP(w, r)
+		}
+	})
+
 	// Démarrer le serveur
 	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
 	server := &http.Server{
 		Addr:    addr,
-		Handler: router,
+		Handler: mainHandler,
 	}
 
 	// Gérer l'arrêt gracieux du serveur
