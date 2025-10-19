@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
@@ -228,6 +229,28 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 	}
 
 	log.Printf("✅ %d messages marqués comme lus dans la conversation %s", markedCount, conversationIDStr)
+
+	// 🔌 Envoyer via WebSocket aux autres participants pour mettre à jour les coches
+	if h.wsHub != nil && markedCount > 0 {
+		readAt := time.Now()
+		payload := map[string]interface{}{
+			"type":            "messages_read",
+			"conversation_id": conversationIDStr,
+			"read_by_user_id": userID.Hex(),
+			"read_at":         readAt,
+		}
+		
+		// Envoyer à tous les autres participants
+		for _, participant := range conversation.Participants {
+			participantID := participant.UserID.Hex()
+			if participantID != userID.Hex() {
+				log.Printf("📤 Envoi messages_read WS au participant: %s", participantID)
+				h.wsHub.SendToUser(participantID, payload)
+			}
+		}
+		
+		log.Printf("🔌 Événement messages_read envoyé à tous les participants")
+	}
 
 	response := models.ChatResponse{
 		Success: true,
