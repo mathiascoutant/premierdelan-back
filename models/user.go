@@ -16,6 +16,7 @@ type User struct {
 	Phone     string             `json:"phone" bson:"phone"`
 	Password  string             `json:"-" bson:"password"` // Le "-" empêche la sérialisation du mot de passe
 	Admin     int                `json:"admin" bson:"admin"`   // 0 = utilisateur normal, 1 = admin
+	LastSeen  *time.Time         `json:"last_seen,omitempty" bson:"last_seen,omitempty"` // Dernière activité WebSocket
 	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
 }
 

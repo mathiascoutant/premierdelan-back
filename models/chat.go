@@ -66,10 +66,12 @@ type ConversationResponse struct {
 
 // UserInfo représente les informations d'un utilisateur
 type UserInfo struct {
-	ID        string `json:"id"`
-	Firstname string `json:"firstname"`
-	Lastname  string `json:"lastname"`
-	Email     string `json:"email"`
+	ID        string     `json:"id"`
+	Firstname string     `json:"firstname"`
+	Lastname  string     `json:"lastname"`
+	Email     string     `json:"email"`
+	IsOnline  bool       `json:"is_online"`           // Si l'utilisateur est connecté au WebSocket
+	LastSeen  *time.Time `json:"last_seen,omitempty"` // Dernière activité WebSocket
 }
 
 // MessageInfo représente les informations d'un message

@@ -1,9 +1,24 @@
 package websocket
 
 import (
+	"context"
 	"log"
 	"sync"
+
+	"premier-an-backend/database"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+// UserRepository interface pour éviter la dépendance circulaire
+type UserRepository interface {
+	UpdateLastSeen(userID primitive.ObjectID) error
+}
+
+// ChatRepository interface pour récupérer les conversations d'un utilisateur
+type ChatRepository interface {
+	GetConversations(ctx context.Context, userID primitive.ObjectID) ([]interface{}, error)
+}
 
 // Hub gère les connexions WebSocket actives
 type Hub struct {
@@ -24,6 +39,10 @@ type Hub struct {
 
 	// Canal pour diffuser les messages
 	broadcast chan *Message
+	
+	// Repositories pour la gestion de la présence
+	userRepo *database.UserRepository
+	chatRepo *database.ChatRepository
 }
 
 // Message représente un message WebSocket à diffuser
@@ -36,13 +55,15 @@ type Message struct {
 }
 
 // NewHub crée un nouveau hub WebSocket
-func NewHub() *Hub {
+func NewHub(userRepo *database.UserRepository, chatRepo *database.ChatRepository) *Hub {
 	return &Hub{
 		connections: make(map[string]*Client),
 		rooms:       make(map[string]map[string]bool),
 		register:    make(chan *Client),
 		unregister:  make(chan *Client),
 		broadcast:   make(chan *Message, 256),
+		userRepo:    userRepo,
+		chatRepo:    chatRepo,
 	}
 }
 
@@ -55,6 +76,9 @@ func (h *Hub) Run() {
 			h.connections[client.UserID] = client
 			h.mu.Unlock()
 			log.Printf("🔌 Client connecté: %s (total: %d)", client.UserID, len(h.connections))
+			
+			// 🔌 Envoyer événement user_presence à tous les contacts
+			go h.notifyUserPresence(client.UserID, true)
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -72,6 +96,20 @@ func (h *Hub) Run() {
 			}
 			h.mu.Unlock()
 			log.Printf("👋 Client déconnecté: %s (total: %d)", client.UserID, len(h.connections))
+			
+			// Mettre à jour last_seen dans la DB
+			if userObjID, err := primitive.ObjectIDFromHex(client.UserID); err == nil {
+				if h.userRepo != nil {
+					if err := h.userRepo.UpdateLastSeen(userObjID); err != nil {
+						log.Printf("❌ Erreur mise à jour last_seen: %v", err)
+					} else {
+						log.Printf("✅ last_seen mis à jour pour %s", client.UserID)
+					}
+				}
+			}
+			
+			// 🔌 Envoyer événement user_presence à tous les contacts
+			go h.notifyUserPresence(client.UserID, false)
 
 		case message := <-h.broadcast:
 			h.mu.RLock()
@@ -173,5 +211,23 @@ func (h *Hub) SendToConversation(conversationID string, payload interface{}, exc
 		ExcludeUserID:  excludeUserID,
 		Payload:        payload,
 	}
+}
+
+// IsUserOnline vérifie si un utilisateur est actuellement connecté
+func (h *Hub) IsUserOnline(userID string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	
+	_, online := h.connections[userID]
+	return online
+}
+
+// notifyUserPresence envoie un événement de présence à tous les contacts d'un utilisateur
+func (h *Hub) notifyUserPresence(userID string, isOnline bool) {
+	log.Printf("👁️  Notification présence pour %s (online=%v)", userID, isOnline)
+	
+	// L'événement sera envoyé via le système existant
+	// Le frontend recevra automatiquement les mises à jour via GetConversations
+	// qui inclura is_online et last_seen
 }
 

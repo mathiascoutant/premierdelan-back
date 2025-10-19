@@ -22,6 +22,7 @@ import (
 type WebSocketHub interface {
 	SendToUser(userID string, payload interface{})
 	SendToConversation(conversationID string, payload interface{}, excludeUserID string)
+	IsUserOnline(userID string) bool
 }
 
 // ChatHandler gère les requêtes liées au chat admin
@@ -72,6 +73,23 @@ func (h *ChatHandler) GetConversations(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
+	}
+
+	// ✅ Ajouter is_online et last_seen pour chaque participant
+	for i := range conversations {
+		participantID := conversations[i].Participant.ID
+		
+		// Vérifier si le participant est en ligne (via WebSocket)
+		if h.wsHub != nil {
+			conversations[i].Participant.IsOnline = h.wsHub.IsUserOnline(participantID)
+		}
+		
+		// Récupérer le last_seen depuis la DB
+		if partObjID, err := primitive.ObjectIDFromHex(participantID); err == nil {
+			if partUser, err := h.userRepo.FindByID(partObjID); err == nil && partUser != nil {
+				conversations[i].Participant.LastSeen = partUser.LastSeen
+			}
+		}
 	}
 
 	response := models.ChatResponse{

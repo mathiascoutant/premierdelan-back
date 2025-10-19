@@ -78,8 +78,8 @@ func main() {
 	alertHandler := handlers.NewAlertHandler(database.DB, fcmService)
 	themeHandler := handlers.NewThemeHandler(siteSettingRepo, userRepo)
 	
-	// Initialiser le hub WebSocket pour le chat
-	wsHub := websocket.NewHub()
+	// Initialiser le hub WebSocket pour le chat (avec repositories pour la présence)
+	wsHub := websocket.NewHub(userRepo, chatRepo)
 	go wsHub.Run()
 	log.Println("✅ Hub WebSocket initialisé et en cours d'exécution")
 	

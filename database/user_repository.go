@@ -148,3 +148,22 @@ func (r *UserRepository) FindAdmins() ([]models.User, error) {
 
 	return admins, nil
 }
+
+// UpdateLastSeen met à jour le timestamp de dernière activité d'un utilisateur
+func (r *UserRepository) UpdateLastSeen(userID primitive.ObjectID) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	now := time.Now()
+	_, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": userID},
+		bson.M{"$set": bson.M{"last_seen": now}},
+	)
+	
+	if err != nil {
+		return fmt.Errorf("erreur mise à jour last_seen: %w", err)
+	}
+
+	return nil
+}
