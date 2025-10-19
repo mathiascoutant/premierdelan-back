@@ -13,7 +13,9 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// Permettre toutes les origines (à restreindre en production si nécessaire)
+		// Permettre toutes les origines pour développement
+		origin := r.Header.Get("Origin")
+		log.Printf("🔍 WebSocket Origin: %s", origin)
 		return true
 	},
 }
@@ -34,9 +36,16 @@ func NewHandler(hub *Hub, jwtSecret string) *Handler {
 
 // ServeWS gère les requêtes WebSocket
 func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
+	log.Printf("🔌 Tentative de connexion WebSocket depuis %s", r.RemoteAddr)
+	log.Printf("🔍 Headers: Origin=%s, Upgrade=%s, Connection=%s", 
+		r.Header.Get("Origin"), 
+		r.Header.Get("Upgrade"), 
+		r.Header.Get("Connection"))
+	
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("❌ Erreur upgrade WebSocket: %v", err)
+		http.Error(w, "WebSocket upgrade failed", http.StatusBadRequest)
 		return
 	}
 
