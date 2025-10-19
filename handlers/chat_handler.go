@@ -325,11 +325,15 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("📨 Message créé: ID=%s, ConvID=%s, Content=%s", message.ID.Hex(), conversationIDStr, message.Content)
+	
 	// Envoyer une notification aux autres participants (FCM)
 	go h.sendMessageNotification(conversation, message, userID)
 
 	// 🔌 Envoyer via WebSocket aux participants connectés
+	log.Printf("🔍 wsHub nil? %v", h.wsHub == nil)
 	if h.wsHub != nil {
+		log.Printf("🔌 Envoi WebSocket pour conversation %s...", conversationIDStr)
 		h.wsHub.SendToConversation(
 			conversationIDStr,
 			map[string]interface{}{
@@ -348,6 +352,8 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 			userID.Hex(), // Exclure l'expéditeur
 		)
 		log.Printf("🔌 Message WebSocket envoyé à la conversation %s", conversationIDStr)
+	} else {
+		log.Printf("⚠️  wsHub est nil - WebSocket non disponible")
 	}
 
 	response := models.ChatResponse{
