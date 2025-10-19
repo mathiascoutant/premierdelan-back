@@ -330,28 +330,35 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	// Envoyer une notification aux autres participants (FCM)
 	go h.sendMessageNotification(conversation, message, userID)
 
-	// 🔌 Envoyer via WebSocket aux participants connectés
+	// 🔌 Envoyer via WebSocket à TOUS les participants (même ceux qui n'ont pas rejoint la room)
 	log.Printf("🔍 wsHub nil? %v", h.wsHub == nil)
 	if h.wsHub != nil {
-		log.Printf("🔌 Envoi WebSocket pour conversation %s...", conversationIDStr)
-		h.wsHub.SendToConversation(
-			conversationIDStr,
-			map[string]interface{}{
-				"type":            "new_message",
+		log.Printf("🔌 Envoi WebSocket à tous les participants de la conversation %s...", conversationIDStr)
+		
+		payload := map[string]interface{}{
+			"type":            "new_message",
+			"conversation_id": conversationIDStr,
+			"message": map[string]interface{}{
+				"id":              message.ID.Hex(),
 				"conversation_id": conversationIDStr,
-				"message": map[string]interface{}{
-					"id":              message.ID.Hex(),
-					"conversation_id": conversationIDStr,
-					"sender_id":       userID.Hex(),
-					"content":         message.Content,
-					"timestamp":       message.CreatedAt,
-					"delivered_at":    message.DeliveredAt,
-					"read_at":         message.ReadAt,
-				},
+				"sender_id":       userID.Hex(),
+				"content":         message.Content,
+				"timestamp":       message.CreatedAt,
+				"delivered_at":    message.DeliveredAt,
+				"read_at":         message.ReadAt,
 			},
-			userID.Hex(), // Exclure l'expéditeur
-		)
-		log.Printf("🔌 Message WebSocket envoyé à la conversation %s", conversationIDStr)
+		}
+		
+		// Envoyer à chaque participant de la conversation
+		for _, participant := range conversation.Participants {
+			participantID := participant.UserID.Hex()
+			if participantID != userID.Hex() { // Ne pas renvoyer à l'expéditeur
+				log.Printf("📤 Envoi WS au participant: %s", participantID)
+				h.wsHub.SendToUser(participantID, payload)
+			}
+		}
+		
+		log.Printf("🔌 Message WebSocket envoyé à tous les participants")
 	} else {
 		log.Printf("⚠️  wsHub est nil - WebSocket non disponible")
 	}
