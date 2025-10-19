@@ -17,21 +17,29 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// WebSocketHub interface pour éviter la dépendance circulaire
+type WebSocketHub interface {
+	SendToUser(userID string, payload interface{})
+	SendToConversation(conversationID string, payload interface{}, excludeUserID string)
+}
+
 // ChatHandler gère les requêtes liées au chat admin
 type ChatHandler struct {
 	chatRepo     *database.ChatRepository
 	userRepo     *database.UserRepository
 	fcmTokenRepo *database.FCMTokenRepository
 	fcmService   *services.FCMService
+	wsHub        WebSocketHub
 }
 
 // NewChatHandler crée un nouveau handler pour le chat
-func NewChatHandler(chatRepo *database.ChatRepository, userRepo *database.UserRepository, fcmTokenRepo *database.FCMTokenRepository, fcmService *services.FCMService) *ChatHandler {
+func NewChatHandler(chatRepo *database.ChatRepository, userRepo *database.UserRepository, fcmTokenRepo *database.FCMTokenRepository, fcmService *services.FCMService, wsHub WebSocketHub) *ChatHandler {
 	return &ChatHandler{
 		chatRepo:     chatRepo,
 		userRepo:     userRepo,
 		fcmTokenRepo: fcmTokenRepo,
 		fcmService:   fcmService,
+		wsHub:        wsHub,
 	}
 }
 
@@ -320,6 +328,28 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	// Envoyer une notification aux autres participants (FCM)
 	go h.sendMessageNotification(conversation, message, userID)
 
+	// 🔌 Envoyer via WebSocket aux participants connectés
+	if h.wsHub != nil {
+		h.wsHub.SendToConversation(
+			conversationIDStr,
+			map[string]interface{}{
+				"type":            "new_message",
+				"conversation_id": conversationIDStr,
+				"message": map[string]interface{}{
+					"id":              message.ID.Hex(),
+					"conversation_id": conversationIDStr,
+					"sender_id":       userID.Hex(),
+					"content":         message.Content,
+					"timestamp":       message.CreatedAt,
+					"delivered_at":    message.DeliveredAt,
+					"read_at":         message.ReadAt,
+				},
+			},
+			userID.Hex(), // Exclure l'expéditeur
+		)
+		log.Printf("🔌 Message WebSocket envoyé à la conversation %s", conversationIDStr)
+	}
+
 	response := models.ChatResponse{
 		Success: true,
 		Data: map[string]interface{}{
@@ -463,6 +493,31 @@ func (h *ChatHandler) SendInvitation(w http.ResponseWriter, r *http.Request) {
 	// Envoyer une notification (FCM)
 	go h.sendInvitationNotification(invitation, user)
 
+	// 🔌 Envoyer via WebSocket au destinataire
+	if h.wsHub != nil {
+		h.wsHub.SendToUser(
+			toUserID.Hex(),
+			map[string]interface{}{
+				"type": "new_invitation",
+				"invitation": map[string]interface{}{
+					"id":           invitation.ID.Hex(),
+					"from_user_id": userID.Hex(),
+					"to_user_id":   toUserID.Hex(),
+					"status":       "pending",
+					"message":      invitation.Message,
+					"created_at":   invitation.CreatedAt,
+					"fromUser": map[string]interface{}{
+						"id":        user.ID.Hex(),
+						"firstname": user.Firstname,
+						"lastname":  user.Lastname,
+						"email":     user.Email,
+					},
+				},
+			},
+		)
+		log.Printf("🔌 Invitation WebSocket envoyée à %s", toUserID.Hex())
+	}
+
 	response := models.ChatResponse{
 		Success: true,
 		Data: map[string]interface{}{
@@ -583,6 +638,42 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 	// Si acceptée, envoyer une notification au demandeur
 	if request.Action == "accept" && conversation != nil {
 		go h.sendAcceptedInvitationNotification(&invitation, user)
+		
+		// 🔌 Envoyer via WebSocket à l'expéditeur
+		if h.wsHub != nil {
+			// Récupérer les infos du participant pour le payload
+			h.wsHub.SendToUser(
+				invitation.FromUserID.Hex(),
+				map[string]interface{}{
+					"type":          "invitation_accepted",
+					"invitation_id": invitationID.Hex(),
+					"conversation": map[string]interface{}{
+						"id": conversation.ID.Hex(),
+						"participant": map[string]interface{}{
+							"id":        user.ID.Hex(),
+							"firstname": user.Firstname,
+							"lastname":  user.Lastname,
+							"email":     user.Email,
+						},
+						"status":       "accepted",
+						"unread_count": 0,
+					},
+				},
+			)
+			log.Printf("🔌 invitation_accepted WebSocket envoyée à %s", invitation.FromUserID.Hex())
+		}
+	} else if request.Action == "reject" {
+		// 🔌 Envoyer via WebSocket à l'expéditeur
+		if h.wsHub != nil {
+			h.wsHub.SendToUser(
+				invitation.FromUserID.Hex(),
+				map[string]interface{}{
+					"type":          "invitation_rejected",
+					"invitation_id": invitationID.Hex(),
+				},
+			)
+			log.Printf("🔌 invitation_rejected WebSocket envoyée à %s", invitation.FromUserID.Hex())
+		}
 	}
 
 	response := models.ChatResponse{

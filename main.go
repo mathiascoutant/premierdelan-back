@@ -12,6 +12,7 @@ import (
 	"premier-an-backend/middleware"
 	"premier-an-backend/services"
 	"premier-an-backend/utils"
+	"premier-an-backend/websocket"
 	"syscall"
 
 	"github.com/gorilla/mux"
@@ -73,8 +74,15 @@ func main() {
 	mediaHandler := handlers.NewMediaHandler(database.DB)
 	alertHandler := handlers.NewAlertHandler(database.DB, fcmService)
 	themeHandler := handlers.NewThemeHandler(siteSettingRepo, userRepo)
-	chatHandler := handlers.NewChatHandler(chatRepo, userRepo, fcmTokenRepo, fcmService)
+	
+	// Initialiser le hub WebSocket pour le chat
+	wsHub := websocket.NewHub()
+	go wsHub.Run()
+	log.Println("✅ Hub WebSocket initialisé et en cours d'exécution")
+	
+	chatHandler := handlers.NewChatHandler(chatRepo, userRepo, fcmTokenRepo, fcmService, wsHub)
 	testNotifHandler := handlers.NewTestNotifHandler(fcmTokenRepo, fcmService)
+	wsHandler := websocket.NewHandler(wsHub, cfg.JWTSecret)
 
 	// Middleware Guest pour empêcher l'accès si déjà connecté
 	guestMiddleware := middleware.Guest(cfg.JWTSecret)
@@ -137,6 +145,9 @@ func main() {
 	// 🧪 ROUTES DE TEST ULTRA SIMPLE
 	protected.HandleFunc("/test/simple-notif", testNotifHandler.SendSimpleTest).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/test/list-tokens", testNotifHandler.ListMyTokens).Methods("POST", "OPTIONS")
+	
+	// 🔌 ROUTE WEBSOCKET CHAT (Render.com - WebSocket supporté !)
+	router.HandleFunc("/ws/chat", wsHandler.ServeWS).Methods("GET")
 	
 	// Routes Admin (protégées par Auth + RequireAdmin)
 	adminRouter := protected.PathPrefix("/admin").Subrouter()
