@@ -15,6 +15,7 @@ import (
 // UserRepository interface pour éviter la dépendance circulaire
 type UserRepository interface {
 	UpdateLastSeen(userID primitive.ObjectID) error
+	FindByID(userID primitive.ObjectID) (*models.User, error)
 }
 
 // ChatRepository interface pour récupérer les conversations d'un utilisateur
@@ -270,5 +271,33 @@ func (h *Hub) notifyUserPresence(userID string, isOnline bool) {
 	}
 	
 	log.Printf("✅ Présence notifiée à %d contacts", len(sentTo))
+}
+
+// HandleTyping gère l'événement "typing" et l'envoie aux autres participants
+func (h *Hub) HandleTyping(userID, conversationID string, isTyping bool) {
+	log.Printf("⌨️  Typing: user=%s, conv=%s, typing=%v", userID, conversationID, isTyping)
+	
+	// Récupérer le prénom de l'utilisateur
+	username := "Quelqu'un"
+	if userObjID, err := primitive.ObjectIDFromHex(userID); err == nil && h.userRepo != nil {
+		if user, err := h.userRepo.FindByID(userObjID); err == nil && user != nil {
+			username = user.Firstname
+			log.Printf("✅ Username récupéré: %s", username)
+		}
+	}
+	
+	// Payload à envoyer aux autres participants
+	payload := map[string]interface{}{
+		"type":            "user_typing",
+		"conversation_id": conversationID,
+		"user_id":         userID,
+		"username":        username,
+		"is_typing":       isTyping,
+	}
+	
+	// Envoyer via SendToConversation (qui envoie à tous SAUF l'expéditeur)
+	h.SendToConversation(conversationID, payload, userID)
+	
+	log.Printf("✅ Typing indicator envoyé pour conversation %s", conversationID)
 }
 

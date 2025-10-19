@@ -77,6 +77,13 @@ func (c *Client) readPump() {
 				c.hub.LeaveConversation(c.UserID, convID)
 			}
 
+		case "typing":
+			// ⌨️ Gérer le typing indicator
+			if convID, ok := msg["conversation_id"].(string); ok {
+				isTyping, _ := msg["is_typing"].(bool)
+				c.hub.HandleTyping(c.UserID, convID, isTyping)
+			}
+
 		default:
 			log.Printf("⚠️  Type de message inconnu: %s", msgType)
 		}
