@@ -4,8 +4,10 @@ import (
 	"context"
 	"log"
 	"sync"
+	"time"
 
 	"premier-an-backend/database"
+	"premier-an-backend/models"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -17,7 +19,7 @@ type UserRepository interface {
 
 // ChatRepository interface pour récupérer les conversations d'un utilisateur
 type ChatRepository interface {
-	GetConversations(ctx context.Context, userID primitive.ObjectID) ([]interface{}, error)
+	GetConversations(ctx context.Context, userID primitive.ObjectID) ([]models.ConversationResponse, error)
 }
 
 // Hub gère les connexions WebSocket actives
@@ -224,10 +226,49 @@ func (h *Hub) IsUserOnline(userID string) bool {
 
 // notifyUserPresence envoie un événement de présence à tous les contacts d'un utilisateur
 func (h *Hub) notifyUserPresence(userID string, isOnline bool) {
+	if h.chatRepo == nil {
+		log.Printf("⚠️  chatRepo nil - présence non notifiée")
+		return
+	}
+	
 	log.Printf("👁️  Notification présence pour %s (online=%v)", userID, isOnline)
 	
-	// L'événement sera envoyé via le système existant
-	// Le frontend recevra automatiquement les mises à jour via GetConversations
-	// qui inclura is_online et last_seen
+	// Convertir userID en ObjectID
+	userObjID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		log.Printf("❌ ID invalide pour présence: %s", userID)
+		return
+	}
+	
+	// Récupérer toutes les conversations de cet utilisateur
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	conversations, err := h.chatRepo.GetConversations(ctx, userObjID)
+	if err != nil {
+		log.Printf("❌ Erreur récupération conversations pour présence: %v", err)
+		return
+	}
+	
+	// Payload de présence
+	payload := map[string]interface{}{
+		"type":       "user_presence",
+		"user_id":    userID,
+		"is_online":  isOnline,
+		"last_seen":  time.Now(),
+	}
+	
+	// Envoyer à tous les autres participants (éviter doublons)
+	sentTo := make(map[string]bool)
+	for _, conv := range conversations {
+		otherUserID := conv.Participant.ID
+		if otherUserID != userID && !sentTo[otherUserID] {
+			h.SendToUser(otherUserID, payload)
+			sentTo[otherUserID] = true
+			log.Printf("📤 Présence envoyée à %s", otherUserID)
+		}
+	}
+	
+	log.Printf("✅ Présence notifiée à %d contacts", len(sentTo))
 }
 
