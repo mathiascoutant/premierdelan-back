@@ -76,37 +76,54 @@ func (h *Hub) Run() {
 		case message := <-h.broadcast:
 			h.mu.RLock()
 			
+			log.Printf("📡 Broadcast: ConvID=%s, UserIDs=%v, Exclude=%s", message.ConversationID, message.UserIDs, message.ExcludeUserID)
+			
 			// Si UserIDs spécifié, envoyer uniquement à ces utilisateurs
 			if len(message.UserIDs) > 0 {
+				log.Printf("📤 Envoi à utilisateurs spécifiques: %v", message.UserIDs)
 				for _, userID := range message.UserIDs {
 					if userID == message.ExcludeUserID {
+						log.Printf("⏭️  Skip user %s (exclu)", userID)
 						continue
 					}
 					if client, ok := h.connections[userID]; ok {
 						select {
 						case client.send <- message.Payload:
+							log.Printf("✅ Message envoyé à %s", userID)
 						default:
+							log.Printf("❌ Canal plein pour %s", userID)
 							close(client.send)
 							delete(h.connections, userID)
 						}
+					} else {
+						log.Printf("⚠️  User %s non connecté", userID)
 					}
 				}
 			} else if message.ConversationID != "" {
 				// Sinon, envoyer à tous les membres de la conversation
 				if members, ok := h.rooms[message.ConversationID]; ok {
+					log.Printf("📤 Conversation %s a %d membres dans la room", message.ConversationID, len(members))
 					for userID := range members {
 						if userID == message.ExcludeUserID {
+							log.Printf("⏭️  Skip user %s (expéditeur)", userID)
 							continue
 						}
 						if client, ok := h.connections[userID]; ok {
 							select {
 							case client.send <- message.Payload:
+								log.Printf("✅ Message WS envoyé à %s", userID)
 							default:
+								log.Printf("❌ Canal plein pour %s", userID)
 								close(client.send)
 								delete(h.connections, userID)
 							}
+						} else {
+							log.Printf("⚠️  User %s dans la room mais pas connecté WS", userID)
 						}
 					}
+				} else {
+					log.Printf("⚠️  Conversation %s n'a aucun membre dans les rooms", message.ConversationID)
+					log.Printf("🔍 Rooms actuelles: %v", h.rooms)
 				}
 			}
 			
