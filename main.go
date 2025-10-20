@@ -86,6 +86,7 @@ func main() {
 	chatHandler := handlers.NewChatHandler(chatRepo, userRepo, fcmTokenRepo, fcmService, wsHub)
 	testNotifHandler := handlers.NewTestNotifHandler(fcmTokenRepo, fcmService)
 	wsHandler := websocket.NewHandler(wsHub, cfg.JWTSecret)
+	chatGroupHandler := handlers.NewChatGroupHandler(database.DB, fcmService, wsHub)
 
 	// Middleware Guest pour empêcher l'accès si déjà connecté
 	guestMiddleware := middleware.Guest(cfg.JWTSecret)
@@ -191,6 +192,20 @@ func main() {
 	adminRouter.HandleFunc("/chat/invitations/{id}/respond", chatHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
 	adminRouter.HandleFunc("/chat/notifications/send", chatHandler.SendChatNotification).Methods("POST", "OPTIONS")
 	
+	// 👥 Routes Groupes de chat (admin)
+	adminRouter.HandleFunc("/chat/groups", chatGroupHandler.CreateGroup).Methods("POST", "OPTIONS")
+	adminRouter.HandleFunc("/chat/groups", chatGroupHandler.GetGroups).Methods("GET", "OPTIONS")
+	adminRouter.HandleFunc("/chat/groups/{group_id}/invite", chatGroupHandler.InviteToGroup).Methods("POST", "OPTIONS")
+	adminRouter.HandleFunc("/chat/groups/{group_id}/members", chatGroupHandler.GetGroupMembers).Methods("GET", "OPTIONS")
+	adminRouter.HandleFunc("/chat/groups/{group_id}/pending-invitations", chatGroupHandler.GetGroupPendingInvitations).Methods("GET", "OPTIONS")
+	adminRouter.HandleFunc("/chat/groups/{group_id}/messages", chatGroupHandler.SendMessage).Methods("POST", "OPTIONS")
+	adminRouter.HandleFunc("/chat/groups/{group_id}/messages", chatGroupHandler.GetMessages).Methods("GET", "OPTIONS")
+	adminRouter.HandleFunc("/chat/groups/{group_id}/mark-read", chatGroupHandler.MarkAsRead).Methods("POST", "OPTIONS")
+	adminRouter.HandleFunc("/chat/group-invitations/pending", chatGroupHandler.GetPendingInvitations).Methods("GET", "OPTIONS")
+	adminRouter.HandleFunc("/chat/group-invitations/{invitation_id}/respond", chatGroupHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
+	adminRouter.HandleFunc("/chat/group-invitations/{invitation_id}/cancel", chatGroupHandler.CancelInvitation).Methods("DELETE", "OPTIONS")
+	adminRouter.HandleFunc("/chat/users/search", chatGroupHandler.SearchUsers).Methods("GET", "OPTIONS")
+	
 	// Route protégée exemple
 	protected.HandleFunc("/protected/profile", func(w http.ResponseWriter, r *http.Request) {
 		claims := middleware.GetUserFromContext(r.Context())
@@ -227,6 +242,15 @@ func main() {
 	protected.HandleFunc("/chat/invitations", chatHandler.GetInvitations).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/chat/invitations/{id}/respond", chatHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
 	protected.HandleFunc("/chat/notifications/send", chatHandler.SendChatNotification).Methods("POST", "OPTIONS")
+	
+	// 👥 Routes Groupes de chat (protégées - accessible aux non-admins aussi)
+	protected.HandleFunc("/chat/groups", chatGroupHandler.GetGroups).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/chat/groups/{group_id}/members", chatGroupHandler.GetGroupMembers).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/chat/groups/{group_id}/messages", chatGroupHandler.SendMessage).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/chat/groups/{group_id}/messages", chatGroupHandler.GetMessages).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/chat/groups/{group_id}/mark-read", chatGroupHandler.MarkAsRead).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/chat/group-invitations/pending", chatGroupHandler.GetPendingInvitations).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/chat/group-invitations/{invitation_id}/respond", chatGroupHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
 
 	// Routes médias (protégées - authentification requise)
 	protected.HandleFunc("/evenements/{event_id}/medias", mediaHandler.CreateMedia).Methods("POST", "OPTIONS")

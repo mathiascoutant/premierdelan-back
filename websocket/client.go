@@ -84,6 +84,30 @@ func (c *Client) readPump() {
 				c.hub.HandleTyping(c.UserID, convID, isTyping)
 			}
 
+		case "join_group":
+			// 👥 Rejoindre un groupe
+			if groupID, ok := msg["group_id"].(string); ok {
+				c.hub.JoinGroup(c.UserID, groupID)
+				// Confirmer au client
+				c.send <- map[string]interface{}{
+					"type":     "joined_group",
+					"group_id": groupID,
+				}
+			}
+
+		case "leave_group":
+			// 👋 Quitter un groupe
+			if groupID, ok := msg["group_id"].(string); ok {
+				c.hub.LeaveGroup(c.UserID, groupID)
+			}
+
+		case "group_typing":
+			// ⌨️ Gérer le typing indicator dans un groupe
+			if groupID, ok := msg["group_id"].(string); ok {
+				isTyping, _ := msg["is_typing"].(bool)
+				c.hub.HandleGroupTyping(c.UserID, groupID, isTyping)
+			}
+
 		default:
 			log.Printf("⚠️  Type de message inconnu: %s", msgType)
 		}
@@ -122,4 +146,3 @@ func (c *Client) writePump() {
 		}
 	}
 }
-

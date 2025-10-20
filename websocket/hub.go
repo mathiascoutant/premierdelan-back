@@ -31,6 +31,9 @@ type Hub struct {
 	// Rooms de conversations (conversation_id -> [user_id])
 	rooms map[string]map[string]bool
 
+	// Group rooms (group_id -> [user_id])
+	groupRooms map[string]map[string]bool
+
 	// Mutex pour sécuriser les accès concurrents
 	mu sync.RWMutex
 
@@ -42,7 +45,7 @@ type Hub struct {
 
 	// Canal pour diffuser les messages
 	broadcast chan *Message
-	
+
 	// Repositories pour la gestion de la présence
 	userRepo *database.UserRepository
 	chatRepo *database.ChatRepository
@@ -62,6 +65,7 @@ func NewHub(userRepo *database.UserRepository, chatRepo *database.ChatRepository
 	return &Hub{
 		connections: make(map[string]*Client),
 		rooms:       make(map[string]map[string]bool),
+		groupRooms:  make(map[string]map[string]bool),
 		register:    make(chan *Client),
 		unregister:  make(chan *Client),
 		broadcast:   make(chan *Message, 256),
@@ -79,7 +83,7 @@ func (h *Hub) Run() {
 			h.connections[client.UserID] = client
 			h.mu.Unlock()
 			log.Printf("🔌 Client connecté: %s (total: %d)", client.UserID, len(h.connections))
-			
+
 			// 🔌 Envoyer événement user_presence à tous les contacts
 			go h.notifyUserPresence(client.UserID, true)
 
@@ -88,7 +92,7 @@ func (h *Hub) Run() {
 			if _, ok := h.connections[client.UserID]; ok {
 				delete(h.connections, client.UserID)
 				close(client.send)
-				
+
 				// Retirer de toutes les rooms
 				for roomID, members := range h.rooms {
 					delete(members, client.UserID)
@@ -96,10 +100,18 @@ func (h *Hub) Run() {
 						delete(h.rooms, roomID)
 					}
 				}
+
+				// Retirer de toutes les group rooms
+				for groupID, members := range h.groupRooms {
+					delete(members, client.UserID)
+					if len(members) == 0 {
+						delete(h.groupRooms, groupID)
+					}
+				}
 			}
 			h.mu.Unlock()
 			log.Printf("👋 Client déconnecté: %s (total: %d)", client.UserID, len(h.connections))
-			
+
 			// Mettre à jour last_seen dans la DB
 			if userObjID, err := primitive.ObjectIDFromHex(client.UserID); err == nil {
 				if h.userRepo != nil {
@@ -110,15 +122,15 @@ func (h *Hub) Run() {
 					}
 				}
 			}
-			
+
 			// 🔌 Envoyer événement user_presence à tous les contacts
 			go h.notifyUserPresence(client.UserID, false)
 
 		case message := <-h.broadcast:
 			h.mu.RLock()
-			
+
 			log.Printf("📡 Broadcast: ConvID=%s, UserIDs=%v, Exclude=%s", message.ConversationID, message.UserIDs, message.ExcludeUserID)
-			
+
 			// Si UserIDs spécifié, envoyer uniquement à ces utilisateurs
 			if len(message.UserIDs) > 0 {
 				log.Printf("📤 Envoi à utilisateurs spécifiques: %v", message.UserIDs)
@@ -167,7 +179,7 @@ func (h *Hub) Run() {
 					log.Printf("🔍 Rooms actuelles: %v", h.rooms)
 				}
 			}
-			
+
 			h.mu.RUnlock()
 		}
 	}
@@ -220,7 +232,7 @@ func (h *Hub) SendToConversation(conversationID string, payload interface{}, exc
 func (h *Hub) IsUserOnline(userID string) bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	
+
 	_, online := h.connections[userID]
 	return online
 }
@@ -231,34 +243,34 @@ func (h *Hub) notifyUserPresence(userID string, isOnline bool) {
 		log.Printf("⚠️  chatRepo nil - présence non notifiée")
 		return
 	}
-	
+
 	log.Printf("👁️  Notification présence pour %s (online=%v)", userID, isOnline)
-	
+
 	// Convertir userID en ObjectID
 	userObjID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		log.Printf("❌ ID invalide pour présence: %s", userID)
 		return
 	}
-	
+
 	// Récupérer toutes les conversations de cet utilisateur
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	conversations, err := h.chatRepo.GetConversations(ctx, userObjID)
 	if err != nil {
 		log.Printf("❌ Erreur récupération conversations pour présence: %v", err)
 		return
 	}
-	
+
 	// Payload de présence
 	payload := map[string]interface{}{
-		"type":       "user_presence",
-		"user_id":    userID,
-		"is_online":  isOnline,
-		"last_seen":  time.Now(),
+		"type":      "user_presence",
+		"user_id":   userID,
+		"is_online": isOnline,
+		"last_seen": time.Now(),
 	}
-	
+
 	// Envoyer à tous les autres participants (éviter doublons)
 	sentTo := make(map[string]bool)
 	for _, conv := range conversations {
@@ -269,14 +281,14 @@ func (h *Hub) notifyUserPresence(userID string, isOnline bool) {
 			log.Printf("📤 Présence envoyée à %s", otherUserID)
 		}
 	}
-	
+
 	log.Printf("✅ Présence notifiée à %d contacts", len(sentTo))
 }
 
 // HandleTyping gère l'événement "typing" et l'envoie aux autres participants
 func (h *Hub) HandleTyping(userID, conversationID string, isTyping bool) {
 	log.Printf("⌨️  Typing: user=%s, conv=%s, typing=%v", userID, conversationID, isTyping)
-	
+
 	// Récupérer le prénom de l'utilisateur
 	username := "Quelqu'un"
 	if userObjID, err := primitive.ObjectIDFromHex(userID); err == nil && h.userRepo != nil {
@@ -285,7 +297,7 @@ func (h *Hub) HandleTyping(userID, conversationID string, isTyping bool) {
 			log.Printf("✅ Username récupéré: %s", username)
 		}
 	}
-	
+
 	// Payload à envoyer aux autres participants
 	payload := map[string]interface{}{
 		"type":            "user_typing",
@@ -294,10 +306,114 @@ func (h *Hub) HandleTyping(userID, conversationID string, isTyping bool) {
 		"username":        username,
 		"is_typing":       isTyping,
 	}
-	
+
 	// Envoyer via SendToConversation (qui envoie à tous SAUF l'expéditeur)
 	h.SendToConversation(conversationID, payload, userID)
-	
+
 	log.Printf("✅ Typing indicator envoyé pour conversation %s", conversationID)
 }
 
+// ====================================
+// Méthodes pour les groupes de chat
+// ====================================
+
+// JoinGroup ajoute un utilisateur à une room de groupe
+func (h *Hub) JoinGroup(userID, groupID string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.groupRooms[groupID] == nil {
+		h.groupRooms[groupID] = make(map[string]bool)
+	}
+	h.groupRooms[groupID][userID] = true
+	log.Printf("✅ User %s a rejoint le groupe %s", userID, groupID)
+}
+
+// LeaveGroup retire un utilisateur d'une room de groupe
+func (h *Hub) LeaveGroup(userID, groupID string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if members, ok := h.groupRooms[groupID]; ok {
+		delete(members, userID)
+		if len(members) == 0 {
+			delete(h.groupRooms, groupID)
+		}
+		log.Printf("👋 User %s a quitté le groupe %s", userID, groupID)
+	}
+}
+
+// BroadcastToGroup envoie un message à tous les membres d'un groupe
+func (h *Hub) BroadcastToGroup(groupID string, payload interface{}, excludeUserID string) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	log.Printf("📡 Broadcast groupe: GroupID=%s, Exclude=%s", groupID, excludeUserID)
+
+	if members, ok := h.groupRooms[groupID]; ok {
+		log.Printf("📤 Groupe %s a %d membres dans la room", groupID, len(members))
+		for userID := range members {
+			if userID == excludeUserID {
+				log.Printf("⏭️  Skip user %s (exclu)", userID)
+				continue
+			}
+			if client, ok := h.connections[userID]; ok {
+				select {
+				case client.send <- payload:
+					log.Printf("✅ Message groupe envoyé à %s", userID)
+				default:
+					log.Printf("❌ Canal plein pour %s", userID)
+				}
+			} else {
+				log.Printf("⚠️  User %s dans le groupe mais pas connecté WS", userID)
+			}
+		}
+	} else {
+		log.Printf("⚠️  Groupe %s n'a aucun membre dans les rooms", groupID)
+	}
+}
+
+// BroadcastToUser envoie un message à un utilisateur spécifique (alias pour SendToUser)
+func (h *Hub) BroadcastToUser(userID string, payload []byte) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if client, ok := h.connections[userID]; ok {
+		select {
+		case client.send <- payload:
+			log.Printf("✅ Message envoyé à l'utilisateur %s", userID)
+		default:
+			log.Printf("❌ Canal plein pour l'utilisateur %s", userID)
+		}
+	} else {
+		log.Printf("⚠️  Utilisateur %s non connecté", userID)
+	}
+}
+
+// HandleGroupTyping gère l'événement "typing" dans un groupe
+func (h *Hub) HandleGroupTyping(userID, groupID string, isTyping bool) {
+	log.Printf("⌨️  Group Typing: user=%s, group=%s, typing=%v", userID, groupID, isTyping)
+
+	// Récupérer le prénom de l'utilisateur
+	username := "Quelqu'un"
+	if userObjID, err := primitive.ObjectIDFromHex(userID); err == nil && h.userRepo != nil {
+		if user, err := h.userRepo.FindByID(userObjID); err == nil && user != nil {
+			username = user.Firstname + " " + user.Lastname
+			log.Printf("✅ Username récupéré: %s", username)
+		}
+	}
+
+	// Payload à envoyer aux autres participants
+	payload := map[string]interface{}{
+		"type":      "group_user_typing",
+		"group_id":  groupID,
+		"user_id":   userID,
+		"username":  username,
+		"is_typing": isTyping,
+	}
+
+	// Envoyer via BroadcastToGroup (qui envoie à tous SAUF l'expéditeur)
+	h.BroadcastToGroup(groupID, payload, userID)
+
+	log.Printf("✅ Group typing indicator envoyé pour groupe %s", groupID)
+}

@@ -75,3 +75,40 @@ func (r *UserRepository) CountAdmins() (int64, error) {
 	return count, nil
 }
 
+// SearchUsers recherche des utilisateurs par nom, prénom ou email
+func (r *UserRepository) SearchUsers(query string, limit int, excludeUserID string) ([]models.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Créer un filtre de recherche avec regex (insensible à la casse)
+	filter := bson.M{
+		"$and": []bson.M{
+			{
+				"$or": []bson.M{
+					{"firstname": bson.M{"$regex": query, "$options": "i"}},
+					{"lastname": bson.M{"$regex": query, "$options": "i"}},
+					{"email": bson.M{"$regex": query, "$options": "i"}},
+				},
+			},
+			// Exclure l'utilisateur courant
+			{"email": bson.M{"$ne": excludeUserID}},
+		},
+	}
+
+	opts := options.Find().
+		SetLimit(int64(limit)).
+		SetSort(bson.D{{Key: "firstname", Value: 1}})
+
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, fmt.Errorf("erreur lors de la recherche: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var users []models.User
+	if err = cursor.All(ctx, &users); err != nil {
+		return nil, fmt.Errorf("erreur lors du décodage: %w", err)
+	}
+
+	return users, nil
+}
