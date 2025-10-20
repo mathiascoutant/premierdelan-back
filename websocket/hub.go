@@ -16,6 +16,7 @@ import (
 type UserRepository interface {
 	UpdateLastSeen(userID primitive.ObjectID) error
 	FindByID(userID primitive.ObjectID) (*models.User, error)
+	FindByEmail(email string) (*models.User, error)
 }
 
 // ChatRepository interface pour récupérer les conversations d'un utilisateur
@@ -246,12 +247,13 @@ func (h *Hub) notifyUserPresence(userID string, isOnline bool) {
 
 	log.Printf("👁️  Notification présence pour %s (online=%v)", userID, isOnline)
 
-	// Convertir userID en ObjectID
-	userObjID, err := primitive.ObjectIDFromHex(userID)
-	if err != nil {
-		log.Printf("❌ ID invalide pour présence: %s", userID)
+	// Récupérer l'utilisateur par email (userID est maintenant un email)
+	user, err := h.userRepo.FindByEmail(userID)
+	if err != nil || user == nil {
+		log.Printf("❌ Utilisateur invalide pour présence: %s", userID)
 		return
 	}
+	userObjID := user.ID
 
 	// Récupérer toutes les conversations de cet utilisateur
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -291,8 +293,8 @@ func (h *Hub) HandleTyping(userID, conversationID string, isTyping bool) {
 
 	// Récupérer le prénom de l'utilisateur
 	username := "Quelqu'un"
-	if userObjID, err := primitive.ObjectIDFromHex(userID); err == nil && h.userRepo != nil {
-		if user, err := h.userRepo.FindByID(userObjID); err == nil && user != nil {
+	if h.userRepo != nil {
+		if user, err := h.userRepo.FindByEmail(userID); err == nil && user != nil {
 			username = user.Firstname
 			log.Printf("✅ Username récupéré: %s", username)
 		}
@@ -396,8 +398,8 @@ func (h *Hub) HandleGroupTyping(userID, groupID string, isTyping bool) {
 
 	// Récupérer le prénom de l'utilisateur
 	username := "Quelqu'un"
-	if userObjID, err := primitive.ObjectIDFromHex(userID); err == nil && h.userRepo != nil {
-		if user, err := h.userRepo.FindByID(userObjID); err == nil && user != nil {
+	if h.userRepo != nil {
+		if user, err := h.userRepo.FindByEmail(userID); err == nil && user != nil {
 			username = user.Firstname + " " + user.Lastname
 			log.Printf("✅ Username récupéré: %s", username)
 		}

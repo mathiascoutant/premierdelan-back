@@ -45,6 +45,15 @@ func NewChatHandler(chatRepo *database.ChatRepository, userRepo *database.UserRe
 	}
 }
 
+// getUserObjectID récupère l'ObjectID d'un utilisateur à partir de son email (UserID du JWT)
+func (h *ChatHandler) getUserObjectID(email string) (primitive.ObjectID, error) {
+	user, err := h.userRepo.FindByEmail(email)
+	if err != nil || user == nil {
+		return primitive.NilObjectID, err
+	}
+	return user.ID, nil
+}
+
 // GetConversations récupère les conversations de l'admin connecté
 func (h *ChatHandler) GetConversations(w http.ResponseWriter, r *http.Request) {
 	// Récupérer les claims depuis le contexte
@@ -54,10 +63,11 @@ func (h *ChatHandler) GetConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convertir l'ID en ObjectID
-	userID, err := primitive.ObjectIDFromHex(claims.UserID)
+	// Récupérer l'ObjectID de l'utilisateur via son email
+	userID, err := h.getUserObjectID(claims.UserID)
 	if err != nil {
-		http.Error(w, "ID utilisateur invalide", http.StatusBadRequest)
+		log.Printf("Erreur conversion ID: %v", err)
+		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
 		return
 	}
 
@@ -78,12 +88,12 @@ func (h *ChatHandler) GetConversations(w http.ResponseWriter, r *http.Request) {
 	// ✅ Ajouter is_online et last_seen pour chaque participant
 	for i := range conversations {
 		participantID := conversations[i].Participant.ID
-		
+
 		// Vérifier si le participant est en ligne (via WebSocket)
 		if h.wsHub != nil {
 			conversations[i].Participant.IsOnline = h.wsHub.IsUserOnline(participantID)
 		}
-		
+
 		// Récupérer le last_seen depuis la DB
 		if partObjID, err := primitive.ObjectIDFromHex(participantID); err == nil {
 			if partUser, err := h.userRepo.FindByID(partObjID); err == nil && partUser != nil {
@@ -112,10 +122,11 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convertir l'ID en ObjectID
-	userID, err := primitive.ObjectIDFromHex(claims.UserID)
+	// Récupérer l'ObjectID de l'utilisateur via son email
+	userID, err := h.getUserObjectID(claims.UserID)
 	if err != nil {
-		http.Error(w, "ID utilisateur invalide", http.StatusBadRequest)
+		log.Printf("Erreur conversion ID: %v", err)
+		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
 		return
 	}
 
@@ -196,10 +207,11 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Convertir l'ID en ObjectID
-	userID, err := primitive.ObjectIDFromHex(claims.UserID)
+	// Récupérer l'ObjectID de l'utilisateur via son email
+	userID, err := h.getUserObjectID(claims.UserID)
 	if err != nil {
-		http.Error(w, "ID utilisateur invalide", http.StatusBadRequest)
+		log.Printf("Erreur conversion ID: %v", err)
+		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
 		return
 	}
 
@@ -257,7 +269,7 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 			"read_by_user_id": userID.Hex(),
 			"read_at":         readAt,
 		}
-		
+
 		// Envoyer à tous les autres participants
 		for _, participant := range conversation.Participants {
 			participantID := participant.UserID.Hex()
@@ -266,7 +278,7 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 				h.wsHub.SendToUser(participantID, payload)
 			}
 		}
-		
+
 		log.Printf("🔌 Événement messages_read envoyé à tous les participants")
 	}
 
@@ -290,10 +302,11 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convertir l'ID en ObjectID
-	userID, err := primitive.ObjectIDFromHex(claims.UserID)
+	// Récupérer l'ObjectID de l'utilisateur via son email
+	userID, err := h.getUserObjectID(claims.UserID)
 	if err != nil {
-		http.Error(w, "ID utilisateur invalide", http.StatusBadRequest)
+		log.Printf("Erreur conversion ID: %v", err)
+		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
 		return
 	}
 
@@ -367,7 +380,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("📨 Message créé: ID=%s, ConvID=%s, Content=%s", message.ID.Hex(), conversationIDStr, message.Content)
-	
+
 	// Envoyer une notification aux autres participants (FCM)
 	go h.sendMessageNotification(conversation, message, userID)
 
@@ -375,7 +388,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	log.Printf("🔍 wsHub nil? %v", h.wsHub == nil)
 	if h.wsHub != nil {
 		log.Printf("🔌 Envoi WebSocket à tous les participants de la conversation %s...", conversationIDStr)
-		
+
 		payload := map[string]interface{}{
 			"type":            "new_message",
 			"conversation_id": conversationIDStr,
@@ -389,7 +402,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 				"read_at":         message.ReadAt,
 			},
 		}
-		
+
 		// Envoyer à chaque participant de la conversation
 		for _, participant := range conversation.Participants {
 			participantID := participant.UserID.Hex()
@@ -398,7 +411,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 				h.wsHub.SendToUser(participantID, payload)
 			}
 		}
-		
+
 		log.Printf("🔌 Message WebSocket envoyé à tous les participants")
 	} else {
 		log.Printf("⚠️  wsHub est nil - WebSocket non disponible")
@@ -424,10 +437,11 @@ func (h *ChatHandler) SearchAdmins(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convertir l'ID en ObjectID
-	userID, err := primitive.ObjectIDFromHex(claims.UserID)
+	// Récupérer l'ObjectID de l'utilisateur via son email
+	userID, err := h.getUserObjectID(claims.UserID)
 	if err != nil {
-		http.Error(w, "ID utilisateur invalide", http.StatusBadRequest)
+		log.Printf("Erreur conversion ID: %v", err)
+		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
 		return
 	}
 
@@ -479,10 +493,11 @@ func (h *ChatHandler) SendInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convertir l'ID en ObjectID
-	userID, err := primitive.ObjectIDFromHex(claims.UserID)
+	// Récupérer l'ObjectID de l'utilisateur via son email
+	userID, err := h.getUserObjectID(claims.UserID)
 	if err != nil {
-		http.Error(w, "ID utilisateur invalide", http.StatusBadRequest)
+		log.Printf("Erreur conversion ID: %v", err)
+		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
 		return
 	}
 
@@ -592,10 +607,11 @@ func (h *ChatHandler) GetInvitations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convertir l'ID en ObjectID
-	userID, err := primitive.ObjectIDFromHex(claims.UserID)
+	// Récupérer l'ObjectID de l'utilisateur via son email
+	userID, err := h.getUserObjectID(claims.UserID)
 	if err != nil {
-		http.Error(w, "ID utilisateur invalide", http.StatusBadRequest)
+		log.Printf("Erreur conversion ID: %v", err)
+		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
 		return
 	}
 
@@ -633,10 +649,11 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Convertir l'ID en ObjectID
-	userID, err := primitive.ObjectIDFromHex(claims.UserID)
+	// Récupérer l'ObjectID de l'utilisateur via son email
+	userID, err := h.getUserObjectID(claims.UserID)
 	if err != nil {
-		http.Error(w, "ID utilisateur invalide", http.StatusBadRequest)
+		log.Printf("Erreur conversion ID: %v", err)
+		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
 		return
 	}
 
@@ -692,7 +709,7 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 	// Si acceptée, envoyer une notification au demandeur
 	if request.Action == "accept" && conversation != nil {
 		go h.sendAcceptedInvitationNotification(&invitation, user)
-		
+
 		// 🔌 Envoyer via WebSocket à l'expéditeur
 		if h.wsHub != nil {
 			// Récupérer les infos du participant pour le payload
@@ -750,10 +767,11 @@ func (h *ChatHandler) SendChatNotification(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Convertir l'ID en ObjectID
-	userID, err := primitive.ObjectIDFromHex(claims.UserID)
+	// Récupérer l'ObjectID de l'utilisateur via son email
+	userID, err := h.getUserObjectID(claims.UserID)
 	if err != nil {
-		http.Error(w, "ID utilisateur invalide", http.StatusBadRequest)
+		log.Printf("Erreur conversion ID: %v", err)
+		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
 		return
 	}
 

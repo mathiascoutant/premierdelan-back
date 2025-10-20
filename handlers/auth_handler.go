@@ -15,14 +15,14 @@ import (
 
 // AuthHandler gère les requêtes d'authentification
 type AuthHandler struct {
-	userRepo         *database.UserRepository
-	eventRepo        *database.EventRepository
-	codeSoireeRepo   *database.CodeSoireeRepository
-	jwtSecret        string
-	fcmService       interface {
+	userRepo       *database.UserRepository
+	eventRepo      *database.EventRepository
+	codeSoireeRepo *database.CodeSoireeRepository
+	jwtSecret      string
+	fcmService     interface {
 		SendToAll(tokens []string, title, body string, data map[string]string) (success int, failed int, failedTokens []string)
 	}
-	fcmTokenRepo     *database.FCMTokenRepository
+	fcmTokenRepo *database.FCMTokenRepository
 }
 
 // NewAuthHandler crée une nouvelle instance de AuthHandler
@@ -130,7 +130,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("✓ Nouvel utilisateur inscrit: %s (ID: %s)", user.Email, user.ID.Hex())
-	
+
 	utils.RespondJSON(w, http.StatusCreated, response)
 }
 

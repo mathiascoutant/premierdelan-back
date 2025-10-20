@@ -8,8 +8,6 @@ import (
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // ThemeHandler gère les requêtes liées au thème global du site
@@ -52,16 +50,9 @@ func (h *ThemeHandler) SetGlobalTheme(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convertir l'ID en ObjectID
-	objectID, err := primitive.ObjectIDFromHex(claims.UserID)
-	if err != nil {
-		http.Error(w, "ID utilisateur invalide", http.StatusBadRequest)
-		return
-	}
-
-	// Vérifier que l'utilisateur est admin
-	user, err := h.userCollection.FindByID(objectID)
-	if err != nil {
+	// Récupérer l'utilisateur par email (claims.UserID est maintenant un email)
+	user, err := h.userCollection.FindByEmail(claims.UserID)
+	if err != nil || user == nil {
 		http.Error(w, "Utilisateur non trouvé", http.StatusNotFound)
 		return
 	}
@@ -91,7 +82,7 @@ func (h *ThemeHandler) SetGlobalTheme(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mise à jour du thème global
-	err = h.siteSettingRepo.SetGlobalTheme(r.Context(), theme, &objectID)
+	err = h.siteSettingRepo.SetGlobalTheme(r.Context(), theme, &user.ID)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return

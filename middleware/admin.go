@@ -6,7 +6,6 @@ import (
 	"premier-an-backend/database"
 	"premier-an-backend/utils"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -21,16 +20,9 @@ func RequireAdmin(db *mongo.Database) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Récupérer l'utilisateur complet depuis la DB
-			userID, err := primitive.ObjectIDFromHex(claims.UserID)
-			if err != nil {
-				log.Printf("Erreur conversion ID: %v", err)
-				utils.RespondError(w, http.StatusBadRequest, "ID utilisateur invalide")
-				return
-			}
-
+			// Récupérer l'utilisateur complet depuis la DB par email
 			userRepo := database.NewUserRepository(db)
-			user, err := userRepo.FindByID(userID)
+			user, err := userRepo.FindByEmail(claims.UserID)
 			if err != nil || user == nil {
 				log.Printf("Utilisateur non trouvé: %v", err)
 				utils.RespondError(w, http.StatusUnauthorized, "Utilisateur non trouvé")
@@ -49,4 +41,3 @@ func RequireAdmin(db *mongo.Database) func(http.Handler) http.Handler {
 		})
 	}
 }
-
