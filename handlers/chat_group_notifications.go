@@ -13,14 +13,14 @@ import (
 func (h *ChatGroupHandler) sendGroupInvitationNotification(group *models.ChatGroup, invitation *models.ChatGroupInvitation, invitedUser *models.User) {
 	// Récupérer les infos de l'inviteur
 	inviter, err := h.userRepo.FindByEmail(invitation.InvitedBy)
-	if err != nil {
+	if err != nil || inviter == nil {
 		log.Printf("Erreur récupération inviteur: %v", err)
 		return
 	}
 
 	// Récupérer le créateur du groupe
 	creator, err := h.userRepo.FindByEmail(group.CreatedBy)
-	if err != nil {
+	if err != nil || creator == nil {
 		log.Printf("Erreur récupération créateur: %v", err)
 		return
 	}
