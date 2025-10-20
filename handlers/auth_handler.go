@@ -115,8 +115,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		// Ne pas bloquer l'inscription si l'incrémentation échoue
 	}
 
-	// Générer le token JWT
-	token, err := utils.GenerateToken(user.ID.Hex(), user.Email, h.jwtSecret)
+	// Générer le token JWT (utiliser l'email comme UserID pour cohérence)
+	token, err := utils.GenerateToken(user.Email, user.Email, h.jwtSecret)
 	if err != nil {
 		log.Printf("Erreur lors de la génération du token: %v", err)
 		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
@@ -226,8 +226,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Générer le token JWT
-	token, err := utils.GenerateToken(user.ID.Hex(), user.Email, h.jwtSecret)
+	// Générer le token JWT (utiliser l'email comme UserID pour cohérence)
+	token, err := utils.GenerateToken(user.Email, user.Email, h.jwtSecret)
 	if err != nil {
 		log.Printf("Erreur lors de la génération du token: %v", err)
 		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
