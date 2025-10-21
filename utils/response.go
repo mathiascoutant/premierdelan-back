@@ -29,6 +29,7 @@ func RespondError(w http.ResponseWriter, statusCode int, message string) {
 // RespondSuccess envoie une réponse de succès JSON
 func RespondSuccess(w http.ResponseWriter, message string, data interface{}) {
 	RespondJSON(w, http.StatusOK, models.SuccessResponse{
+		Success: true,
 		Message: message,
 		Data:    data,
 	})

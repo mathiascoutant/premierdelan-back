@@ -169,9 +169,9 @@ func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Re
 	// Notifier les admins
 	go h.notifyAdminsNewInscription(req.UserEmail, event, req.NombrePersonnes)
 
-	utils.RespondJSON(w, http.StatusCreated, map[string]interface{}{
-		"message":     "Inscription réussie",
-		"inscription": inscription,
+	utils.RespondSuccess(w, "Inscription confirmée", map[string]interface{}{
+		"inscription_id": inscription.ID.Hex(),
+		"inscription":    inscription,
 		"evenement": map[string]interface{}{
 			"id":       event.ID.Hex(),
 			"titre":    event.Titre,
@@ -211,15 +211,15 @@ func (h *InscriptionHandler) GetInscription(w http.ResponseWriter, r *http.Reque
 	}
 
 	if inscription == nil {
-		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
-			"inscrit": false,
+		utils.RespondSuccess(w, "", map[string]interface{}{
+			"is_registered": false,
 		})
 		return
 	}
 
-	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"inscrit":     true,
-		"inscription": inscription,
+	utils.RespondSuccess(w, "", map[string]interface{}{
+		"is_registered": true,
+		"inscription":   inscription,
 	})
 }
 

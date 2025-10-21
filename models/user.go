@@ -50,7 +50,8 @@ type ErrorResponse struct {
 
 // SuccessResponse représente une réponse de succès générique
 type SuccessResponse struct {
-	Message string      `json:"message"`
+	Success bool        `json:"success"`
+	Message string      `json:"message,omitempty"`
 	Data    interface{} `json:"data,omitempty"`
 }
 

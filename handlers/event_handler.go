@@ -77,7 +77,7 @@ func (h *EventHandler) GetPublicEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+	utils.RespondSuccess(w, "", map[string]interface{}{
 		"evenement": event,
 	})
 }

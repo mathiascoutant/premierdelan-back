@@ -78,15 +78,10 @@ func (h *MediaHandler) GetMedias(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	response := models.MediasResponse{
-		EventID:     eventID.Hex(),
-		TotalMedias: len(medias),
-		TotalImages: totalImages,
-		TotalVideos: totalVideos,
-		Medias:      medias,
-	}
-
-	utils.RespondJSON(w, http.StatusOK, response)
+	utils.RespondSuccess(w, "", map[string]interface{}{
+		"photos": medias, // Alias "photos" pour compatibilité frontend
+		"medias": medias, // Gardé pour rétrocompatibilité
+	})
 }
 
 // CreateMedia enregistre un média après upload Firebase
