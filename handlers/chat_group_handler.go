@@ -72,10 +72,10 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Créer le groupe
+	// Créer le groupe (created_by en DB est un email)
 	group := &models.ChatGroup{
 		Name:      req.Name,
-		CreatedBy: claims.UserID,
+		CreatedBy: claims.Email,
 	}
 
 	if err := h.groupRepo.Create(group); err != nil {
@@ -84,10 +84,10 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ajouter le créateur comme admin
+	// Ajouter le créateur comme admin (user_id en DB est un email)
 	member := &models.ChatGroupMember{
 		GroupID: group.ID,
-		UserID:  claims.UserID,
+		UserID:  claims.Email,
 		Role:    "admin",
 	}
 
@@ -106,10 +106,10 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Créer l'invitation
+		// Créer l'invitation (invited_by en DB est un email)
 		invitation := &models.ChatGroupInvitation{
 			GroupID:     group.ID,
-			InvitedBy:   claims.UserID,
+			InvitedBy:   claims.Email,
 			InvitedUser: memberID,
 		}
 
@@ -193,8 +193,8 @@ func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Vérifier que l'utilisateur est admin du groupe
-	isAdmin, err := h.groupRepo.IsAdmin(groupID, claims.UserID)
+	// Vérifier que l'utilisateur est admin du groupe (user_id en DB est un email)
+	isAdmin, err := h.groupRepo.IsAdmin(groupID, claims.Email)
 	if err != nil || !isAdmin {
 		utils.RespondError(w, http.StatusForbidden, "Seuls les admins peuvent inviter")
 		return
@@ -322,8 +322,8 @@ func (h *ChatGroupHandler) RespondToInvitation(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Vérifier que c'est bien l'utilisateur invité
-	if invitation.InvitedUser != claims.UserID {
+	// Vérifier que c'est bien l'utilisateur invité (invited_user en DB est un email)
+	if invitation.InvitedUser != claims.Email {
 		utils.RespondError(w, http.StatusForbidden, "Cette invitation ne vous est pas destinée")
 		return
 	}
@@ -343,9 +343,9 @@ func (h *ChatGroupHandler) RespondToInvitation(w http.ResponseWriter, r *http.Re
 
 	// Traiter selon l'action
 	if req.Action == "accept" {
-		h.acceptInvitation(w, invitation, group, claims.UserID)
+		h.acceptInvitation(w, invitation, group, claims.Email)
 	} else {
-		h.rejectInvitation(w, invitation, group, claims.UserID)
+		h.rejectInvitation(w, invitation, group, claims.Email)
 	}
 }
 
@@ -440,8 +440,8 @@ func (h *ChatGroupHandler) GetGroupMembers(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Vérifier que l'utilisateur est membre
-	isMember, err := h.groupRepo.IsMember(groupID, claims.UserID)
+	// Vérifier que l'utilisateur est membre (user_id en DB est un email)
+	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
 	if err != nil || !isMember {
 		utils.RespondError(w, http.StatusForbidden, "Vous n'êtes pas membre de ce groupe")
 		return
@@ -577,8 +577,8 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Vérifier que l'utilisateur est membre
-	isMember, err := h.groupRepo.IsMember(groupID, claims.UserID)
+	// Vérifier que l'utilisateur est membre (user_id en DB est un email)
+	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
 	if err != nil || !isMember {
 		utils.RespondError(w, http.StatusForbidden, "Vous n'êtes pas membre de ce groupe")
 		return
@@ -587,7 +587,7 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	// Créer le message
 	message := &models.ChatGroupMessage{
 		GroupID:     groupID,
-		SenderID:    claims.UserID,
+		SenderID:    claims.Email,
 		Content:     req.Content,
 		MessageType: "message",
 	}
@@ -650,8 +650,8 @@ func (h *ChatGroupHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Vérifier que l'utilisateur est membre
-	isMember, err := h.groupRepo.IsMember(groupID, claims.UserID)
+	// Vérifier que l'utilisateur est membre (user_id en DB est un email)
+	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
 	if err != nil || !isMember {
 		utils.RespondError(w, http.StatusForbidden, "Vous n'êtes pas membre de ce groupe")
 		return
@@ -708,24 +708,24 @@ func (h *ChatGroupHandler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Vérifier que l'utilisateur est membre
-	isMember, err := h.groupRepo.IsMember(groupID, claims.UserID)
+	// Vérifier que l'utilisateur est membre (user_id en DB est un email)
+	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
 	if err != nil || !isMember {
 		utils.RespondError(w, http.StatusForbidden, "Vous n'êtes pas membre de ce groupe")
 		return
 	}
 
 	// Marquer comme lu
-	if err := h.messageRepo.MarkAsRead(groupID, claims.UserID); err != nil {
+	if err := h.messageRepo.MarkAsRead(groupID, claims.Email); err != nil {
 		log.Printf("Erreur marquage comme lu: %v", err)
 		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
 		return
 	}
 
 	// Notifier les autres membres via WebSocket
-	h.broadcastMessagesRead(groupID, claims.UserID)
+	h.broadcastMessagesRead(groupID, claims.Email)
 
-	log.Printf("✓ Messages marqués comme lus dans le groupe %s par %s", groupID.Hex(), claims.UserID)
+	log.Printf("✓ Messages marqués comme lus dans le groupe %s par %s", groupID.Hex(), claims.Email)
 	utils.RespondSuccess(w, "Messages marqués comme lus", nil)
 }
 
