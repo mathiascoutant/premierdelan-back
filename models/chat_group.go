@@ -82,18 +82,6 @@ type SendGroupMessageRequest struct {
 	Content string `json:"content"`
 }
 
-// GroupWithDetails contient les détails enrichis d'un groupe
-type GroupWithDetails struct {
-	ID          primitive.ObjectID `json:"id"`
-	Name        string             `json:"name"`
-	CreatedBy   UserBasicInfo      `json:"created_by"`
-	MemberCount int                `json:"member_count"`
-	UnreadCount int                `json:"unread_count"`
-	LastMessage *MessagePreview    `json:"last_message,omitempty"`
-	IsAdmin     bool               `json:"is_admin"`
-	JoinedAt    time.Time          `json:"joined_at"`
-}
-
 // UserBasicInfo informations de base d'un utilisateur
 type UserBasicInfo struct {
 	ID        string `json:"id"`
@@ -124,6 +112,33 @@ type GroupBasicInfo struct {
 	Name        string             `json:"name"`
 	MemberCount int                `json:"member_count"`
 	CreatedBy   UserBasicInfo      `json:"created_by"`
+}
+
+// GroupWithDetails groupe avec tous les détails pour la liste
+type GroupWithDetails struct {
+	ID           string                 `json:"id"`
+	Name         string                 `json:"name"`
+	CreatedBy    GroupCreatorInfo       `json:"created_by"`
+	MemberCount  int                    `json:"member_count"`
+	UnreadCount  int                    `json:"unread_count"`
+	LastMessage  *GroupLastMessageInfo  `json:"last_message"`
+	CreatedAt    time.Time              `json:"created_at"`
+}
+
+// GroupCreatorInfo informations du créateur du groupe
+type GroupCreatorInfo struct {
+	ID        string `json:"id"`
+	Firstname string `json:"firstname"`
+	Lastname  string `json:"lastname"`
+	Email     string `json:"email"`
+}
+
+// GroupLastMessageInfo dernier message du groupe
+type GroupLastMessageInfo struct {
+	Content    string    `json:"content"`
+	SenderName string    `json:"sender_name"`
+	Timestamp  time.Time `json:"timestamp"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // GroupMemberWithDetails membre avec détails

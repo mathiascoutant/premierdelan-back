@@ -28,6 +28,11 @@ func NewChatGroupMessageRepository(db *mongo.Database) *ChatGroupMessageReposito
 	}
 }
 
+// Collection retourne la collection MongoDB (pour les requêtes externes)
+func (r *ChatGroupMessageRepository) Collection() *mongo.Collection {
+	return r.collection
+}
+
 // Create crée un nouveau message
 func (r *ChatGroupMessageRepository) Create(message *models.ChatGroupMessage) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

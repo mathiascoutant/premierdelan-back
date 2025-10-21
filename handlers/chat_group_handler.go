@@ -151,22 +151,12 @@ func (h *ChatGroupHandler) GetGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	groups, err := h.groupRepo.GetGroupsWithDetails(claims.UserID)
+	// Utiliser la nouvelle méthode qui retourne tout enrichi
+	groups, err := h.groupRepo.GetUserGroups(claims.Email, h.messageRepo.Collection())
 	if err != nil {
 		log.Printf("Erreur récupération groupes: %v", err)
 		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
 		return
-	}
-
-	// Enrichir avec les derniers messages et le compte non lu
-	for i := range groups {
-		// Dernier message
-		lastMsg, _ := h.messageRepo.GetLastMessageByGroup(groups[i].ID)
-		groups[i].LastMessage = lastMsg
-
-		// Messages non lus
-		unreadCount, _ := h.messageRepo.GetUnreadCount(groups[i].ID, claims.UserID)
-		groups[i].UnreadCount = unreadCount
 	}
 
 	utils.RespondSuccess(w, "Groupes récupérés", map[string]interface{}{

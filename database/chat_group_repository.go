@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // ChatGroupRepository gère les opérations sur les groupes de chat
@@ -340,18 +341,17 @@ func (r *ChatGroupRepository) GetGroupsWithDetails(userID string) ([]models.Grou
 		}
 
 		groups = append(groups, models.GroupWithDetails{
-			ID:   result.Group.ID,
+			ID:   result.Group.ID.Hex(),
 			Name: result.Group.Name,
-			CreatedBy: models.UserBasicInfo{
+			CreatedBy: models.GroupCreatorInfo{
 				ID:        result.Creator.Email,
 				Firstname: result.Creator.Firstname,
 				Lastname:  result.Creator.Lastname,
+				Email:     result.Creator.Email,
 			},
 			MemberCount: result.MemberCount,
-			UnreadCount: 0,   // TODO: Calculer avec read receipts
-			LastMessage: nil, // TODO: Récupérer le dernier message
-			IsAdmin:     result.Role == "admin",
-			JoinedAt:    result.JoinedAt,
+			UnreadCount: 0,
+			CreatedAt:   result.Group.CreatedAt,
 		})
 	}
 
@@ -395,4 +395,186 @@ func (r *ChatGroupRepository) Update(groupID primitive.ObjectID, updates bson.M)
 	}
 
 	return nil
+}
+
+// GetUserGroups récupère tous les groupes d'un utilisateur avec détails
+func (r *ChatGroupRepository) GetUserGroups(userEmail string, messagesCollection *mongo.Collection) ([]models.GroupWithDetails, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// 1. Trouver les groupes où l'utilisateur est membre
+	memberCursor, err := r.membersCollection.Find(ctx, bson.M{
+		"user_id": userEmail,
+		"status":  "active",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("erreur récupération membres: %w", err)
+	}
+	defer memberCursor.Close(ctx)
+
+	var groupIDs []primitive.ObjectID
+	for memberCursor.Next(ctx) {
+		var member models.ChatGroupMember
+		if err := memberCursor.Decode(&member); err != nil {
+			continue
+		}
+		groupIDs = append(groupIDs, member.GroupID)
+	}
+
+	if len(groupIDs) == 0 {
+		return []models.GroupWithDetails{}, nil
+	}
+
+	// 2. Pipeline d'agrégation pour récupérer tous les détails
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"_id":       bson.M{"$in": groupIDs},
+				"is_active": true,
+			},
+		},
+		// Joindre avec le créateur
+		{
+			"$lookup": bson.M{
+				"from":         "users",
+				"localField":   "created_by",
+				"foreignField": "email",
+				"as":           "creator",
+			},
+		},
+		{"$unwind": bson.M{"path": "$creator", "preserveNullAndEmptyArrays": true}},
+		// Compter les membres
+		{
+			"$lookup": bson.M{
+				"from":         "chat_group_members",
+				"localField":   "_id",
+				"foreignField": "group_id",
+				"pipeline": []bson.M{
+					{"$match": bson.M{"status": "active"}},
+				},
+				"as": "members",
+			},
+		},
+		{
+			"$addFields": bson.M{
+				"member_count": bson.M{"$size": "$members"},
+			},
+		},
+		{"$sort": bson.M{"created_at": -1}},
+	}
+
+	cursor, err := r.collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, fmt.Errorf("erreur agrégation groupes: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var groups []models.GroupWithDetails
+	for cursor.Next(ctx) {
+		var result struct {
+			ID          primitive.ObjectID `bson:"_id"`
+			Name        string             `bson:"name"`
+			CreatedBy   string             `bson:"created_by"`
+			CreatedAt   time.Time          `bson:"created_at"`
+			MemberCount int                `bson:"member_count"`
+			Creator     *models.User       `bson:"creator"`
+		}
+		if err := cursor.Decode(&result); err != nil {
+			continue
+		}
+
+		group := models.GroupWithDetails{
+			ID:          result.ID.Hex(),
+			Name:        result.Name,
+			MemberCount: result.MemberCount,
+			UnreadCount: 0,
+			CreatedAt:   result.CreatedAt,
+		}
+
+		// Infos du créateur
+		if result.Creator != nil {
+			group.CreatedBy = models.GroupCreatorInfo{
+				ID:        result.Creator.Email,
+				Firstname: result.Creator.Firstname,
+				Lastname:  result.Creator.Lastname,
+				Email:     result.Creator.Email,
+			}
+		} else {
+			group.CreatedBy = models.GroupCreatorInfo{
+				ID:        result.CreatedBy,
+				Firstname: "Inconnu",
+				Lastname:  "",
+				Email:     result.CreatedBy,
+			}
+		}
+
+		// Récupérer le dernier message
+		lastMessage, err := r.getLastGroupMessage(ctx, result.ID, messagesCollection)
+		if err == nil && lastMessage != nil {
+			group.LastMessage = lastMessage
+		}
+
+		// Compter les messages non lus
+		unreadCount, err := r.countUnreadMessages(ctx, result.ID, userEmail, messagesCollection)
+		if err == nil {
+			group.UnreadCount = unreadCount
+		}
+
+		groups = append(groups, group)
+	}
+
+	// Trier par dernier message (les plus récents en premier)
+	// Les groupes sans message restent triés par created_at
+	return groups, nil
+}
+
+// getLastGroupMessage récupère le dernier message d'un groupe
+func (r *ChatGroupRepository) getLastGroupMessage(ctx context.Context, groupID primitive.ObjectID, messagesCollection *mongo.Collection) (*models.GroupLastMessageInfo, error) {
+	var result struct {
+		Content   string             `bson:"content"`
+		SenderID  string             `bson:"sender_id"`
+		Timestamp time.Time          `bson:"timestamp"`
+		CreatedAt time.Time          `bson:"created_at"`
+	}
+
+	err := messagesCollection.FindOne(
+		ctx,
+		bson.M{"group_id": groupID},
+		options.FindOne().SetSort(bson.M{"created_at": -1}),
+	).Decode(&result)
+
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Récupérer le nom de l'expéditeur
+	var sender models.User
+	err = r.userCollection.FindOne(ctx, bson.M{"email": result.SenderID}).Decode(&sender)
+	senderName := "Inconnu"
+	if err == nil {
+		senderName = sender.Firstname + " " + sender.Lastname
+	}
+
+	return &models.GroupLastMessageInfo{
+		Content:    result.Content,
+		SenderName: senderName,
+		Timestamp:  result.Timestamp,
+		CreatedAt:  result.CreatedAt,
+	}, nil
+}
+
+// countUnreadMessages compte les messages non lus d'un groupe pour un utilisateur
+func (r *ChatGroupRepository) countUnreadMessages(ctx context.Context, groupID primitive.ObjectID, userEmail string, messagesCollection *mongo.Collection) (int, error) {
+	count, err := messagesCollection.CountDocuments(ctx, bson.M{
+		"group_id":  groupID,
+		"sender_id": bson.M{"$ne": userEmail},
+		"read_by":   bson.M{"$ne": userEmail},
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
 }
