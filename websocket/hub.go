@@ -113,14 +113,16 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 			log.Printf("👋 Client déconnecté: %s (total: %d)", client.UserID, len(h.connections))
 
-			// Mettre à jour last_seen dans la DB
-			if userObjID, err := primitive.ObjectIDFromHex(client.UserID); err == nil {
-				if h.userRepo != nil {
-					if err := h.userRepo.UpdateLastSeen(userObjID); err != nil {
+			// Mettre à jour last_seen dans la DB (userID est maintenant un email)
+			if h.userRepo != nil {
+				if user, err := h.userRepo.FindByEmail(client.UserID); err == nil && user != nil {
+					if err := h.userRepo.UpdateLastSeen(user.ID); err != nil {
 						log.Printf("❌ Erreur mise à jour last_seen: %v", err)
 					} else {
 						log.Printf("✅ last_seen mis à jour pour %s", client.UserID)
 					}
+				} else {
+					log.Printf("❌ Utilisateur non trouvé pour last_seen: %s", client.UserID)
 				}
 			}
 
@@ -265,13 +267,21 @@ func (h *Hub) notifyUserPresence(userID string, isOnline bool) {
 		return
 	}
 
+	// Récupérer last_seen depuis la DB
+	lastSeenStr := time.Now().Format(time.RFC3339)
+	if !isOnline && user.LastSeen != nil {
+		lastSeenStr = user.LastSeen.Format(time.RFC3339)
+	}
+
 	// Payload de présence
 	payload := map[string]interface{}{
 		"type":      "user_presence",
 		"user_id":   userID,
 		"is_online": isOnline,
-		"last_seen": time.Now(),
+		"last_seen": lastSeenStr, // ✅ Format ISO 8601 string
 	}
+
+	log.Printf("📦 Payload user_presence: %+v", payload)
 
 	// Envoyer à tous les autres participants (éviter doublons)
 	sentTo := make(map[string]bool)
