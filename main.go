@@ -227,7 +227,8 @@ func main() {
 	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.GetInscription).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/evenements/{event_id}/inscription/status", inscriptionHandler.GetInscription).Methods("GET", "OPTIONS") // Alias
 	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.UpdateInscription).Methods("PUT", "OPTIONS")
-	protected.HandleFunc("/evenements/{event_id}/desinscription", inscriptionHandler.DeleteInscription).Methods("DELETE", "OPTIONS")
+	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.DeleteInscription).Methods("DELETE", "OPTIONS")         // Alias REST
+	protected.HandleFunc("/evenements/{event_id}/desinscription", inscriptionHandler.DeleteInscription).Methods("DELETE", "OPTIONS") // Legacy
 	
 	// Route pour récupérer les événements auxquels l'utilisateur est inscrit
 	protected.HandleFunc("/mes-evenements", inscriptionHandler.GetMesEvenements).Methods("GET", "OPTIONS")
@@ -333,9 +334,10 @@ func main() {
 	log.Println("")
 	log.Println("   📝 Inscriptions aux événements (authentifié):")
 	log.Println("   POST   /api/evenements/{id}/inscription    - S'inscrire")
-	log.Println("   GET    /api/evenements/{id}/inscription    - Voir son inscription")
-	log.Println("   PUT    /api/evenements/{id}/inscription    - Modifier inscription")
-	log.Println("   DELETE /api/evenements/{id}/desinscription - Se désinscrire")
+	log.Println("   GET    /api/evenements/{id}/inscription       - Voir son inscription")
+	log.Println("   PUT    /api/evenements/{id}/inscription       - Modifier inscription")
+	log.Println("   DELETE /api/evenements/{id}/inscription       - Se désinscrire (REST)")
+	log.Println("   DELETE /api/evenements/{id}/desinscription    - Se désinscrire (legacy)")
 	log.Println("   GET    /api/mes-evenements                 - Mes événements inscrits")
 	log.Println("")
 	log.Println("   📸 Galerie médias :")
