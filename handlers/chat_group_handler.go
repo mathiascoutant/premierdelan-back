@@ -151,6 +151,8 @@ func (h *ChatGroupHandler) GetGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("🔍 GetGroups appelé par: Email=%s, UserID=%s", claims.Email, claims.UserID)
+
 	// Utiliser la nouvelle méthode qui retourne tout enrichi
 	groups, err := h.groupRepo.GetUserGroups(claims.Email, h.messageRepo.Collection())
 	if err != nil {
