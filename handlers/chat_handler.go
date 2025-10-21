@@ -405,10 +405,16 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 		// Envoyer à chaque participant de la conversation
 		for _, participant := range conversation.Participants {
-			participantID := participant.UserID.Hex()
-			if participantID != userID.Hex() { // Ne pas renvoyer à l'expéditeur
-				log.Printf("📤 Envoi WS au participant: %s", participantID)
-				h.wsHub.SendToUser(participantID, payload)
+			if participant.UserID != userID { // Ne pas renvoyer à l'expéditeur
+				// ⚠️  IMPORTANT: Utiliser EMAIL, pas ObjectID !
+				// Récupérer l'email du participant depuis la DB
+				if participantUser, err := h.userRepo.FindByID(participant.UserID); err == nil && participantUser != nil {
+					participantEmail := participantUser.Email
+					log.Printf("📤 Envoi WS new_message à %s (email: %s)", participant.UserID.Hex(), participantEmail)
+					h.wsHub.SendToUser(participantEmail, payload)
+				} else {
+					log.Printf("❌ Participant introuvable: %s", participant.UserID.Hex())
+				}
 			}
 		}
 
