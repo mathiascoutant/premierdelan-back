@@ -193,10 +193,10 @@ func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Vérifier que l'utilisateur est admin du groupe (user_id en DB est un email)
-	isAdmin, err := h.groupRepo.IsAdmin(groupID, claims.Email)
-	if err != nil || !isAdmin {
-		utils.RespondError(w, http.StatusForbidden, "Seuls les admins peuvent inviter")
+	// Vérifier que l'utilisateur est membre du groupe (tous les membres peuvent inviter)
+	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
+	if err != nil || !isMember {
+		utils.RespondError(w, http.StatusForbidden, "Seuls les membres peuvent inviter")
 		return
 	}
 
@@ -215,8 +215,8 @@ func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Vérifier que l'utilisateur n'est pas déjà membre
-	isMember, _ := h.groupRepo.IsMember(groupID, req.UserID)
-	if isMember {
+	isAlreadyMember, _ := h.groupRepo.IsMember(groupID, req.UserID)
+	if isAlreadyMember {
 		utils.RespondError(w, http.StatusConflict, "Cet utilisateur est déjà membre")
 		return
 	}
@@ -228,10 +228,10 @@ func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Créer l'invitation
+	// Créer l'invitation (invited_by en DB est un email)
 	invitation := &models.ChatGroupInvitation{
 		GroupID:     groupID,
-		InvitedBy:   claims.UserID,
+		InvitedBy:   claims.Email,
 		InvitedUser: req.UserID,
 		Message:     req.Message,
 	}
@@ -246,13 +246,9 @@ func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request)
 	h.sendGroupInvitationNotification(group, invitation, user)
 	h.sendGroupInvitationFCM(group, user)
 
-	log.Printf("✓ Invitation envoyée: %s -> %s (groupe: %s)", claims.UserID, req.UserID, group.Name)
+	log.Printf("✓ Invitation envoyée: %s -> %s (groupe: %s)", claims.Email, req.UserID, group.Name)
 	utils.RespondSuccess(w, "Invitation envoyée", map[string]interface{}{
-		"id":           invitation.ID.Hex(),
-		"group_id":     groupID.Hex(),
-		"invited_user": req.UserID,
-		"status":       invitation.Status,
-		"invited_at":   invitation.InvitedAt,
+		"invitation_id": invitation.ID.Hex(),
 	})
 }
 
