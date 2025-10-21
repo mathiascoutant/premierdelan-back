@@ -539,9 +539,9 @@ func (h *ChatGroupHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	payloadBytes, _ := json.Marshal(payload)
+	// Envoyer à tous les membres (JSON direct)
 	for _, member := range members {
-		h.wsHub.BroadcastToUser(member.Email, payloadBytes)
+		h.wsHub.SendToUser(member.Email, payload)
 	}
 
 	log.Printf("✓ %s a quitté le groupe %s", claims.Email, group.Name)

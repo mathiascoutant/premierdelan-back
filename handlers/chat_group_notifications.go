@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"premier-an-backend/models"
@@ -51,9 +50,8 @@ func (h *ChatGroupHandler) sendGroupInvitationNotification(group *models.ChatGro
 		},
 	}
 
-	// Envoyer via WebSocket
-	payloadBytes, _ := json.Marshal(payload)
-	h.wsHub.BroadcastToUser(invitation.InvitedUser, payloadBytes)
+	// Envoyer via WebSocket (JSON direct)
+	h.wsHub.SendToUser(invitation.InvitedUser, payload)
 
 	log.Printf("📨 Notification WebSocket envoyée: group_invitation à %s", invitation.InvitedUser)
 }
@@ -104,8 +102,7 @@ func (h *ChatGroupHandler) notifyInvitationAccepted(invitation *models.ChatGroup
 		"accepted_at": invitation.RespondedAt,
 	}
 
-	payloadBytes, _ := json.Marshal(payload)
-	h.wsHub.BroadcastToUser(invitation.InvitedBy, payloadBytes)
+	h.wsHub.SendToUser(invitation.InvitedBy, payload)
 
 	log.Printf("📨 Notification: invitation acceptée par %s (groupe: %s)", user.Email, group.Name)
 }
@@ -123,8 +120,7 @@ func (h *ChatGroupHandler) notifyInvitationRejected(invitation *models.ChatGroup
 		"rejected_at": invitation.RespondedAt,
 	}
 
-	payloadBytes, _ := json.Marshal(payload)
-	h.wsHub.BroadcastToUser(invitation.InvitedBy, payloadBytes)
+	h.wsHub.SendToUser(invitation.InvitedBy, payload)
 
 	log.Printf("📨 Notification: invitation refusée par %s (groupe: %s)", user.Email, group.Name)
 }
@@ -155,11 +151,9 @@ func (h *ChatGroupHandler) broadcastMemberJoined(group *models.ChatGroup, user *
 		},
 	}
 
-	payloadBytes, _ := json.Marshal(payload)
-
-	// Envoyer à tous les membres
+	// Envoyer à tous les membres (JSON direct)
 	for _, member := range members {
-		h.wsHub.BroadcastToUser(member.ID, payloadBytes)
+		h.wsHub.SendToUser(member.ID, payload)
 	}
 
 	log.Printf("📨 Notification diffusée: member_joined dans groupe %s", group.Name)
@@ -180,12 +174,10 @@ func (h *ChatGroupHandler) broadcastGroupMessage(groupID primitive.ObjectID, mes
 		"message":  message,
 	}
 
-	payloadBytes, _ := json.Marshal(payload)
-
-	// Envoyer à tous les membres sauf l'expéditeur
+	// Envoyer à tous les membres sauf l'expéditeur (JSON direct)
 	for _, member := range members {
 		if member.ID != message.SenderID {
-			h.wsHub.BroadcastToUser(member.ID, payloadBytes)
+			h.wsHub.SendToUser(member.ID, payload)
 		}
 	}
 
@@ -257,12 +249,10 @@ func (h *ChatGroupHandler) broadcastMessagesRead(groupID primitive.ObjectID, use
 		"read_at":  models.FlexibleTime{},
 	}
 
-	payloadBytes, _ := json.Marshal(payload)
-
-	// Envoyer à tous les membres sauf celui qui a lu
+	// Envoyer à tous les membres sauf celui qui a lu (JSON direct)
 	for _, member := range members {
 		if member.ID != userID {
-			h.wsHub.BroadcastToUser(member.ID, payloadBytes)
+			h.wsHub.SendToUser(member.ID, payload)
 		}
 	}
 }
