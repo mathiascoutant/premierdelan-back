@@ -568,10 +568,10 @@ func (h *ChatGroupHandler) GetGroupPendingInvitations(w http.ResponseWriter, r *
 		return
 	}
 
-	// Vérifier que l'utilisateur est admin
-	isAdmin, err := h.groupRepo.IsAdmin(groupID, claims.UserID)
-	if err != nil || !isAdmin {
-		utils.RespondError(w, http.StatusForbidden, "Seuls les admins peuvent voir les invitations")
+	// Vérifier que l'utilisateur est membre (tous les membres peuvent voir les invitations)
+	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
+	if err != nil || !isMember {
+		utils.RespondError(w, http.StatusForbidden, "Seuls les membres peuvent voir les invitations")
 		return
 	}
 
