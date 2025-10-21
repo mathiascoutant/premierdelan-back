@@ -575,13 +575,38 @@ func (r *ChatGroupRepository) getLastGroupMessage(ctx context.Context, groupID p
 
 // countUnreadMessages compte les messages non lus d'un groupe pour un utilisateur
 func (r *ChatGroupRepository) countUnreadMessages(ctx context.Context, groupID primitive.ObjectID, userEmail string, messagesCollection *mongo.Collection) (int, error) {
-	count, err := messagesCollection.CountDocuments(ctx, bson.M{
-		"group_id":  groupID,
-		"sender_id": bson.M{"$ne": userEmail},
-		"read_by":   bson.M{"$ne": userEmail},
-	})
+	// Utiliser un pipeline d'agrégation pour vérifier correctement si userEmail est dans le tableau read_by
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"group_id":  groupID,
+				"sender_id": bson.M{"$ne": userEmail},
+			},
+		},
+		{
+			"$match": bson.M{
+				"$expr": bson.M{
+					"$not": bson.M{
+						"$in": []interface{}{userEmail, bson.M{"$ifNull": []interface{}{"$read_by", []string{}}}},
+					},
+				},
+			},
+		},
+		{"$count": "total"},
+	}
+
+	cursor, err := messagesCollection.Aggregate(ctx, pipeline)
 	if err != nil {
 		return 0, err
 	}
-	return int(count), nil
+	defer cursor.Close(ctx)
+
+	var result struct {
+		Total int `bson:"total"`
+	}
+	if cursor.Next(ctx) {
+		cursor.Decode(&result)
+	}
+
+	return result.Total, nil
 }
