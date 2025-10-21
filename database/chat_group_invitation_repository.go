@@ -84,38 +84,26 @@ func (r *ChatGroupInvitationRepository) FindPendingByUser(userID string) ([]mode
 			},
 		},
 		{"$unwind": "$group"},
-		// Convertir group.created_by en ObjectID pour le lookup
-		{
-			"$addFields": bson.M{
-				"group.created_by_oid": bson.M{"$toObjectId": "$group.created_by"},
-			},
-		},
-		// Joindre avec le créateur du groupe
+		// Joindre avec le créateur du groupe (group.created_by est un email)
 		{
 			"$lookup": bson.M{
 				"from":         "users",
-				"localField":   "group.created_by_oid",
-				"foreignField": "_id",
+				"localField":   "group.created_by",
+				"foreignField": "email",
 				"as":           "group_creator",
 			},
 		},
-		{"$unwind": "$group_creator"},
-		// Convertir invited_by en ObjectID pour le lookup
-		{
-			"$addFields": bson.M{
-				"invited_by_oid": bson.M{"$toObjectId": "$invited_by"},
-			},
-		},
-		// Joindre avec l'utilisateur qui a invité
+		{"$unwind": bson.M{"path": "$group_creator", "preserveNullAndEmptyArrays": true}},
+		// Joindre avec l'utilisateur qui a invité (invited_by est un email)
 		{
 			"$lookup": bson.M{
 				"from":         "users",
-				"localField":   "invited_by_oid",
-				"foreignField": "_id",
+				"localField":   "invited_by",
+				"foreignField": "email",
 				"as":           "inviter",
 			},
 		},
-		{"$unwind": "$inviter"},
+		{"$unwind": bson.M{"path": "$inviter", "preserveNullAndEmptyArrays": true}},
 		// Compter les membres
 		{
 			"$lookup": bson.M{
@@ -203,22 +191,16 @@ func (r *ChatGroupInvitationRepository) FindPendingByGroup(groupID primitive.Obj
 			},
 		},
 		{"$unwind": "$user"},
-		// Convertir invited_by en ObjectID pour le lookup
-		{
-			"$addFields": bson.M{
-				"invited_by_oid": bson.M{"$toObjectId": "$invited_by"},
-			},
-		},
-		// Joindre avec l'utilisateur qui a invité
+		// Joindre avec l'utilisateur qui a invité (invited_by est un email)
 		{
 			"$lookup": bson.M{
 				"from":         "users",
-				"localField":   "invited_by_oid",
-				"foreignField": "_id",
+				"localField":   "invited_by",
+				"foreignField": "email",
 				"as":           "inviter",
 			},
 		},
-		{"$unwind": "$inviter"},
+		{"$unwind": bson.M{"path": "$inviter", "preserveNullAndEmptyArrays": true}},
 		{"$sort": bson.M{"invited_at": -1}},
 	}
 
