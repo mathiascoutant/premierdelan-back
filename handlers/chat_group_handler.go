@@ -455,9 +455,101 @@ func (h *ChatGroupHandler) GetGroupMembers(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// ✅ Ajouter is_online pour chaque membre
+	for i := range members {
+		if h.wsHub != nil {
+			members[i].IsOnline = h.wsHub.IsUserOnline(members[i].Email)
+		}
+	}
+
 	utils.RespondSuccess(w, "Membres récupérés", map[string]interface{}{
 		"members": members,
 	})
+}
+
+// LeaveGroup permet à un utilisateur de quitter un groupe
+func (h *ChatGroupHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		return
+	}
+
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		return
+	}
+
+	vars := mux.Vars(r)
+	groupID, err := primitive.ObjectIDFromHex(vars["group_id"])
+	if err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "ID de groupe invalide")
+		return
+	}
+
+	// Vérifier que l'utilisateur est membre (user_id en DB est un email)
+	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
+	if err != nil || !isMember {
+		utils.RespondError(w, http.StatusForbidden, "Vous n'êtes pas membre de ce groupe")
+		return
+	}
+
+	// Récupérer le groupe
+	group, err := h.groupRepo.FindByID(groupID)
+	if err != nil || group == nil {
+		utils.RespondError(w, http.StatusNotFound, "Groupe non trouvé")
+		return
+	}
+
+	// Récupérer l'utilisateur
+	user, _ := h.userRepo.FindByEmail(claims.Email)
+	userName := "Un membre"
+	if user != nil {
+		userName = user.Firstname + " " + user.Lastname
+	}
+
+	// Retirer l'utilisateur du groupe
+	if err := h.groupRepo.RemoveMember(groupID, claims.Email); err != nil {
+		log.Printf("Erreur suppression membre: %v", err)
+		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		return
+	}
+
+	// Créer un message système
+	systemMessage := &models.ChatGroupMessage{
+		GroupID:     groupID,
+		SenderID:    "system",
+		Content:     fmt.Sprintf("%s a quitté le groupe", userName),
+		MessageType: "system",
+	}
+
+	if err := h.messageRepo.Create(systemMessage); err != nil {
+		log.Printf("Erreur création message système: %v", err)
+	}
+
+	// Notifier les autres membres via WebSocket
+	members, _ := h.groupRepo.GetMembers(groupID)
+	payload := map[string]interface{}{
+		"type":      "group_member_left",
+		"group_id":  groupID.Hex(),
+		"user_id":   claims.Email,
+		"user_name": userName,
+		"message": map[string]interface{}{
+			"id":           systemMessage.ID.Hex(),
+			"sender_id":    "system",
+			"content":      systemMessage.Content,
+			"message_type": "system",
+			"created_at":   systemMessage.CreatedAt,
+		},
+	}
+
+	payloadBytes, _ := json.Marshal(payload)
+	for _, member := range members {
+		h.wsHub.BroadcastToUser(member.Email, payloadBytes)
+	}
+
+	log.Printf("✓ %s a quitté le groupe %s", claims.Email, group.Name)
+	utils.RespondSuccess(w, "Vous avez quitté le groupe", nil)
 }
 
 // GetGroupPendingInvitations récupère les invitations en attente d'un groupe (admin seulement)
