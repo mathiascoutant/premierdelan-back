@@ -650,12 +650,22 @@ func (h *ChatGroupHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("🔍 GetMessages: groupID=%s, userEmail=%s", groupID.Hex(), claims.Email)
+
 	// Vérifier que l'utilisateur est membre (user_id en DB est un email)
 	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
-	if err != nil || !isMember {
+	if err != nil {
+		log.Printf("❌ Erreur IsMember: %v", err)
+		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		return
+	}
+	if !isMember {
+		log.Printf("❌ User %s n'est PAS membre du groupe %s", claims.Email, groupID.Hex())
 		utils.RespondError(w, http.StatusForbidden, "Vous n'êtes pas membre de ce groupe")
 		return
 	}
+
+	log.Printf("✅ User %s est membre du groupe %s", claims.Email, groupID.Hex())
 
 	// Paramètres de pagination
 	limitStr := r.URL.Query().Get("limit")
@@ -675,13 +685,17 @@ func (h *ChatGroupHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	log.Printf("📨 Récupération messages: limit=%d, before=%v", limit, before)
+
 	// Récupérer les messages
 	messages, err := h.messageRepo.FindByGroupID(groupID, limit, before)
 	if err != nil {
-		log.Printf("Erreur récupération messages: %v", err)
+		log.Printf("❌ Erreur récupération messages: %v", err)
 		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
 		return
 	}
+
+	log.Printf("✅ Messages récupérés: %d", len(messages))
 
 	utils.RespondSuccess(w, "Messages récupérés", map[string]interface{}{
 		"messages": messages,
