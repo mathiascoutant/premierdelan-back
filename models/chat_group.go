@@ -44,7 +44,10 @@ type ChatGroupMessage struct {
 	SenderID    string             `json:"sender_id" bson:"sender_id"`
 	Content     string             `json:"content" bson:"content"`
 	MessageType string             `json:"message_type" bson:"message_type"` // "message" ou "system"
+	Timestamp   time.Time          `json:"timestamp" bson:"timestamp"`
 	CreatedAt   time.Time          `json:"created_at" bson:"created_at"`
+	DeliveredAt *time.Time         `json:"delivered_at,omitempty" bson:"delivered_at,omitempty"`
+	ReadBy      []string           `json:"read_by" bson:"read_by"` // Liste d'emails qui ont lu
 }
 
 // ChatGroupReadReceipt représente le statut de lecture d'un utilisateur dans un groupe
@@ -160,7 +163,10 @@ type GroupMessageWithSender struct {
 	Sender      *UserBasicInfo     `json:"sender,omitempty"`
 	Content     string             `json:"content"`
 	MessageType string             `json:"message_type"`
+	Timestamp   time.Time          `json:"timestamp"`
 	CreatedAt   time.Time          `json:"created_at"`
+	DeliveredAt *time.Time         `json:"delivered_at,omitempty"`
+	ReadBy      []string           `json:"read_by"`
 }
 
 // PendingInvitationWithUser invitation en attente avec infos utilisateur

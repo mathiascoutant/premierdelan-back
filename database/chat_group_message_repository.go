@@ -39,10 +39,21 @@ func (r *ChatGroupMessageRepository) Create(message *models.ChatGroupMessage) er
 	defer cancel()
 
 	message.ID = primitive.NewObjectID()
-	message.CreatedAt = time.Now()
+	now := time.Now()
+	message.CreatedAt = now
+	message.Timestamp = now
+	message.DeliveredAt = &now
 
 	if message.MessageType == "" {
 		message.MessageType = "message"
+	}
+
+	// ✅ L'expéditeur a automatiquement "lu" son propre message
+	if message.ReadBy == nil {
+		message.ReadBy = []string{}
+	}
+	if message.SenderID != "system" {
+		message.ReadBy = append(message.ReadBy, message.SenderID)
 	}
 
 	_, err := r.collection.InsertOne(ctx, message)
@@ -106,7 +117,10 @@ func (r *ChatGroupMessageRepository) FindByGroupID(groupID primitive.ObjectID, l
 			SenderID    string             `bson:"sender_id"`
 			Content     string             `bson:"content"`
 			MessageType string             `bson:"message_type"`
+			Timestamp   time.Time          `bson:"timestamp"`
 			CreatedAt   time.Time          `bson:"created_at"`
+			DeliveredAt *time.Time         `bson:"delivered_at"`
+			ReadBy      []string           `bson:"read_by"`
 			Sender      []models.User      `bson:"sender"`
 		}
 		if err := cursor.Decode(&result); err != nil {
@@ -118,7 +132,10 @@ func (r *ChatGroupMessageRepository) FindByGroupID(groupID primitive.ObjectID, l
 			SenderID:    result.SenderID,
 			Content:     result.Content,
 			MessageType: result.MessageType,
+			Timestamp:   result.Timestamp,
 			CreatedAt:   result.CreatedAt,
+			DeliveredAt: result.DeliveredAt,
+			ReadBy:      result.ReadBy,
 		}
 
 		// Ajouter les infos de l'expéditeur si ce n'est pas un message système

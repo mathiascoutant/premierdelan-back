@@ -599,14 +599,17 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Récupérer les infos de l'expéditeur
-	sender, _ := h.userRepo.FindByEmail(claims.UserID)
+	sender, _ := h.userRepo.FindByEmail(claims.Email)
 
 	messageWithSender := models.GroupMessageWithSender{
 		ID:          message.ID,
 		SenderID:    message.SenderID,
 		Content:     message.Content,
 		MessageType: message.MessageType,
+		Timestamp:   message.Timestamp,
 		CreatedAt:   message.CreatedAt,
+		DeliveredAt: message.DeliveredAt,
+		ReadBy:      message.ReadBy,
 	}
 
 	if sender != nil {
@@ -626,7 +629,7 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		h.sendGroupMessageFCM(group, sender, message)
 	}
 
-	log.Printf("✓ Message envoyé dans le groupe %s par %s", groupID.Hex(), claims.UserID)
+	log.Printf("✓ Message envoyé dans le groupe %s par %s", groupID.Hex(), claims.Email)
 	utils.RespondSuccess(w, "Message envoyé", messageWithSender)
 }
 
