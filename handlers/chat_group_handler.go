@@ -277,7 +277,8 @@ func (h *ChatGroupHandler) GetPendingInvitations(w http.ResponseWriter, r *http.
 		return
 	}
 
-	invitations, err := h.invitationRepo.FindPendingByUser(claims.UserID)
+	// ✅ Utiliser l'email au lieu de l'ID (invited_user est un email dans la DB)
+	invitations, err := h.invitationRepo.FindPendingByUser(claims.Email)
 	if err != nil {
 		log.Printf("Erreur récupération invitations: %v", err)
 		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
