@@ -78,9 +78,10 @@ func (h *MediaHandler) GetMedias(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	utils.RespondSuccess(w, "", map[string]interface{}{
-		"photos": medias, // Alias "photos" pour compatibilité frontend
-		"medias": medias, // Gardé pour rétrocompatibilité
+	// Réponse conforme à la spécification (pas de wrapper "data")
+	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"photos":  medias,
 	})
 }
 

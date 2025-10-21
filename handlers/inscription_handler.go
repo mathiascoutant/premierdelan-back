@@ -169,14 +169,11 @@ func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Re
 	// Notifier les admins
 	go h.notifyAdminsNewInscription(req.UserEmail, event, req.NombrePersonnes)
 
-	utils.RespondSuccess(w, "Inscription confirmée", map[string]interface{}{
+	// Réponse conforme à la spécification (pas de wrapper "data")
+	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":        true,
+		"message":        "Inscription confirmée",
 		"inscription_id": inscription.ID.Hex(),
-		"inscription":    inscription,
-		"evenement": map[string]interface{}{
-			"id":       event.ID.Hex(),
-			"titre":    event.Titre,
-			"inscrits": event.Inscrits,
-		},
 	})
 }
 
@@ -215,16 +212,18 @@ func (h *InscriptionHandler) GetInscription(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Réponse conforme à la spécification (pas de wrapper "data")
 	if inscription == nil {
-		utils.RespondSuccess(w, "", map[string]interface{}{
-			"is_registered": false,
+		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+			"success":     true,
+			"inscription": nil,
 		})
 		return
 	}
 
-	utils.RespondSuccess(w, "", map[string]interface{}{
-		"is_registered": true,
-		"inscription":   inscription,
+	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":     true,
+		"inscription": inscription,
 	})
 }
 
@@ -836,7 +835,9 @@ func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Req
 		inscriptionsData = []map[string]interface{}{}
 	}
 
-	utils.RespondSuccess(w, "", map[string]interface{}{
+	// Réponse conforme à la spécification (pas de wrapper "data")
+	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":      true,
 		"inscriptions": inscriptionsData,
 	})
 }

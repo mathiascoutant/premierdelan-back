@@ -77,7 +77,9 @@ func (h *EventHandler) GetPublicEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.RespondSuccess(w, "", map[string]interface{}{
+	// Réponse conforme à la spécification (pas de wrapper "data")
+	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":   true,
 		"evenement": event,
 	})
 }
