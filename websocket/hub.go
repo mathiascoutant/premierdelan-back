@@ -85,6 +85,9 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 			log.Printf("🔌 Client connecté: %s (total: %d)", client.UserID, len(h.connections))
 
+			// 🔌 Auto-joindre toutes les conversations de l'utilisateur
+			go h.autoJoinUserConversations(client.UserID)
+
 			// 🔌 Envoyer événement user_presence à tous les contacts
 			go h.notifyUserPresence(client.UserID, true)
 
@@ -284,17 +287,57 @@ func (h *Hub) notifyUserPresence(userID string, isOnline bool) {
 	log.Printf("📦 Payload user_presence: %+v", payload)
 
 	// Envoyer à tous les autres participants (éviter doublons)
+	// ⚠️  IMPORTANT: Utiliser EMAIL, pas ObjectID !
 	sentTo := make(map[string]bool)
 	for _, conv := range conversations {
-		otherUserID := conv.Participant.ID
-		if otherUserID != userID && !sentTo[otherUserID] {
-			h.SendToUser(otherUserID, payload)
-			sentTo[otherUserID] = true
-			log.Printf("📤 Présence envoyée à %s", otherUserID)
+		otherUserEmail := conv.Participant.Email // ✅ Utiliser Email au lieu de ID (ObjectID)
+		if otherUserEmail != userID && !sentTo[otherUserEmail] {
+			h.SendToUser(otherUserEmail, payload)
+			sentTo[otherUserEmail] = true
+			log.Printf("📤 Présence envoyée à %s", otherUserEmail)
 		}
 	}
 
 	log.Printf("✅ Présence notifiée à %d contacts", len(sentTo))
+}
+
+// autoJoinUserConversations ajoute automatiquement l'utilisateur à toutes ses conversations
+func (h *Hub) autoJoinUserConversations(userID string) {
+	if h.chatRepo == nil {
+		log.Printf("⚠️  chatRepo nil - auto-join impossible")
+		return
+	}
+
+	log.Printf("🔄 Auto-join conversations pour %s", userID)
+
+	// Récupérer l'utilisateur par email
+	user, err := h.userRepo.FindByEmail(userID)
+	if err != nil || user == nil {
+		log.Printf("❌ Utilisateur invalide pour auto-join: %s", userID)
+		return
+	}
+	userObjID := user.ID
+
+	// Récupérer toutes les conversations de cet utilisateur
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conversations, err := h.chatRepo.GetConversations(ctx, userObjID)
+	if err != nil {
+		log.Printf("❌ Erreur récupération conversations pour auto-join: %v", err)
+		return
+	}
+
+	// Joindre chaque conversation
+	joinedCount := 0
+	for _, conv := range conversations {
+		if conv.ID != "" {
+			h.JoinConversation(userID, conv.ID)
+			joinedCount++
+		}
+	}
+
+	log.Printf("✅ Auto-join terminé: %d conversations rejointes", joinedCount)
 }
 
 // HandleTyping gère l'événement "typing" et l'envoie aux autres participants
