@@ -84,22 +84,34 @@ func (r *ChatGroupInvitationRepository) FindPendingByUser(userID string) ([]mode
 			},
 		},
 		{"$unwind": "$group"},
+		// Convertir group.created_by en ObjectID pour le lookup
+		{
+			"$addFields": bson.M{
+				"group.created_by_oid": bson.M{"$toObjectId": "$group.created_by"},
+			},
+		},
 		// Joindre avec le créateur du groupe
 		{
 			"$lookup": bson.M{
 				"from":         "users",
-				"localField":   "group.created_by",
-				"foreignField": "email",
+				"localField":   "group.created_by_oid",
+				"foreignField": "_id",
 				"as":           "group_creator",
 			},
 		},
 		{"$unwind": "$group_creator"},
+		// Convertir invited_by en ObjectID pour le lookup
+		{
+			"$addFields": bson.M{
+				"invited_by_oid": bson.M{"$toObjectId": "$invited_by"},
+			},
+		},
 		// Joindre avec l'utilisateur qui a invité
 		{
 			"$lookup": bson.M{
 				"from":         "users",
-				"localField":   "invited_by",
-				"foreignField": "email",
+				"localField":   "invited_by_oid",
+				"foreignField": "_id",
 				"as":           "inviter",
 			},
 		},
@@ -191,12 +203,18 @@ func (r *ChatGroupInvitationRepository) FindPendingByGroup(groupID primitive.Obj
 			},
 		},
 		{"$unwind": "$user"},
+		// Convertir invited_by en ObjectID pour le lookup
+		{
+			"$addFields": bson.M{
+				"invited_by_oid": bson.M{"$toObjectId": "$invited_by"},
+			},
+		},
 		// Joindre avec l'utilisateur qui a invité
 		{
 			"$lookup": bson.M{
 				"from":         "users",
-				"localField":   "invited_by",
-				"foreignField": "email",
+				"localField":   "invited_by_oid",
+				"foreignField": "_id",
 				"as":           "inviter",
 			},
 		},
