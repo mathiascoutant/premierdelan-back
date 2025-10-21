@@ -402,10 +402,15 @@ func (r *ChatGroupRepository) GetUserGroups(userEmail string, messagesCollection
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
+	log := func(msg string, args ...interface{}) {
+		fmt.Printf("[GetUserGroups] "+msg+"\n", args...)
+	}
+
+	log("Recherche groupes pour: %s", userEmail)
+
 	// 1. Trouver les groupes où l'utilisateur est membre
 	memberCursor, err := r.membersCollection.Find(ctx, bson.M{
 		"user_id": userEmail,
-		"status":  "active",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("erreur récupération membres: %w", err)
@@ -416,12 +421,17 @@ func (r *ChatGroupRepository) GetUserGroups(userEmail string, messagesCollection
 	for memberCursor.Next(ctx) {
 		var member models.ChatGroupMember
 		if err := memberCursor.Decode(&member); err != nil {
+			log("Erreur décodage membre: %v", err)
 			continue
 		}
+		log("Membre trouvé: GroupID=%s, Role=%s", member.GroupID.Hex(), member.Role)
 		groupIDs = append(groupIDs, member.GroupID)
 	}
 
+	log("Total groupes trouvés: %d", len(groupIDs))
+
 	if len(groupIDs) == 0 {
+		log("Aucun groupe trouvé pour cet utilisateur")
 		return []models.GroupWithDetails{}, nil
 	}
 
@@ -449,10 +459,7 @@ func (r *ChatGroupRepository) GetUserGroups(userEmail string, messagesCollection
 				"from":         "chat_group_members",
 				"localField":   "_id",
 				"foreignField": "group_id",
-				"pipeline": []bson.M{
-					{"$match": bson.M{"status": "active"}},
-				},
-				"as": "members",
+				"as":           "members",
 			},
 		},
 		{
