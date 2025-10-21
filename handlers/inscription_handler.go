@@ -792,8 +792,8 @@ func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Construire la liste des événements avec les détails d'inscription
-	var evenements []EventWithInscription
+	// Construire la liste des inscriptions avec les détails de l'événement
+	var inscriptionsData []map[string]interface{}
 
 	for _, inscription := range inscriptions {
 		// Récupérer l'événement
@@ -807,25 +807,31 @@ func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Req
 			continue // Événement supprimé
 		}
 
-		// Construire la réponse avec les détails de l'inscription
-		eventWithInscription := EventWithInscription{
-			Event: *event,
-			UserInscription: &InscriptionDetails{
-				ID:              inscription.ID.Hex(),
-				NombrePersonnes: inscription.NombrePersonnes,
-				CreatedAt:       inscription.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		// Construire la réponse avec inscription + event
+		inscriptionsData = append(inscriptionsData, map[string]interface{}{
+			"id":               inscription.ID.Hex(),
+			"event_id":         inscription.EventID.Hex(),
+			"user_email":       inscription.UserEmail,
+			"nombre_personnes": inscription.NombrePersonnes,
+			"accompagnants":    inscription.Accompagnants,
+			"status":           "confirmed",
+			"registered_at":    inscription.CreatedAt,
+			"event": map[string]interface{}{
+				"id":          event.ID.Hex(),
+				"titre":       event.Titre,
+				"date":        event.Date,
+				"lieu":        event.Lieu,
+				"description": event.Description,
 			},
-		}
-
-		evenements = append(evenements, eventWithInscription)
+		})
 	}
 
 	// Si aucune inscription, retourner un tableau vide
-	if evenements == nil {
-		evenements = []EventWithInscription{}
+	if inscriptionsData == nil {
+		inscriptionsData = []map[string]interface{}{}
 	}
 
-	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"evenements": evenements,
+	utils.RespondSuccess(w, "", map[string]interface{}{
+		"inscriptions": inscriptionsData,
 	})
 }

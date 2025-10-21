@@ -230,6 +230,7 @@ func main() {
 	
 	// Route pour récupérer les événements auxquels l'utilisateur est inscrit
 	protected.HandleFunc("/mes-evenements", inscriptionHandler.GetMesEvenements).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/users/me/inscriptions", inscriptionHandler.GetMesEvenements).Methods("GET", "OPTIONS") // Alias
 
 	// Route thème global (protégée - admin uniquement)
 	protected.HandleFunc("/theme", themeHandler.SetGlobalTheme).Methods("POST", "OPTIONS")
