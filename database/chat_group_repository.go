@@ -516,15 +516,23 @@ func (r *ChatGroupRepository) GetUserGroups(userEmail string, messagesCollection
 		}
 
 		// Récupérer le dernier message
-		lastMessage, err := r.getLastGroupMessage(ctx, result.ID, messagesCollection)
+		lastMessage, lastMessageSenderID, err := r.getLastGroupMessage(ctx, result.ID, messagesCollection)
 		if err == nil && lastMessage != nil {
 			group.LastMessage = lastMessage
-		}
-
-		// Compter les messages non lus
-		unreadCount, err := r.countUnreadMessages(ctx, result.ID, userEmail, messagesCollection)
-		if err == nil {
-			group.UnreadCount = unreadCount
+			
+			// ✅ Si le dernier message est de l'utilisateur → pas de badge
+			if lastMessageSenderID == userEmail {
+				group.UnreadCount = 0
+			} else {
+				// Sinon, compter les messages non lus
+				unreadCount, err := r.countUnreadMessages(ctx, result.ID, userEmail, messagesCollection)
+				if err == nil {
+					group.UnreadCount = unreadCount
+				}
+			}
+		} else {
+			// Pas de dernier message → pas de badge
+			group.UnreadCount = 0
 		}
 
 		groups = append(groups, group)
@@ -535,8 +543,8 @@ func (r *ChatGroupRepository) GetUserGroups(userEmail string, messagesCollection
 	return groups, nil
 }
 
-// getLastGroupMessage récupère le dernier message d'un groupe
-func (r *ChatGroupRepository) getLastGroupMessage(ctx context.Context, groupID primitive.ObjectID, messagesCollection *mongo.Collection) (*models.GroupLastMessageInfo, error) {
+// getLastGroupMessage récupère le dernier message d'un groupe (et retourne aussi le sender_id)
+func (r *ChatGroupRepository) getLastGroupMessage(ctx context.Context, groupID primitive.ObjectID, messagesCollection *mongo.Collection) (*models.GroupLastMessageInfo, string, error) {
 	var result struct {
 		Content   string             `bson:"content"`
 		SenderID  string             `bson:"sender_id"`
@@ -551,10 +559,10 @@ func (r *ChatGroupRepository) getLastGroupMessage(ctx context.Context, groupID p
 	).Decode(&result)
 
 	if err == mongo.ErrNoDocuments {
-		return nil, nil
+		return nil, "", nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// Récupérer le nom de l'expéditeur
@@ -570,43 +578,20 @@ func (r *ChatGroupRepository) getLastGroupMessage(ctx context.Context, groupID p
 		SenderName: senderName,
 		Timestamp:  result.Timestamp,
 		CreatedAt:  result.CreatedAt,
-	}, nil
+	}, result.SenderID, nil
 }
 
-// countUnreadMessages compte les messages non lus d'un groupe pour un utilisateur
+// countUnreadMessages compte TOUS les messages non lus (pas envoyés par l'utilisateur)
+// La logique "dernier message de toi → 0" est gérée dans GetUserGroups
 func (r *ChatGroupRepository) countUnreadMessages(ctx context.Context, groupID primitive.ObjectID, userEmail string, messagesCollection *mongo.Collection) (int, error) {
-	// Utiliser un pipeline d'agrégation pour vérifier correctement si userEmail est dans le tableau read_by
-	pipeline := []bson.M{
-		{
-			"$match": bson.M{
-				"group_id":  groupID,
-				"sender_id": bson.M{"$ne": userEmail},
-			},
-		},
-		{
-			"$match": bson.M{
-				"$expr": bson.M{
-					"$not": bson.M{
-						"$in": []interface{}{userEmail, bson.M{"$ifNull": []interface{}{"$read_by", []string{}}}},
-					},
-				},
-			},
-		},
-		{"$count": "total"},
-	}
-
-	cursor, err := messagesCollection.Aggregate(ctx, pipeline)
+	// Compter simplement les messages pas envoyés par l'utilisateur
+	// (la vérification "dernier message de moi → 0" est faite avant l'appel)
+	count, err := messagesCollection.CountDocuments(ctx, bson.M{
+		"group_id":  groupID,
+		"sender_id": bson.M{"$ne": userEmail},
+	})
 	if err != nil {
 		return 0, err
 	}
-	defer cursor.Close(ctx)
-
-	var result struct {
-		Total int `bson:"total"`
-	}
-	if cursor.Next(ctx) {
-		cursor.Decode(&result)
-	}
-
-	return result.Total, nil
+	return int(count), nil
 }
