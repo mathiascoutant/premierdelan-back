@@ -195,11 +195,16 @@ func (h *InscriptionHandler) GetInscription(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Récupérer le user_email depuis les query params
+	// Récupérer le user_email depuis les query params OU depuis le JWT
 	userEmail := r.URL.Query().Get("user_email")
 	if userEmail == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Email utilisateur requis")
-		return
+		// Utiliser l'email du JWT si pas de query param
+		claims := middleware.GetUserFromContext(r.Context())
+		if claims == nil {
+			utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+			return
+		}
+		userEmail = claims.Email
 	}
 
 	// Chercher l'inscription

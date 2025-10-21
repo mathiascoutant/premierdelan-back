@@ -225,6 +225,7 @@ func main() {
 	// Routes d'inscription aux événements (protégées - authentification requise)
 	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.CreateInscription).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.GetInscription).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/evenements/{event_id}/inscription/status", inscriptionHandler.GetInscription).Methods("GET", "OPTIONS") // Alias
 	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.UpdateInscription).Methods("PUT", "OPTIONS")
 	protected.HandleFunc("/evenements/{event_id}/desinscription", inscriptionHandler.DeleteInscription).Methods("DELETE", "OPTIONS")
 	
