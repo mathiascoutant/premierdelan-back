@@ -176,13 +176,11 @@ func (h *ChatGroupHandler) broadcastGroupMessage(groupID primitive.ObjectID, mes
 		"message":  message,
 	}
 
-	// Envoyer à tous les membres sauf l'expéditeur (JSON direct)
+	// Envoyer à TOUS les membres (y compris l'expéditeur) pour affichage correct
 	// ✅ member.ID est maintenant l'email (corrigé dans GetMembers)
 	for _, member := range members {
-		if member.ID != message.SenderID { // ✅ Comparer avec ID (qui est maintenant l'email)
-			log.Printf("📤 Envoi WS new_group_message à %s", member.ID)
-			h.wsHub.SendToUser(member.ID, payload) // ✅ Utiliser ID (qui est l'email)
-		}
+		log.Printf("📤 Envoi WS new_group_message à %s", member.ID)
+		h.wsHub.SendToUser(member.ID, payload) // ✅ Utiliser ID (qui est l'email)
 	}
 
 	log.Printf("📨 Message diffusé dans le groupe %s", groupID.Hex())
