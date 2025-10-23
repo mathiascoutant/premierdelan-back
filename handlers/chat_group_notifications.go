@@ -152,10 +152,10 @@ func (h *ChatGroupHandler) broadcastMemberJoined(group *models.ChatGroup, user *
 	}
 
 	// Envoyer à tous les membres (JSON direct)
-	// ⚠️  IMPORTANT: Utiliser EMAIL, pas ID !
+	// ✅ member.ID est maintenant l'email (corrigé dans GetMembers)
 	for _, member := range members {
-		log.Printf("📤 Envoi WS member_joined à %s (email: %s)", member.ID, member.Email)
-		h.wsHub.SendToUser(member.Email, payload) // ✅ Utiliser Email
+		log.Printf("📤 Envoi WS member_joined à %s", member.ID)
+		h.wsHub.SendToUser(member.ID, payload) // ✅ Utiliser ID (qui est l'email)
 	}
 
 	log.Printf("📨 Notification diffusée: member_joined dans groupe %s", group.Name)
@@ -177,11 +177,11 @@ func (h *ChatGroupHandler) broadcastGroupMessage(groupID primitive.ObjectID, mes
 	}
 
 	// Envoyer à tous les membres sauf l'expéditeur (JSON direct)
-	// ⚠️  IMPORTANT: Utiliser EMAIL, pas ID !
+	// ✅ member.ID est maintenant l'email (corrigé dans GetMembers)
 	for _, member := range members {
-		if member.Email != message.SenderID { // ✅ Comparer avec Email, pas ID
-			log.Printf("📤 Envoi WS new_group_message à %s (email: %s)", member.ID, member.Email)
-			h.wsHub.SendToUser(member.Email, payload) // ✅ Utiliser Email
+		if member.ID != message.SenderID { // ✅ Comparer avec ID (qui est maintenant l'email)
+			log.Printf("📤 Envoi WS new_group_message à %s", member.ID)
+			h.wsHub.SendToUser(member.ID, payload) // ✅ Utiliser ID (qui est l'email)
 		}
 	}
 
@@ -254,11 +254,11 @@ func (h *ChatGroupHandler) broadcastMessagesRead(groupID primitive.ObjectID, use
 	}
 
 	// Envoyer à tous les membres sauf celui qui a lu (JSON direct)
-	// ⚠️  IMPORTANT: Utiliser EMAIL, pas ID !
+	// ✅ member.ID est maintenant l'email (corrigé dans GetMembers)
 	for _, member := range members {
-		if member.Email != userID { // ✅ Comparer avec Email
-			log.Printf("📤 Envoi WS messages_read à %s (email: %s)", member.ID, member.Email)
-			h.wsHub.SendToUser(member.Email, payload) // ✅ Utiliser Email
+		if member.ID != userID { // ✅ Comparer avec ID (qui est maintenant l'email)
+			log.Printf("📤 Envoi WS messages_read à %s", member.ID)
+			h.wsHub.SendToUser(member.ID, payload) // ✅ Utiliser ID (qui est l'email)
 		}
 	}
 }

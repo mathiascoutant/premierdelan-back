@@ -176,6 +176,7 @@ func (r *ChatGroupRepository) GetMembers(groupID primitive.ObjectID) ([]models.G
 		{"$unwind": "$user_info"},
 		{
 			"$project": bson.M{
+				"id":        "$user_info.email", // ✅ ID = email pour SendToUser
 				"user_id":   1,
 				"role":      1,
 				"joined_at": 1,

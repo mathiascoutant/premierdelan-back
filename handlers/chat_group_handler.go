@@ -540,8 +540,10 @@ func (h *ChatGroupHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Envoyer à tous les membres (JSON direct)
+	// ✅ member.ID est maintenant l'email (corrigé dans GetMembers)
 	for _, member := range members {
-		h.wsHub.SendToUser(member.Email, payload)
+		log.Printf("📤 Envoi WS group_member_left à %s", member.ID)
+		h.wsHub.SendToUser(member.ID, payload) // ✅ Utiliser ID (qui est l'email)
 	}
 
 	log.Printf("✓ %s a quitté le groupe %s", claims.Email, group.Name)
