@@ -173,16 +173,16 @@ func (r *ChatGroupRepository) GetMembers(groupID primitive.ObjectID) ([]models.G
 				"as":           "user_info",
 			},
 		},
-		{"$unwind": "$user_info"},
+		{"$unwind": bson.M{"path": "$user_info", "preserveNullAndEmptyArrays": true}},
 		{
 			"$project": bson.M{
-				"id":        "$user_info.email", // ✅ ID = email pour SendToUser
+				"id":        "$user_id", // ✅ ID = user_id (email) pour SendToUser
 				"user_id":   1,
 				"role":      1,
 				"joined_at": 1,
-				"firstname": "$user_info.firstname",
-				"lastname":  "$user_info.lastname",
-				"email":     "$user_info.email",
+				"firstname": bson.M{"$ifNull": bson.A{"$user_info.firstname", ""}},
+				"lastname":  bson.M{"$ifNull": bson.A{"$user_info.lastname", ""}},
+				"email":     "$user_id", // ✅ Email = user_id (email)
 			},
 		},
 		{"$sort": bson.M{"joined_at": 1}},
