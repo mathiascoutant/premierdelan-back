@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"log"
 	"premier-an-backend/models"
 	"time"
 
@@ -162,6 +163,8 @@ func (r *ChatGroupRepository) GetMembers(groupID primitive.ObjectID) ([]models.G
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	log.Printf("🔍 GetMembers appelé pour groupe: %s", groupID.Hex())
+
 	// Pipeline d'agrégation pour joindre les infos utilisateur
 	pipeline := []bson.M{
 		{"$match": bson.M{"group_id": groupID}},
@@ -208,8 +211,10 @@ func (r *ChatGroupRepository) GetMembers(groupID primitive.ObjectID) ([]models.G
 			continue
 		}
 
+		log.Printf("📋 Membre trouvé: %s (role: %s)", result.Email, result.Role)
+
 		members = append(members, models.GroupMemberWithDetails{
-			ID:        result.UserID,
+			ID:        result.Email, // ✅ ID = email pour SendToUser
 			Firstname: result.Firstname,
 			Lastname:  result.Lastname,
 			Email:     result.Email,
@@ -217,6 +222,11 @@ func (r *ChatGroupRepository) GetMembers(groupID primitive.ObjectID) ([]models.G
 			JoinedAt:  result.JoinedAt,
 			IsOnline:  false, // TODO: Intégrer avec le système de présence WebSocket
 		})
+	}
+
+	log.Printf("📊 Total membres trouvés: %d", len(members))
+	for i, member := range members {
+		log.Printf("📋 Membre %d: %s (ID: %s)", i+1, member.Email, member.ID)
 	}
 
 	return members, nil
