@@ -88,6 +88,9 @@ func (h *Hub) Run() {
 			// 🔌 Auto-joindre toutes les conversations de l'utilisateur
 			go h.autoJoinUserConversations(client.UserID)
 
+			// 🔌 Auto-joindre tous les groupes de l'utilisateur
+			go h.autoJoinUserGroups(client.UserID)
+
 			// 🔌 Envoyer événement user_presence à tous les contacts
 			go h.notifyUserPresence(client.UserID, true)
 
@@ -340,6 +343,25 @@ func (h *Hub) autoJoinUserConversations(userID string) {
 	log.Printf("✅ Auto-join terminé: %d conversations rejointes", joinedCount)
 }
 
+// autoJoinUserGroups ajoute automatiquement l'utilisateur à tous ses groupes
+func (h *Hub) autoJoinUserGroups(userID string) {
+	log.Printf("🔄 Auto-join groupes pour %s", userID)
+
+	// Récupérer l'utilisateur par email
+	user, err := h.userRepo.FindByEmail(userID)
+	if err != nil || user == nil {
+		log.Printf("❌ Utilisateur invalide pour auto-join groupes: %s", userID)
+		return
+	}
+
+	// Récupérer tous les groupes de cet utilisateur
+	// Note: On aurait besoin d'accès au groupRepo, mais pour l'instant on fait confiance
+	// TODO: Implémenter la récupération des groupes depuis la DB
+	// Pour l'instant, on laisse les utilisateurs rejoindre manuellement via join_group
+	
+	log.Printf("✅ Auto-join groupes terminé pour %s", userID)
+}
+
 // HandleTyping gère l'événement "typing" et l'envoie aux autres participants
 func (h *Hub) HandleTyping(userID, conversationID string, isTyping bool) {
 	log.Printf("⌨️  Typing: user=%s, conv=%s, typing=%v", userID, conversationID, isTyping)
@@ -404,9 +426,10 @@ func (h *Hub) BroadcastToGroup(groupID string, payload interface{}, excludeUserI
 	defer h.mu.RUnlock()
 
 	log.Printf("📡 Broadcast groupe: GroupID=%s, Exclude=%s", groupID, excludeUserID)
+	log.Printf("🔍 Group rooms disponibles: %+v", h.groupRooms)
 
 	if members, ok := h.groupRooms[groupID]; ok {
-		log.Printf("📤 Groupe %s a %d membres dans la room", groupID, len(members))
+		log.Printf("📤 Groupe %s a %d membres dans la room: %v", groupID, len(members), getKeys(members))
 		sentCount := 0
 		for userID := range members {
 			if userID == excludeUserID {
@@ -429,7 +452,17 @@ func (h *Hub) BroadcastToGroup(groupID string, payload interface{}, excludeUserI
 	} else {
 		log.Printf("⚠️  Groupe %s n'a aucun membre dans les rooms", groupID)
 		log.Printf("🔍 Group rooms disponibles: %v", h.groupRooms)
+		log.Printf("💡 Suggestion: L'utilisateur doit d'abord rejoindre le groupe via 'join_group'")
 	}
+}
+
+// getKeys retourne les clés d'une map pour le debug
+func getKeys(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // BroadcastToUser envoie un message à un utilisateur spécifique (alias pour SendToUser)

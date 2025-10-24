@@ -95,12 +95,16 @@ func (c *Client) readPump() {
 		case "join_group":
 			// 👥 Rejoindre un groupe
 			if groupID, ok := msg["group_id"].(string); ok {
+				log.Printf("👥 User %s rejoint le groupe %s", c.UserID, groupID)
 				c.hub.JoinGroup(c.UserID, groupID)
 				// Confirmer au client
 				c.send <- map[string]interface{}{
 					"type":     "joined_group",
 					"group_id": groupID,
 				}
+				log.Printf("✅ User %s a rejoint le groupe %s", c.UserID, groupID)
+			} else {
+				log.Printf("⚠️  Événement join_group sans group_id")
 			}
 
 		case "leave_group":
