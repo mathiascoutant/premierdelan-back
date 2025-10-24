@@ -81,7 +81,15 @@ func (c *Client) readPump() {
 			// ⌨️ Gérer le typing indicator
 			if convID, ok := msg["conversation_id"].(string); ok {
 				isTyping, _ := msg["is_typing"].(bool)
+				log.Printf("📤 Typing conversation: user=%s, conv=%s, typing=%v", c.UserID, convID, isTyping)
 				c.hub.HandleTyping(c.UserID, convID, isTyping)
+			} else if groupID, ok := msg["group_id"].(string); ok {
+				// ⌨️ Gérer le typing indicator pour les groupes
+				isTyping, _ := msg["is_typing"].(bool)
+				log.Printf("📤 Typing groupe: user=%s, group=%s, typing=%v", c.UserID, groupID, isTyping)
+				c.hub.HandleGroupTyping(c.UserID, groupID, isTyping)
+			} else {
+				log.Printf("⚠️  Événement typing sans conversation_id ni group_id")
 			}
 
 		case "join_group":

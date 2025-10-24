@@ -407,6 +407,7 @@ func (h *Hub) BroadcastToGroup(groupID string, payload interface{}, excludeUserI
 
 	if members, ok := h.groupRooms[groupID]; ok {
 		log.Printf("📤 Groupe %s a %d membres dans la room", groupID, len(members))
+		sentCount := 0
 		for userID := range members {
 			if userID == excludeUserID {
 				log.Printf("⏭️  Skip user %s (exclu)", userID)
@@ -416,6 +417,7 @@ func (h *Hub) BroadcastToGroup(groupID string, payload interface{}, excludeUserI
 				select {
 				case client.send <- payload:
 					log.Printf("✅ Message groupe envoyé à %s", userID)
+					sentCount++
 				default:
 					log.Printf("❌ Canal plein pour %s", userID)
 				}
@@ -423,8 +425,10 @@ func (h *Hub) BroadcastToGroup(groupID string, payload interface{}, excludeUserI
 				log.Printf("⚠️  User %s dans le groupe mais pas connecté WS", userID)
 			}
 		}
+		log.Printf("📊 Broadcast groupe terminé: %d messages envoyés", sentCount)
 	} else {
 		log.Printf("⚠️  Groupe %s n'a aucun membre dans les rooms", groupID)
+		log.Printf("🔍 Group rooms disponibles: %v", h.groupRooms)
 	}
 }
 
@@ -449,6 +453,17 @@ func (h *Hub) BroadcastToUser(userID string, payload []byte) {
 func (h *Hub) HandleGroupTyping(userID, groupID string, isTyping bool) {
 	log.Printf("⌨️  Group Typing: user=%s, group=%s, typing=%v", userID, groupID, isTyping)
 
+	// Convertir groupID string en ObjectID pour validation
+	_, err := primitive.ObjectIDFromHex(groupID)
+	if err != nil {
+		log.Printf("❌ GroupID invalide: %s", groupID)
+		return
+	}
+
+	// Vérifier que l'utilisateur est membre du groupe
+	// Note: On aurait besoin d'accès au groupRepo, mais pour l'instant on fait confiance
+	// TODO: Ajouter validation d'appartenance au groupe si nécessaire
+
 	// Récupérer le prénom de l'utilisateur
 	username := "Quelqu'un"
 	if h.userRepo != nil {
@@ -460,7 +475,7 @@ func (h *Hub) HandleGroupTyping(userID, groupID string, isTyping bool) {
 
 	// Payload à envoyer aux autres participants
 	payload := map[string]interface{}{
-		"type":      "group_user_typing",
+		"type":      "user_typing",
 		"group_id":  groupID,
 		"user_id":   userID,
 		"username":  username,
