@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"premier-an-backend/database"
+	"premier-an-backend/middleware"
 	"premier-an-backend/models"
 	"premier-an-backend/utils"
 	"strings"
@@ -279,4 +280,155 @@ func (h *AuthHandler) validateLoginRequest(req *models.LoginRequest) error {
 		return err
 	}
 	return nil
+}
+
+// UpdateProfile met à jour le profil utilisateur
+func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	// Vérifier la méthode HTTP
+	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
+		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		return
+	}
+
+	// Récupérer l'utilisateur depuis le contexte (mis par le middleware Auth)
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		utils.RespondError(w, http.StatusUnauthorized, "Token d'authentification invalide")
+		return
+	}
+
+	userEmail := claims.Email
+
+	// Décoder la requête
+	var req struct {
+		Firstname       string `json:"firstname"`
+		Lastname        string `json:"lastname"`
+		Email           string `json:"email"`
+		Phone           string `json:"phone"`
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+		ConfirmPassword string `json:"confirmPassword"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		return
+	}
+
+	// Validation des champs obligatoires
+	if req.Firstname == "" || req.Lastname == "" || req.Email == "" {
+		utils.RespondError(w, http.StatusBadRequest, "Le prénom, nom et email sont requis")
+		return
+	}
+
+	// Nettoyer et normaliser l'email
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
+	// Validation du format de l'email
+	if err := utils.ValidateEmail(req.Email); err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "Format d'email invalide")
+		return
+	}
+
+	// Vérifier que l'email n'est pas déjà utilisé par un autre utilisateur
+	if req.Email != userEmail {
+		exists, err := h.userRepo.EmailExists(req.Email)
+		if err != nil {
+			log.Printf("Erreur vérification email: %v", err)
+			utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+			return
+		}
+		if exists {
+			utils.RespondError(w, http.StatusBadRequest, "Cet email est déjà utilisé par un autre compte")
+			return
+		}
+	}
+
+	// Récupérer l'utilisateur actuel
+	user, err := h.userRepo.FindByEmail(userEmail)
+	if err != nil || user == nil {
+		log.Printf("Erreur récupération utilisateur: %v", err)
+		utils.RespondError(w, http.StatusNotFound, "Utilisateur non trouvé")
+		return
+	}
+
+	// Préparer les données de mise à jour
+	updateData := map[string]interface{}{
+		"firstname": req.Firstname,
+		"lastname":  req.Lastname,
+		"email":     req.Email,
+		"phone":     req.Phone,
+	}
+
+	// Gestion du changement de mot de passe
+	hasPasswordFields := req.CurrentPassword != "" || req.NewPassword != "" || req.ConfirmPassword != ""
+	
+	if hasPasswordFields {
+		// Validation : tous les champs de mot de passe requis
+		if req.CurrentPassword == "" || req.NewPassword == "" || req.ConfirmPassword == "" {
+			utils.RespondError(w, http.StatusBadRequest, "Pour changer de mot de passe, veuillez remplir tous les champs requis")
+			return
+		}
+
+		// Validation : les nouveaux mots de passe correspondent
+		if req.NewPassword != req.ConfirmPassword {
+			utils.RespondError(w, http.StatusBadRequest, "Les mots de passe ne correspondent pas")
+			return
+		}
+
+		// Validation : longueur minimale du nouveau mot de passe
+		if len(req.NewPassword) < 8 {
+			utils.RespondError(w, http.StatusBadRequest, "Le nouveau mot de passe doit contenir au moins 8 caractères")
+			return
+		}
+
+		// Vérifier le mot de passe actuel
+		if !utils.CheckPassword(req.CurrentPassword, user.Password) {
+			utils.RespondError(w, http.StatusBadRequest, "Le mot de passe actuel est incorrect")
+			return
+		}
+
+		// Hasher le nouveau mot de passe
+		hashedPassword, err := utils.HashPassword(req.NewPassword)
+		if err != nil {
+			log.Printf("Erreur hachage mot de passe: %v", err)
+			utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+			return
+		}
+
+		updateData["password"] = hashedPassword
+		log.Printf("✅ Changement de mot de passe pour %s", userEmail)
+	}
+
+	// Mettre à jour l'utilisateur
+	if err := h.userRepo.UpdateByEmail(userEmail, updateData); err != nil {
+		log.Printf("Erreur mise à jour utilisateur: %v", err)
+		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la mise à jour du profil")
+		return
+	}
+
+	// Récupérer l'utilisateur mis à jour
+	updatedUser, err := h.userRepo.FindByEmail(req.Email)
+	if err != nil || updatedUser == nil {
+		log.Printf("Erreur récupération utilisateur mis à jour: %v", err)
+		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		return
+	}
+
+	log.Printf("✅ Profil mis à jour: %s", updatedUser.Email)
+
+	// Réponse
+	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Profil mis à jour avec succès",
+		"user": map[string]interface{}{
+			"_id":         updatedUser.ID.Hex(),
+			"firstname":   updatedUser.Firstname,
+			"lastname":    updatedUser.Lastname,
+			"email":       updatedUser.Email,
+			"phone":       updatedUser.Phone,
+			"admin":       updatedUser.Admin,
+			"code_soiree": updatedUser.CodeSoiree,
+		},
+	})
 }

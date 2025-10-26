@@ -225,6 +225,9 @@ func main() {
 		})
 	}).Methods("GET")
 
+	// Route de mise à jour du profil utilisateur
+	protected.HandleFunc("/user/profile", authHandler.UpdateProfile).Methods("PUT", "PATCH", "OPTIONS")
+
 	// Routes d'inscription aux événements (protégées - authentification requise)
 	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.CreateInscription).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.GetInscription).Methods("GET", "OPTIONS")
@@ -313,10 +316,11 @@ func main() {
 		log.Println("   GET    /api/fcm/vapid-key                  - Clé VAPID Firebase")
 		log.Println("   POST   /api/fcm/subscribe                  - S'abonner (FCM)")
 		log.Println("")
-		log.Println("   🔒 Routes protégées:")
-		log.Println("   POST   /api/fcm/send                       - Envoyer à TOUS (FCM)")
-		log.Println("   POST   /api/fcm/send-to-user               - Envoyer à un user (FCM)")
-		log.Println("   GET    /api/protected/profile              - Profil utilisateur")
+	log.Println("   🔒 Routes protégées:")
+	log.Println("   POST   /api/fcm/send                       - Envoyer à TOUS (FCM)")
+	log.Println("   POST   /api/fcm/send-to-user               - Envoyer à un user (FCM)")
+	log.Println("   GET    /api/protected/profile              - Profil utilisateur")
+	log.Println("   PUT    /api/user/profile                   - Mettre à jour profil")
 		log.Println("")
 	log.Println("   👑 Routes Admin (admin=1 requis):")
 	log.Println("   GET    /api/admin/utilisateurs             - Liste utilisateurs")
