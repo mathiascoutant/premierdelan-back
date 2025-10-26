@@ -77,6 +77,13 @@ func main() {
 	mediaHandler := handlers.NewMediaHandler(database.DB)
 	alertHandler := handlers.NewAlertHandler(database.DB, fcmService)
 	themeHandler := handlers.NewThemeHandler(siteSettingRepo, userRepo)
+	cloudinaryHandler := handlers.NewCloudinaryHandler(
+		database.DB,
+		cfg.CloudinaryCloudName,
+		cfg.CloudinaryUploadPreset,
+		cfg.CloudinaryAPIKey,
+		cfg.CloudinaryAPISecret,
+	)
 	
 	// Initialiser le hub WebSocket pour le chat (avec repositories pour la présence)
 	wsHub := websocket.NewHub(userRepo, chatRepo)
@@ -227,6 +234,9 @@ func main() {
 
 	// Route de mise à jour du profil utilisateur
 	protected.HandleFunc("/user/profile", authHandler.UpdateProfile).Methods("PUT", "PATCH", "OPTIONS")
+	
+	// Route d'upload de photo de profil (protégée)
+	protected.HandleFunc("/user/profile/image", cloudinaryHandler.UploadProfileImage).Methods("POST", "OPTIONS")
 
 	// Routes d'inscription aux événements (protégées - authentification requise)
 	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.CreateInscription).Methods("POST", "OPTIONS")
@@ -321,6 +331,7 @@ func main() {
 	log.Println("   POST   /api/fcm/send-to-user               - Envoyer à un user (FCM)")
 	log.Println("   GET    /api/protected/profile              - Profil utilisateur")
 	log.Println("   PUT    /api/user/profile                   - Mettre à jour profil")
+	log.Println("   POST   /api/user/profile/image             - Upload photo de profil")
 		log.Println("")
 	log.Println("   👑 Routes Admin (admin=1 requis):")
 	log.Println("   GET    /api/admin/utilisateurs             - Liste utilisateurs")

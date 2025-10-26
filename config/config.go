@@ -22,6 +22,10 @@ type Config struct {
 	VAPIDSubject            string
 	FirebaseCredentialsFile string
 	FCMVAPIDKey             string
+	CloudinaryCloudName     string
+	CloudinaryUploadPreset  string
+	CloudinaryAPIKey        string
+	CloudinaryAPISecret     string
 }
 
 // Load charge la configuration depuis les variables d'environnement
@@ -41,6 +45,10 @@ func Load() (*Config, error) {
 		VAPIDSubject:            getEnv("VAPID_SUBJECT", "mailto:contact@example.com"),
 		FirebaseCredentialsFile: getEnv("FIREBASE_CREDENTIALS_FILE", "firebase-service-account.json"),
 		FCMVAPIDKey:             getEnv("FCM_VAPID_KEY", ""),
+		CloudinaryCloudName:     getEnv("CLOUDINARY_CLOUD_NAME", ""),
+		CloudinaryUploadPreset:  getEnv("CLOUDINARY_UPLOAD_PRESET", "premierdelan_profiles"),
+		CloudinaryAPIKey:        getEnv("CLOUDINARY_API_KEY", ""),
+		CloudinaryAPISecret:     getEnv("CLOUDINARY_API_SECRET", ""),
 	}
 
 	// Parser les origines CORS

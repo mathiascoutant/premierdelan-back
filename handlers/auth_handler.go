@@ -422,13 +422,14 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"message": "Profil mis à jour avec succès",
 		"user": map[string]interface{}{
-			"_id":         updatedUser.ID.Hex(),
-			"firstname":   updatedUser.Firstname,
-			"lastname":    updatedUser.Lastname,
-			"email":       updatedUser.Email,
-			"phone":       updatedUser.Phone,
-			"admin":       updatedUser.Admin,
-			"code_soiree": updatedUser.CodeSoiree,
+			"_id":             updatedUser.ID.Hex(),
+			"firstname":       updatedUser.Firstname,
+			"lastname":        updatedUser.Lastname,
+			"email":           updatedUser.Email,
+			"phone":           updatedUser.Phone,
+			"profileImageUrl": updatedUser.ProfileImageURL,
+			"admin":           updatedUser.Admin,
+			"code_soiree":     updatedUser.CodeSoiree,
 		},
 	})
 }

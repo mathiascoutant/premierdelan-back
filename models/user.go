@@ -8,16 +8,17 @@ import (
 
 // User représente un utilisateur dans le système
 type User struct {
-	ID        primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	CodeSoiree string            `json:"code_soiree" bson:"code_soiree,omitempty"`
-	Firstname string             `json:"firstname" bson:"firstname"`
-	Lastname  string             `json:"lastname" bson:"lastname"`
-	Email     string             `json:"email" bson:"email"`
-	Phone     string             `json:"phone" bson:"phone"`
-	Password  string             `json:"-" bson:"password"` // Le "-" empêche la sérialisation du mot de passe
-	Admin     int                `json:"admin" bson:"admin"`   // 0 = utilisateur normal, 1 = admin
-	LastSeen  *time.Time         `json:"last_seen,omitempty" bson:"last_seen,omitempty"` // Dernière activité WebSocket
-	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
+	ID              primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	CodeSoiree      string             `json:"code_soiree" bson:"code_soiree,omitempty"`
+	Firstname       string             `json:"firstname" bson:"firstname"`
+	Lastname        string             `json:"lastname" bson:"lastname"`
+	Email           string             `json:"email" bson:"email"`
+	Phone           string             `json:"phone" bson:"phone"`
+	Password        string             `json:"-" bson:"password"` // Le "-" empêche la sérialisation du mot de passe
+	ProfileImageURL string             `json:"profileImageUrl,omitempty" bson:"profile_image_url,omitempty"` // URL de la photo de profil
+	Admin           int                `json:"admin" bson:"admin"` // 0 = utilisateur normal, 1 = admin
+	LastSeen        *time.Time         `json:"last_seen,omitempty" bson:"last_seen,omitempty"` // Dernière activité WebSocket
+	CreatedAt       time.Time          `json:"created_at" bson:"created_at"`
 }
 
 // RegisterRequest représente la requête d'inscription
