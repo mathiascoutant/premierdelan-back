@@ -122,6 +122,9 @@ func main() {
 	// Route thème global (publique)
 	router.HandleFunc("/api/theme", themeHandler.GetGlobalTheme).Methods("GET", "OPTIONS")
 
+	// Route de vérification de code d'accès (publique - étape 1 inscription)
+	router.HandleFunc("/api/inscription/verify-code", inscriptionHandler.VerifyCode).Methods("POST", "OPTIONS")
+
 	// Routes de notifications (publiques)
 	router.HandleFunc("/api/notifications/vapid-public-key", notificationHandler.GetVAPIDPublicKey).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/notifications/subscribe", notificationHandler.Subscribe).Methods("POST", "OPTIONS")
@@ -295,6 +298,7 @@ func main() {
 		log.Printf("🗄️  Base de données: MongoDB")
 	log.Println("📋 Routes disponibles:")
 	log.Println("   POST   /api/inscription                    - Inscription")
+	log.Println("   POST   /api/inscription/verify-code        - Vérifier code d'accès (public)")
 	log.Println("   POST   /api/connexion                      - Connexion")
 	log.Println("   GET    /api/health                         - Health check")
 	log.Println("   GET    /api/evenements/public              - Liste événements (public)")

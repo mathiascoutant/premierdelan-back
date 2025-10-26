@@ -20,6 +20,7 @@ type InscriptionHandler struct {
 	inscriptionRepo *database.InscriptionRepository
 	eventRepo       *database.EventRepository
 	userRepo        *database.UserRepository
+	codeRepo        *database.CodeSoireeRepository
 	fcmService      interface {
 		SendToAll(tokens []string, title, body string, data map[string]string) (success int, failed int, failedTokens []string)
 	}
@@ -47,6 +48,7 @@ func NewInscriptionHandler(db *mongo.Database, fcmService interface {
 		inscriptionRepo: database.NewInscriptionRepository(db),
 		eventRepo:       database.NewEventRepository(db),
 		userRepo:        database.NewUserRepository(db),
+		codeRepo:        database.NewCodeSoireeRepository(db),
 		fcmService:      fcmService,
 		fcmTokenRepo:    database.NewFCMTokenRepository(db),
 	}
@@ -840,4 +842,52 @@ func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Req
 		"success":      true,
 		"inscriptions": inscriptionsData,
 	})
+}
+
+// VerifyCode vérifie si un code d'accès existe et est valide
+func (h *InscriptionHandler) VerifyCode(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		return
+	}
+
+	// Décoder la requête
+	var req struct {
+		CodeSoiree string `json:"codesoiree"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		return
+	}
+
+	// Validation: code requis
+	if req.CodeSoiree == "" {
+		utils.RespondError(w, http.StatusBadRequest, "Le code d'accès est requis")
+		return
+	}
+
+	log.Printf("🔍 Vérification du code: %s", req.CodeSoiree)
+
+	// Vérifier si le code existe et est valide
+	isValid, err := h.codeRepo.IsCodeValid(req.CodeSoiree)
+	if err != nil {
+		log.Printf("❌ Erreur vérification code: %v", err)
+		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la vérification du code")
+		return
+	}
+
+	if isValid {
+		log.Printf("✅ Code valide: %s", req.CodeSoiree)
+		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+			"valid":   true,
+			"message": "Code d'accès valide",
+		})
+	} else {
+		log.Printf("❌ Code invalide: %s", req.CodeSoiree)
+		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+			"valid":   false,
+			"message": "Code d'accès invalide ou inexistant",
+		})
+	}
 }
