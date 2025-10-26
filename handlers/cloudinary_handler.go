@@ -62,9 +62,20 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 
 	userEmail := claims.Email
 
+	// Log du Content-Type pour debugging
+	contentType := r.Header.Get("Content-Type")
+	log.Printf("📋 Content-Type reçu: %s", contentType)
+
+	// Vérifier que le Content-Type est bien multipart/form-data
+	if !strings.HasPrefix(contentType, "multipart/form-data") {
+		log.Printf("❌ Content-Type invalide: %s (attendu: multipart/form-data)", contentType)
+		utils.RespondError(w, http.StatusBadRequest, "Le Content-Type doit être multipart/form-data. Assurez-vous de ne pas définir explicitement le Content-Type côté frontend lors de l'envoi de FormData.")
+		return
+	}
+
 	// Parser le formulaire multipart (limite 10 MB)
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		log.Printf("Erreur parsing form: %v", err)
+		log.Printf("❌ Erreur parsing form: %v", err)
 		utils.RespondError(w, http.StatusBadRequest, "Erreur lors du parsing du formulaire")
 		return
 	}
@@ -84,12 +95,12 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Validation du type MIME
-	contentType := header.Header.Get("Content-Type")
+	// Validation du type MIME du fichier
+	fileContentType := header.Header.Get("Content-Type")
 	allowedTypes := []string{"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"}
 	isValidType := false
 	for _, t := range allowedTypes {
-		if contentType == t {
+		if fileContentType == t {
 			isValidType = true
 			break
 		}
@@ -100,7 +111,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	log.Printf("📤 Upload photo de profil pour %s (%s, %d bytes)", userEmail, contentType, header.Size)
+	log.Printf("📤 Upload photo de profil pour %s (%s, %d bytes)", userEmail, fileContentType, header.Size)
 
 	// Récupérer l'utilisateur
 	user, err := h.userRepo.FindByEmail(userEmail)
@@ -195,10 +206,8 @@ func (h *CloudinaryHandler) uploadToCloudinary(file multipart.File, userEmail, f
 		return "", err
 	}
 
-	// Transformation automatique: resize à 400x400, format auto, qualité auto
-	if err := writer.WriteField("transformation", "c_fill,w_400,h_400,q_auto,f_auto"); err != nil {
-		return "", err
-	}
+	// Note: Les transformations (resize, qualité, etc.) doivent être configurées
+	// dans le Upload Preset sur Cloudinary pour les uploads Unsigned
 
 	writer.Close()
 
