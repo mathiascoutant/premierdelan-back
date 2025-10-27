@@ -343,18 +343,22 @@ func (h *MediaHandler) getEventParticipants(eventID primitive.ObjectID, excludeU
 			continue
 		}
 
-		// Récupérer le token FCM de l'utilisateur
-		user, err := h.userRepo.FindByEmail(inscription.UserEmail)
-		if err != nil || user == nil {
+		// Récupérer les tokens FCM de l'utilisateur depuis la collection fcm_tokens
+		tokens, err := h.fcmTokenRepo.FindByUserID(inscription.UserEmail)
+		if err != nil {
+			log.Printf("⚠️  Erreur récupération tokens FCM pour %s: %v", inscription.UserEmail, err)
 			continue
 		}
 
-		// Vérifier que l'utilisateur a un token FCM valide
-		if user.FCMToken != "" {
-			participants = append(participants, user.FCMToken)
+		// Ajouter tous les tokens valides de cet utilisateur
+		for _, token := range tokens {
+			if token.Token != "" {
+				participants = append(participants, token.Token)
+			}
 		}
 	}
 
+	log.Printf("📱 Participants trouvés: %d tokens pour l'événement %s", len(participants), eventID.Hex())
 	return participants, nil
 }
 
