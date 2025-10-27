@@ -87,7 +87,7 @@ func main() {
 	eventTrailerHandler := handlers.NewEventTrailerHandler(
 		database.DB,
 		cfg.CloudinaryCloudName,
-		cfg.CloudinaryUploadPreset,
+		cfg.CloudinaryVideoPreset,
 		cfg.CloudinaryAPIKey,
 		cfg.CloudinaryAPISecret,
 	)

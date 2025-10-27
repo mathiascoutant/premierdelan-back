@@ -22,10 +22,11 @@ type Config struct {
 	VAPIDSubject            string
 	FirebaseCredentialsFile string
 	FCMVAPIDKey             string
-	CloudinaryCloudName     string
-	CloudinaryUploadPreset  string
-	CloudinaryAPIKey        string
-	CloudinaryAPISecret     string
+	CloudinaryCloudName       string
+	CloudinaryUploadPreset    string
+	CloudinaryVideoPreset     string
+	CloudinaryAPIKey          string
+	CloudinaryAPISecret       string
 }
 
 // Load charge la configuration depuis les variables d'environnement
@@ -47,6 +48,7 @@ func Load() (*Config, error) {
 		FCMVAPIDKey:             getEnv("FCM_VAPID_KEY", ""),
 		CloudinaryCloudName:     getEnv("CLOUDINARY_CLOUD_NAME", ""),
 		CloudinaryUploadPreset:  getEnv("CLOUDINARY_UPLOAD_PRESET", "premierdelan_profiles"),
+		CloudinaryVideoPreset:   getEnv("CLOUDINARY_VIDEO_PRESET", "premierdelan_trailers"),
 		CloudinaryAPIKey:        getEnv("CLOUDINARY_API_KEY", ""),
 		CloudinaryAPISecret:     getEnv("CLOUDINARY_API_SECRET", ""),
 	}
