@@ -258,6 +258,11 @@ func main() {
 	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.DeleteInscription).Methods("DELETE", "OPTIONS")         // Alias REST
 	protected.HandleFunc("/evenements/{event_id}/desinscription", inscriptionHandler.DeleteInscription).Methods("DELETE", "OPTIONS") // Legacy
 	
+	// Routes de gestion des trailers vidéo (protégées - authentification requise)
+	protected.HandleFunc("/evenements/{event_id}/trailer", eventTrailerHandler.UploadTrailer).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/evenements/{event_id}/trailer", eventTrailerHandler.ReplaceTrailer).Methods("PUT", "OPTIONS")
+	protected.HandleFunc("/evenements/{event_id}/trailer", eventTrailerHandler.DeleteTrailer).Methods("DELETE", "OPTIONS")
+	
 	// Route pour récupérer les événements auxquels l'utilisateur est inscrit
 	protected.HandleFunc("/mes-evenements", inscriptionHandler.GetMesEvenements).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/users/me/inscriptions", inscriptionHandler.GetMesEvenements).Methods("GET", "OPTIONS") // Alias
@@ -373,6 +378,11 @@ func main() {
 	log.Println("   DELETE /api/evenements/{id}/inscription       - Se désinscrire (REST)")
 	log.Println("   DELETE /api/evenements/{id}/desinscription    - Se désinscrire (legacy)")
 	log.Println("   GET    /api/mes-evenements                 - Mes événements inscrits")
+	log.Println("")
+	log.Println("   🎬 Trailers vidéo (authentifié):")
+	log.Println("   POST   /api/evenements/{id}/trailer        - Ajouter trailer vidéo")
+	log.Println("   PUT    /api/evenements/{id}/trailer        - Remplacer trailer vidéo")
+	log.Println("   DELETE /api/evenements/{id}/trailer        - Supprimer trailer vidéo")
 	log.Println("")
 	log.Println("   📸 Galerie médias :")
 	log.Println("   GET    /api/evenements/{id}/medias         - Liste médias (public)")
