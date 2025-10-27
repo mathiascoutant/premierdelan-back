@@ -74,7 +74,12 @@ func main() {
 	adminHandler := handlers.NewAdminHandler(database.DB, fcmService)
 	eventHandler := handlers.NewEventHandler(database.DB)
 	inscriptionHandler := handlers.NewInscriptionHandler(database.DB, fcmService)
-	mediaHandler := handlers.NewMediaHandler(database.DB)
+	mediaHandler := handlers.NewMediaHandler(
+		database.DB,
+		fcmService,
+		cfg.CloudinaryCloudName,
+		cfg.CloudinaryPreviewPreset,
+	)
 	alertHandler := handlers.NewAlertHandler(database.DB, fcmService)
 	themeHandler := handlers.NewThemeHandler(siteSettingRepo, userRepo)
 	cloudinaryHandler := handlers.NewCloudinaryHandler(
@@ -90,6 +95,14 @@ func main() {
 		cfg.CloudinaryVideoPreset,
 		cfg.CloudinaryAPIKey,
 		cfg.CloudinaryAPISecret,
+	)
+	
+	// Initialiser le handler de notifications galerie
+	galleryNotificationHandler := handlers.NewGalleryNotificationHandler(
+		database.DB,
+		fcmService,
+		cfg.CloudinaryCloudName,
+		cfg.CloudinaryPreviewPreset,
 	)
 	
 	// Initialiser le hub WebSocket pour le chat (avec repositories pour la présence)
@@ -297,6 +310,10 @@ func main() {
 	// Routes médias (protégées - authentification requise)
 	protected.HandleFunc("/evenements/{event_id}/medias", mediaHandler.CreateMedia).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/evenements/{event_id}/medias/{media_id}", mediaHandler.DeleteMedia).Methods("DELETE", "OPTIONS")
+	
+	// Routes de notifications galerie
+	protected.HandleFunc("/evenements/{eventId}/medias/notify", galleryNotificationHandler.SendGalleryNotification).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/evenements/{eventId}/medias/test", galleryNotificationHandler.TestGalleryNotification).Methods("POST", "OPTIONS")
 
 	// Routes admin inscriptions
 	adminRouter.HandleFunc("/evenements/{event_id}/inscrits", inscriptionHandler.GetInscrits).Methods("GET", "OPTIONS")
@@ -388,6 +405,10 @@ func main() {
 	log.Println("   GET    /api/evenements/{id}/medias         - Liste médias (public)")
 	log.Println("   POST   /api/evenements/{id}/medias         - Ajouter média (authentifié)")
 	log.Println("   DELETE /api/evenements/{id}/medias/{id}   - Supprimer média (authentifié)")
+	log.Println("")
+	log.Println("   📱 Notifications galerie (authentifié):")
+	log.Println("   POST   /api/evenements/{id}/medias/notify  - Envoyer notification galerie")
+	log.Println("   POST   /api/evenements/{id}/medias/test    - Test notification galerie")
 		log.Println("\n✨ Le serveur est prêt à recevoir des requêtes!")
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

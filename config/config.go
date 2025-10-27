@@ -25,6 +25,7 @@ type Config struct {
 	CloudinaryCloudName       string
 	CloudinaryUploadPreset    string
 	CloudinaryVideoPreset     string
+	CloudinaryPreviewPreset   string
 	CloudinaryAPIKey          string
 	CloudinaryAPISecret       string
 }
@@ -49,6 +50,7 @@ func Load() (*Config, error) {
 		CloudinaryCloudName:     getEnv("CLOUDINARY_CLOUD_NAME", ""),
 		CloudinaryUploadPreset:  getEnv("CLOUDINARY_UPLOAD_PRESET", "premierdelan_profiles"),
 		CloudinaryVideoPreset:   getEnv("CLOUDINARY_VIDEO_PRESET", "premierdelan_trailers"),
+		CloudinaryPreviewPreset: getEnv("CLOUDINARY_PREVIEW_PRESET", "premierdelan_gallery_preview"),
 		CloudinaryAPIKey:        getEnv("CLOUDINARY_API_KEY", ""),
 		CloudinaryAPISecret:     getEnv("CLOUDINARY_API_SECRET", ""),
 	}

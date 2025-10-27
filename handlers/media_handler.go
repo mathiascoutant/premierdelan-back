@@ -18,17 +18,35 @@ import (
 
 // MediaHandler gère les médias des événements
 type MediaHandler struct {
-	mediaRepo *database.MediaRepository
-	eventRepo *database.EventRepository
-	userRepo  *database.UserRepository
+	mediaRepo       *database.MediaRepository
+	eventRepo       *database.EventRepository
+	userRepo        *database.UserRepository
+	inscriptionRepo *database.InscriptionRepository
+	fcmTokenRepo    *database.FCMTokenRepository
+	fcmService      interface {
+		SendToAll(tokens []string, title, body string, data map[string]string) (success int, failed int, failedTokens []string)
+	}
+	cloudName     string
+	previewPreset string
 }
 
 // NewMediaHandler crée une nouvelle instance
-func NewMediaHandler(db *mongo.Database) *MediaHandler {
+func NewMediaHandler(
+	db *mongo.Database,
+	fcmService interface {
+		SendToAll(tokens []string, title, body string, data map[string]string) (success int, failed int, failedTokens []string)
+	},
+	cloudName, previewPreset string,
+) *MediaHandler {
 	return &MediaHandler{
-		mediaRepo: database.NewMediaRepository(db),
-		eventRepo: database.NewEventRepository(db),
-		userRepo:  database.NewUserRepository(db),
+		mediaRepo:       database.NewMediaRepository(db),
+		eventRepo:       database.NewEventRepository(db),
+		userRepo:        database.NewUserRepository(db),
+		inscriptionRepo: database.NewInscriptionRepository(db),
+		fcmTokenRepo:    database.NewFCMTokenRepository(db),
+		fcmService:      fcmService,
+		cloudName:       cloudName,
+		previewPreset:   previewPreset,
 	}
 }
 
@@ -178,6 +196,9 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("✓ Média ajouté: %s (%s) par %s", req.Filename, req.Type, req.UserEmail)
 
+	// NOUVEAU: Envoyer notification de galerie
+	go h.sendGalleryNotification(eventID, req.UserEmail, userName, req.URL)
+
 	utils.RespondJSON(w, http.StatusCreated, map[string]interface{}{
 		"message": "Média ajouté avec succès",
 		"media":   media,
@@ -255,5 +276,122 @@ func (h *MediaHandler) DeleteMedia(w http.ResponseWriter, r *http.Request) {
 		"message":  "Média supprimé avec succès",
 		"media_id": mediaID.Hex(),
 	})
+}
+
+// sendGalleryNotification envoie une notification de galerie
+func (h *MediaHandler) sendGalleryNotification(eventID primitive.ObjectID, userEmail, userName, mediaURL string) {
+	// Récupérer l'événement
+	event, err := h.eventRepo.FindByID(eventID)
+	if err != nil || event == nil {
+		log.Printf("❌ Erreur récupération événement pour notification: %v", err)
+		return
+	}
+
+	// Récupérer les participants de l'événement (exclure l'utilisateur qui a ajouté)
+	participants, err := h.getEventParticipants(eventID, userEmail)
+	if err != nil {
+		log.Printf("❌ Erreur récupération participants: %v", err)
+		return
+	}
+
+	if len(participants) == 0 {
+		log.Printf("ℹ️  Aucun participant trouvé pour l'événement %s", eventID.Hex())
+		return
+	}
+
+	// Générer l'URL de preview avec flou
+	previewURL := h.generatePreviewURL(mediaURL)
+	log.Printf("🖼️  URL preview générée: %s", previewURL)
+
+	// Construire le message de notification
+	title := "Nouveau contenu ajouté"
+	body := fmt.Sprintf("%s a ajouté une photo dans la galerie %s", userName, event.Titre)
+
+	// Préparer les données de la notification
+	notificationData := map[string]string{
+		"type":        "gallery_update",
+		"event_id":    eventID.Hex(),
+		"user_name":   userName,
+		"media_count": "1",
+		"event_title": event.Titre,
+		"action_url":  fmt.Sprintf("/galerie-event/%s", eventID.Hex()),
+	}
+
+	// Envoyer les notifications
+	successCount, failedCount, failedTokens := h.fcmService.SendToAll(participants, title, body, notificationData)
+
+	// Nettoyer les tokens invalides
+	if len(failedTokens) > 0 {
+		go h.cleanupInvalidTokens(failedTokens)
+	}
+
+	log.Printf("📱 Notification galerie envoyée: %s - %s - %d succès, %d échecs", userName, event.Titre, successCount, failedCount)
+}
+
+// getEventParticipants récupère les participants d'un événement (exclut l'utilisateur qui a ajouté)
+func (h *MediaHandler) getEventParticipants(eventID primitive.ObjectID, excludeUserEmail string) ([]string, error) {
+	// Récupérer les inscriptions de l'événement
+	inscriptions, err := h.inscriptionRepo.FindByEventID(eventID)
+	if err != nil {
+		return nil, err
+	}
+
+	var participants []string
+	for _, inscription := range inscriptions {
+		// Exclure l'utilisateur qui a ajouté les médias
+		if inscription.UserEmail == excludeUserEmail {
+			continue
+		}
+
+		// Récupérer le token FCM de l'utilisateur
+		user, err := h.userRepo.FindByEmail(inscription.UserEmail)
+		if err != nil || user == nil {
+			continue
+		}
+
+		// Vérifier que l'utilisateur a un token FCM valide
+		if user.FCMToken != "" {
+			participants = append(participants, user.FCMToken)
+		}
+	}
+
+	return participants, nil
+}
+
+// generatePreviewURL génère une URL de preview avec flou
+func (h *MediaHandler) generatePreviewURL(originalURL string) string {
+	if originalURL == "" {
+		return ""
+	}
+
+	// Ajouter la transformation de flou à l'URL Cloudinary
+	// Format: https://res.cloudinary.com/cloud_name/image/upload/TRANSFORMATION/v123/public_id.jpg
+	// On ajoute: w_400,h_400,c_fill,q_auto,f_auto,blur_100
+
+	// Vérifier si c'est une URL Cloudinary
+	if !strings.Contains(originalURL, "res.cloudinary.com") {
+		return originalURL
+	}
+
+	// Extraire la partie après /upload/
+	parts := strings.Split(originalURL, "/upload/")
+	if len(parts) < 2 {
+		return originalURL
+	}
+
+	// Construire la nouvelle URL avec transformation
+	transformation := "w_400,h_400,c_fill,q_auto,f_auto,blur_100"
+	newURL := parts[0] + "/upload/" + transformation + "/" + parts[1]
+
+	return newURL
+}
+
+// cleanupInvalidTokens nettoie les tokens FCM invalides
+func (h *MediaHandler) cleanupInvalidTokens(failedTokens []string) {
+	for _, token := range failedTokens {
+		log.Printf("🧹 Nettoyage token invalide: %s", token)
+		// Ici on pourrait supprimer le token de la base de données
+		// Pour l'instant on log juste
+	}
 }
 

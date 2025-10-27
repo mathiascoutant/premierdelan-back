@@ -228,3 +228,22 @@ func (r *InscriptionRepository) FindByUser(userEmail string) ([]models.Inscripti
 	return inscriptions, nil
 }
 
+// FindByEventID retourne toutes les inscriptions d'un événement
+func (r *InscriptionRepository) FindByEventID(eventID primitive.ObjectID) ([]models.Inscription, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cursor, err := r.collection.Find(ctx, bson.M{"event_id": eventID})
+	if err != nil {
+		return nil, fmt.Errorf("erreur lors de la recherche des inscriptions de l'événement: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var inscriptions []models.Inscription
+	if err = cursor.All(ctx, &inscriptions); err != nil {
+		return nil, fmt.Errorf("erreur lors du décodage des inscriptions: %w", err)
+	}
+
+	return inscriptions, nil
+}
+
