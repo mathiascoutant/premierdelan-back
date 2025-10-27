@@ -1,12 +1,10 @@
 package handlers
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
@@ -50,7 +48,18 @@ type CloudinaryVideoUploadResponse struct {
 	Duration  float64 `json:"duration"`
 }
 
-// UploadTrailer gère l'upload d'un trailer vidéo (POST)
+// TrailerDataRequest représente les données du trailer envoyées par le frontend
+type TrailerDataRequest struct {
+	URL          string  `json:"url"`
+	PublicID     string  `json:"public_id"`
+	Duration     float64 `json:"duration"`
+	Format       string  `json:"format"`
+	Size         int64   `json:"size"`
+	ThumbnailURL string  `json:"thumbnail_url"`
+}
+
+// UploadTrailer gère l'ajout d'un trailer vidéo (POST)
+// Le frontend upload directement vers Cloudinary puis envoie les métadonnées ici
 func (h *EventTrailerHandler) UploadTrailer(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPost {
@@ -91,70 +100,38 @@ func (h *EventTrailerHandler) UploadTrailer(w http.ResponseWriter, r *http.Reque
 
 	// Vérifier que l'événement n'a pas déjà un trailer
 	if event.Trailer != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Cet événement a déjà un trailer. Veuillez le supprimer avant d'en ajouter un nouveau.")
+		utils.RespondError(w, http.StatusBadRequest, "Cet événement a déjà un trailer. Utilisez PUT pour le remplacer.")
 		return
 	}
 
-	// Log du Content-Type pour debugging
-	contentType := r.Header.Get("Content-Type")
-	log.Printf("📋 Content-Type reçu: %s", contentType)
-
-	// Vérifier que le Content-Type est bien multipart/form-data
-	if !strings.HasPrefix(contentType, "multipart/form-data") {
-		log.Printf("❌ Content-Type invalide: %s (attendu: multipart/form-data)", contentType)
-		utils.RespondError(w, http.StatusBadRequest, "Le Content-Type doit être multipart/form-data")
+	// Décoder les données JSON du trailer
+	var trailerData TrailerDataRequest
+	if err := json.NewDecoder(r.Body).Decode(&trailerData); err != nil {
+		log.Printf("❌ Erreur décodage JSON: %v", err)
+		utils.RespondError(w, http.StatusBadRequest, "Données JSON invalides")
 		return
 	}
 
-	// Parser le formulaire multipart (limite 100 MB)
-	if err := r.ParseMultipartForm(100 << 20); err != nil {
-		log.Printf("❌ Erreur parsing form: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Erreur lors du parsing du formulaire")
+	// Validation des champs requis
+	if trailerData.URL == "" || trailerData.PublicID == "" {
+		utils.RespondError(w, http.StatusBadRequest, "URL et public_id sont requis")
 		return
 	}
 
-	// Récupérer le fichier vidéo
-	file, header, err := r.FormFile("video")
-	if err != nil {
-		log.Printf("❌ Erreur récupération fichier: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Aucun fichier vidéo fourni")
-		return
-	}
-	defer file.Close()
+	log.Printf("📤 Ajout trailer pour événement %s (format: %s, taille: %d bytes)", eventID, trailerData.Format, trailerData.Size)
 
-	// Validation de la taille (100 MB max)
-	if header.Size > 100*1024*1024 {
-		utils.RespondError(w, http.StatusRequestEntityTooLarge, "Le fichier ne doit pas dépasser 100 MB")
-		return
+	// Créer l'objet EventTrailer
+	trailer := &models.EventTrailer{
+		URL:          trailerData.URL,
+		PublicID:     trailerData.PublicID,
+		Duration:     trailerData.Duration,
+		Format:       trailerData.Format,
+		Size:         trailerData.Size,
+		UploadedAt:   time.Now(),
+		ThumbnailURL: trailerData.ThumbnailURL,
 	}
 
-	// Validation du type MIME
-	fileContentType := header.Header.Get("Content-Type")
-	allowedTypes := []string{"video/mp4", "video/quicktime", "video/x-msvideo", "video/webm"}
-	isValidType := false
-	for _, t := range allowedTypes {
-		if fileContentType == t {
-			isValidType = true
-			break
-		}
-	}
-
-	if !isValidType {
-		utils.RespondError(w, http.StatusBadRequest, "Format de vidéo non supporté. Formats acceptés : MP4, MOV, AVI, WebM")
-		return
-	}
-
-	log.Printf("📤 Upload trailer pour événement %s (%s, %d bytes)", eventID, fileContentType, header.Size)
-
-	// Upload vers Cloudinary
-	trailer, err := h.uploadVideoToCloudinary(file, eventID, header.Filename)
-	if err != nil {
-		log.Printf("❌ Erreur upload Cloudinary: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de l'upload de la vidéo")
-		return
-	}
-
-	log.Printf("✅ Upload Cloudinary réussi: %s", trailer.URL)
+	log.Printf("✅ Métadonnées trailer reçues: %s", trailer.URL)
 
 	// Mettre à jour l'événement dans la base de données
 	updateData := bson.M{
@@ -181,6 +158,7 @@ func (h *EventTrailerHandler) UploadTrailer(w http.ResponseWriter, r *http.Reque
 }
 
 // ReplaceTrailer gère le remplacement d'un trailer existant (PUT)
+// Le frontend upload directement vers Cloudinary puis envoie les métadonnées ici
 func (h *EventTrailerHandler) ReplaceTrailer(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPut {
@@ -228,55 +206,34 @@ func (h *EventTrailerHandler) ReplaceTrailer(w http.ResponseWriter, r *http.Requ
 	// Sauvegarder l'ancien public_id pour suppression
 	oldPublicID := event.Trailer.PublicID
 
-	// Parser le formulaire multipart (limite 100 MB)
-	if err := r.ParseMultipartForm(100 << 20); err != nil {
-		log.Printf("❌ Erreur parsing form: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Erreur lors du parsing du formulaire")
+	// Décoder les données JSON du nouveau trailer
+	var trailerData TrailerDataRequest
+	if err := json.NewDecoder(r.Body).Decode(&trailerData); err != nil {
+		log.Printf("❌ Erreur décodage JSON: %v", err)
+		utils.RespondError(w, http.StatusBadRequest, "Données JSON invalides")
 		return
 	}
 
-	// Récupérer le fichier vidéo
-	file, header, err := r.FormFile("video")
-	if err != nil {
-		log.Printf("❌ Erreur récupération fichier: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Aucun fichier vidéo fourni")
-		return
-	}
-	defer file.Close()
-
-	// Validation de la taille (100 MB max)
-	if header.Size > 100*1024*1024 {
-		utils.RespondError(w, http.StatusRequestEntityTooLarge, "Le fichier ne doit pas dépasser 100 MB")
+	// Validation des champs requis
+	if trailerData.URL == "" || trailerData.PublicID == "" {
+		utils.RespondError(w, http.StatusBadRequest, "URL et public_id sont requis")
 		return
 	}
 
-	// Validation du type MIME
-	fileContentType := header.Header.Get("Content-Type")
-	allowedTypes := []string{"video/mp4", "video/quicktime", "video/x-msvideo", "video/webm"}
-	isValidType := false
-	for _, t := range allowedTypes {
-		if fileContentType == t {
-			isValidType = true
-			break
-		}
+	log.Printf("🔄 Remplacement trailer pour événement %s (format: %s, taille: %d bytes)", eventID, trailerData.Format, trailerData.Size)
+
+	// Créer l'objet EventTrailer
+	newTrailer := &models.EventTrailer{
+		URL:          trailerData.URL,
+		PublicID:     trailerData.PublicID,
+		Duration:     trailerData.Duration,
+		Format:       trailerData.Format,
+		Size:         trailerData.Size,
+		UploadedAt:   time.Now(),
+		ThumbnailURL: trailerData.ThumbnailURL,
 	}
 
-	if !isValidType {
-		utils.RespondError(w, http.StatusBadRequest, "Format de vidéo non supporté. Formats acceptés : MP4, MOV, AVI, WebM")
-		return
-	}
-
-	log.Printf("🔄 Remplacement trailer pour événement %s", eventID)
-
-	// Upload la nouvelle vidéo vers Cloudinary
-	newTrailer, err := h.uploadVideoToCloudinary(file, eventID, header.Filename)
-	if err != nil {
-		log.Printf("❌ Erreur upload Cloudinary: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de l'upload de la nouvelle vidéo")
-		return
-	}
-
-	log.Printf("✅ Nouveau trailer uploadé: %s", newTrailer.URL)
+	log.Printf("✅ Nouveau trailer reçu: %s", newTrailer.URL)
 
 	// Supprimer l'ancienne vidéo de Cloudinary
 	if err := h.deleteVideoFromCloudinary(oldPublicID); err != nil {
@@ -387,90 +344,6 @@ func (h *EventTrailerHandler) DeleteTrailer(w http.ResponseWriter, r *http.Reque
 		"success": true,
 		"message": "Trailer supprimé avec succès",
 	})
-}
-
-// uploadVideoToCloudinary envoie une vidéo vers Cloudinary
-func (h *EventTrailerHandler) uploadVideoToCloudinary(file multipart.File, eventID, filename string) (*models.EventTrailer, error) {
-	// Construire l'URL d'upload Cloudinary pour vidéos
-	uploadURL := fmt.Sprintf("https://api.cloudinary.com/v1_1/%s/video/upload", h.cloudName)
-
-	// Créer un buffer pour le formulaire multipart
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	// Ajouter le fichier
-	part, err := writer.CreateFormFile("file", filename)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := io.Copy(part, file); err != nil {
-		return nil, err
-	}
-
-	// Ajouter l'upload preset
-	if err := writer.WriteField("upload_preset", h.uploadPreset); err != nil {
-		return nil, err
-	}
-
-	// Ajouter le dossier (organiser par événement)
-	folder := fmt.Sprintf("event_trailers/%s", eventID)
-	if err := writer.WriteField("folder", folder); err != nil {
-		return nil, err
-	}
-
-	// Ajouter un timestamp pour éviter les doublons
-	timestamp := fmt.Sprintf("%d", time.Now().Unix())
-	if err := writer.WriteField("public_id", timestamp); err != nil {
-		return nil, err
-	}
-
-	writer.Close()
-
-	// Créer la requête HTTP
-	req, err := http.NewRequest("POST", uploadURL, body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	// Envoyer la requête
-	client := &http.Client{Timeout: 120 * time.Second} // 2 minutes pour vidéos
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// Lire la réponse
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		log.Printf("❌ Cloudinary error: %s", string(bodyBytes))
-		return nil, fmt.Errorf("cloudinary returned status %d", resp.StatusCode)
-	}
-
-	var cloudinaryResp CloudinaryVideoUploadResponse
-	if err := json.NewDecoder(resp.Body).Decode(&cloudinaryResp); err != nil {
-		return nil, err
-	}
-
-	// Générer l'URL de la miniature (Cloudinary génère automatiquement une miniature)
-	thumbnailURL := strings.Replace(cloudinaryResp.SecureURL, "/video/upload/", "/video/upload/so_0/", 1)
-	thumbnailURL = strings.Replace(thumbnailURL, "."+cloudinaryResp.Format, ".jpg", 1)
-
-	// Construire l'objet EventTrailer
-	trailer := &models.EventTrailer{
-		URL:          cloudinaryResp.SecureURL,
-		PublicID:     cloudinaryResp.PublicID,
-		Duration:     cloudinaryResp.Duration,
-		Format:       cloudinaryResp.Format,
-		Size:         cloudinaryResp.Bytes,
-		UploadedAt:   time.Now(),
-		ThumbnailURL: thumbnailURL,
-	}
-
-	return trailer, nil
 }
 
 // deleteVideoFromCloudinary supprime une vidéo de Cloudinary
