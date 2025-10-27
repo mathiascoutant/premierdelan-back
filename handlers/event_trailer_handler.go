@@ -135,10 +135,8 @@ func (h *EventTrailerHandler) UploadTrailer(w http.ResponseWriter, r *http.Reque
 
 	// Mettre à jour l'événement dans la base de données
 	updateData := bson.M{
-		"$set": bson.M{
-			"trailer":    trailer,
-			"updated_at": time.Now(),
-		},
+		"trailer":    trailer,
+		"updated_at": time.Now(),
 	}
 
 	if err := h.eventRepo.Update(eventObjID, updateData); err != nil {
@@ -244,10 +242,8 @@ func (h *EventTrailerHandler) ReplaceTrailer(w http.ResponseWriter, r *http.Requ
 
 	// Mettre à jour l'événement dans la base de données
 	updateData := bson.M{
-		"$set": bson.M{
-			"trailer":    newTrailer,
-			"updated_at": time.Now(),
-		},
+		"trailer":    newTrailer,
+		"updated_at": time.Now(),
 	}
 
 	if err := h.eventRepo.Update(eventObjID, updateData); err != nil {
@@ -326,9 +322,7 @@ func (h *EventTrailerHandler) DeleteTrailer(w http.ResponseWriter, r *http.Reque
 		"$unset": bson.M{
 			"trailer": "",
 		},
-		"$set": bson.M{
-			"updated_at": time.Now(),
-		},
+		"updated_at": time.Now(),
 	}
 
 	if err := h.eventRepo.Update(eventObjID, updateData); err != nil {
