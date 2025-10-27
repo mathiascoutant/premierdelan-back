@@ -7,6 +7,17 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// EventTrailer représente une vidéo trailer d'événement
+type EventTrailer struct {
+	URL          string    `json:"url" bson:"url"`                                     // URL de la vidéo sur Cloudinary
+	PublicID     string    `json:"public_id" bson:"public_id"`                         // ID public Cloudinary (pour suppression)
+	Duration     float64   `json:"duration,omitempty" bson:"duration,omitempty"`       // Durée en secondes
+	Format       string    `json:"format" bson:"format"`                               // Format vidéo (mp4, webm, etc.)
+	Size         int64     `json:"size" bson:"size"`                                   // Taille du fichier en bytes
+	UploadedAt   time.Time `json:"uploaded_at" bson:"uploaded_at"`                     // Date d'upload
+	ThumbnailURL string    `json:"thumbnail_url" bson:"thumbnail_url"`                 // URL de la miniature
+}
+
 // Event représente un événement dans le système
 type Event struct {
 	ID                        primitive.ObjectID `json:"id" bson:"_id,omitempty"`
@@ -22,6 +33,7 @@ type Event struct {
 	DateOuvertureInscription  *time.Time         `json:"date_ouverture_inscription,omitempty" bson:"date_ouverture_inscription,omitempty"` // Retour à *time.Time
 	DateFermetureInscription  *time.Time         `json:"date_fermeture_inscription,omitempty" bson:"date_fermeture_inscription,omitempty"` // Retour à *time.Time
 	NotificationSentOpening   bool               `json:"notification_sent_opening" bson:"notification_sent_opening"`
+	Trailer                   *EventTrailer      `json:"trailer,omitempty" bson:"trailer,omitempty"`                                        // Vidéo trailer (optionnel)
 	CreatedAt                 time.Time          `json:"created_at" bson:"created_at"`
 	UpdatedAt                 time.Time          `json:"updated_at" bson:"updated_at"`
 }

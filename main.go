@@ -84,6 +84,13 @@ func main() {
 		cfg.CloudinaryAPIKey,
 		cfg.CloudinaryAPISecret,
 	)
+	eventTrailerHandler := handlers.NewEventTrailerHandler(
+		database.DB,
+		cfg.CloudinaryCloudName,
+		cfg.CloudinaryUploadPreset,
+		cfg.CloudinaryAPIKey,
+		cfg.CloudinaryAPISecret,
+	)
 	
 	// Initialiser le hub WebSocket pour le chat (avec repositories pour la présence)
 	wsHub := websocket.NewHub(userRepo, chatRepo)
@@ -179,6 +186,11 @@ func main() {
 	adminRouter.HandleFunc("/evenements/{event_id}", adminHandler.GetEvent).Methods("GET", "OPTIONS")
 	adminRouter.HandleFunc("/evenements/{id}", adminHandler.UpdateEvent).Methods("PUT", "OPTIONS")
 	adminRouter.HandleFunc("/evenements/{id}", adminHandler.DeleteEvent).Methods("DELETE", "OPTIONS")
+	
+	// Routes de gestion des trailers vidéo (admin uniquement)
+	adminRouter.HandleFunc("/evenements/{event_id}/trailer", eventTrailerHandler.UploadTrailer).Methods("POST", "OPTIONS")
+	adminRouter.HandleFunc("/evenements/{event_id}/trailer", eventTrailerHandler.ReplaceTrailer).Methods("PUT", "OPTIONS")
+	adminRouter.HandleFunc("/evenements/{event_id}/trailer", eventTrailerHandler.DeleteTrailer).Methods("DELETE", "OPTIONS")
 	
 	// Statistiques
 	adminRouter.HandleFunc("/stats", adminHandler.GetStats).Methods("GET", "OPTIONS")
@@ -342,6 +354,9 @@ func main() {
 	log.Println("   POST   /api/admin/evenements               - Créer événement")
 	log.Println("   PUT    /api/admin/evenements/{id}          - Modifier événement")
 	log.Println("   DELETE /api/admin/evenements/{id}          - Supprimer événement")
+	log.Println("   POST   /api/admin/evenements/{id}/trailer  - Ajouter trailer vidéo")
+	log.Println("   PUT    /api/admin/evenements/{id}/trailer  - Remplacer trailer vidéo")
+	log.Println("   DELETE /api/admin/evenements/{id}/trailer  - Supprimer trailer vidéo")
 	log.Println("   GET    /api/admin/evenements/{id}/inscrits - Liste des inscrits")
 	log.Println("   DELETE /api/admin/evenements/{id}/inscrits/{insc_id} - Supprimer inscription")
 	log.Println("   DELETE /api/admin/evenements/{id}/inscrits/{insc_id}/accompagnant/{index} - Supprimer accompagnant")
