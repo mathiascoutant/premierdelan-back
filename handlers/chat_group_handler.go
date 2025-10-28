@@ -704,9 +704,12 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	if sender != nil {
 		messageWithSender.Sender = &models.UserBasicInfo{
-			ID:        sender.Email,
-			Firstname: sender.Firstname,
-			Lastname:  sender.Lastname,
+			ID:              sender.Email,
+			Firstname:       sender.Firstname,
+			Lastname:        sender.Lastname,
+			Email:           sender.Email,
+			ProfilePicture:  sender.ProfileImageURL,
+			ProfileImageURL: sender.ProfileImageURL,
 		}
 	}
 
@@ -790,8 +793,38 @@ func (h *ChatGroupHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("✅ Messages récupérés: %d", len(messages))
 
+	// Enrichir les messages avec les données de l'expéditeur
+	var enrichedMessages []models.GroupMessageWithSender
+	for _, msg := range messages {
+		enrichedMsg := models.GroupMessageWithSender{
+			ID:          msg.ID,
+			SenderID:    msg.SenderID,
+			Content:     msg.Content,
+			MessageType: msg.MessageType,
+			Timestamp:   msg.Timestamp,
+			CreatedAt:   msg.CreatedAt,
+			DeliveredAt: msg.DeliveredAt,
+			ReadBy:      msg.ReadBy,
+		}
+
+		// Récupérer les infos de l'expéditeur
+		sender, err := h.userRepo.FindByEmail(msg.SenderID)
+		if err == nil && sender != nil {
+			enrichedMsg.Sender = &models.UserBasicInfo{
+				ID:              sender.Email,
+				Firstname:       sender.Firstname,
+				Lastname:        sender.Lastname,
+				Email:           sender.Email,
+				ProfilePicture:  sender.ProfileImageURL,
+				ProfileImageURL: sender.ProfileImageURL,
+			}
+		}
+
+		enrichedMessages = append(enrichedMessages, enrichedMsg)
+	}
+
 	utils.RespondSuccess(w, "Messages récupérés", map[string]interface{}{
-		"messages": messages,
+		"messages": enrichedMessages,
 	})
 }
 

@@ -87,10 +87,12 @@ type SendGroupMessageRequest struct {
 
 // UserBasicInfo informations de base d'un utilisateur
 type UserBasicInfo struct {
-	ID        string `json:"id"`
-	Firstname string `json:"firstname"`
-	Lastname  string `json:"lastname"`
-	Email     string `json:"email,omitempty"`
+	ID              string `json:"id"`
+	Firstname       string `json:"firstname"`
+	Lastname        string `json:"lastname"`
+	Email           string `json:"email,omitempty"`
+	ProfilePicture  string `json:"profile_picture,omitempty"`  // URL de la photo de profil
+	ProfileImageURL string `json:"profileImageUrl,omitempty"`  // URL de la photo de profil (compatibilité)
 }
 
 // MessagePreview aperçu d'un message
@@ -130,10 +132,12 @@ type GroupWithDetails struct {
 
 // GroupCreatorInfo informations du créateur du groupe
 type GroupCreatorInfo struct {
-	ID        string `json:"id"`
-	Firstname string `json:"firstname"`
-	Lastname  string `json:"lastname"`
-	Email     string `json:"email"`
+	ID              string `json:"id"`
+	Firstname       string `json:"firstname"`
+	Lastname        string `json:"lastname"`
+	Email           string `json:"email"`
+	ProfilePicture  string `json:"profile_picture,omitempty"`  // URL de la photo de profil
+	ProfileImageURL string `json:"profileImageUrl,omitempty"`  // URL de la photo de profil (compatibilité)
 }
 
 // GroupLastMessageInfo dernier message du groupe
