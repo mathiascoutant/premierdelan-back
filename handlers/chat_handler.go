@@ -187,6 +187,21 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Enrichir les messages avec les données de l'expéditeur
+	for i := range messages {
+		sender, err := h.userRepo.FindByID(messages[i].SenderID)
+		if err == nil && sender != nil {
+			messages[i].Sender = &models.UserInfo{
+				ID:              sender.ID.Hex(),
+				Firstname:       sender.Firstname,
+				Lastname:        sender.Lastname,
+				Email:           sender.Email,
+				ProfilePicture:  sender.ProfileImageURL,
+				ProfileImageURL: sender.ProfileImageURL,
+			}
+		}
+	}
+
 	response := models.ChatResponse{
 		Success: true,
 		Data: map[string]interface{}{

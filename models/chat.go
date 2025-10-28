@@ -29,6 +29,7 @@ type Message struct {
 	ID             primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	ConversationID primitive.ObjectID `json:"conversation_id" bson:"conversation_id"`
 	SenderID       primitive.ObjectID `json:"sender_id" bson:"sender_id"`
+	Sender         *UserInfo          `json:"sender,omitempty" bson:"-"` // Informations de l'expéditeur (enrichi)
 	Content        string             `json:"content" bson:"content"`
 	Type           string             `json:"type" bson:"type"` // "text", "image", "file"
 	IsRead         bool               `json:"is_read" bson:"is_read"`
@@ -66,12 +67,14 @@ type ConversationResponse struct {
 
 // UserInfo représente les informations d'un utilisateur
 type UserInfo struct {
-	ID        string     `json:"id"`
-	Firstname string     `json:"firstname"`
-	Lastname  string     `json:"lastname"`
-	Email     string     `json:"email"`
-	IsOnline  bool       `json:"is_online"`           // Si l'utilisateur est connecté au WebSocket
-	LastSeen  *time.Time `json:"last_seen,omitempty"` // Dernière activité WebSocket
+	ID             string     `json:"id"`
+	Firstname      string     `json:"firstname"`
+	Lastname       string     `json:"lastname"`
+	Email          string     `json:"email"`
+	ProfilePicture string     `json:"profile_picture,omitempty"` // URL de la photo de profil
+	ProfileImageURL string    `json:"profileImageUrl,omitempty"` // URL de la photo de profil (compatibilité)
+	IsOnline       bool       `json:"is_online"`                 // Si l'utilisateur est connecté au WebSocket
+	LastSeen       *time.Time `json:"last_seen,omitempty"`       // Dernière activité WebSocket
 }
 
 // MessageInfo représente les informations d'un message

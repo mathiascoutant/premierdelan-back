@@ -137,6 +137,12 @@ func (r *ChatRepository) GetConversations(ctx context.Context, userID primitive.
 				participant.Firstname = otherUser["firstname"].(string)
 				participant.Lastname = otherUser["lastname"].(string)
 				participant.Email = otherUser["email"].(string)
+				
+				// Ajouter la photo de profil
+				if profileImageURL, ok := otherUser["profile_image_url"].(string); ok {
+					participant.ProfilePicture = profileImageURL
+					participant.ProfileImageURL = profileImageURL
+				}
 			}
 		}
 
@@ -416,6 +422,12 @@ func (r *ChatRepository) getSentInvitations(ctx context.Context, userID primitiv
 			participant.Firstname = toUser["firstname"].(string)
 			participant.Lastname = toUser["lastname"].(string)
 			participant.Email = toUser["email"].(string)
+			
+			// Ajouter la photo de profil
+			if profileImageURL, ok := toUser["profile_image_url"].(string); ok {
+				participant.ProfilePicture = profileImageURL
+				participant.ProfileImageURL = profileImageURL
+			}
 		}
 
 		invitations = append(invitations, models.ConversationResponse{
