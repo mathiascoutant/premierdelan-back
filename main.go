@@ -422,6 +422,12 @@ func main() {
 	<-quit
 
 	log.Println("\n🛑 Arrêt du serveur...")
+	
+	// Arrêter le hub WebSocket proprement
+	if wsHub != nil {
+		wsHub.Shutdown()
+	}
+	
 	if err := server.Close(); err != nil {
 		log.Printf("❌ Erreur lors de l'arrêt du serveur: %v", err)
 	}

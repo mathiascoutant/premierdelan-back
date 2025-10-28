@@ -50,6 +50,9 @@ type Hub struct {
 	// Repositories pour la gestion de la présence
 	userRepo *database.UserRepository
 	chatRepo *database.ChatRepository
+
+	// Gestionnaire de présence avec timeouts automatiques
+	presenceManager *PresenceManager
 }
 
 // Message représente un message WebSocket à diffuser
@@ -63,7 +66,7 @@ type Message struct {
 
 // NewHub crée un nouveau hub WebSocket
 func NewHub(userRepo *database.UserRepository, chatRepo *database.ChatRepository) *Hub {
-	return &Hub{
+	hub := &Hub{
 		connections: make(map[string]*Client),
 		rooms:       make(map[string]map[string]bool),
 		groupRooms:  make(map[string]map[string]bool),
@@ -73,6 +76,14 @@ func NewHub(userRepo *database.UserRepository, chatRepo *database.ChatRepository
 		userRepo:    userRepo,
 		chatRepo:    chatRepo,
 	}
+
+	// Initialiser le gestionnaire de présence
+	hub.presenceManager = NewPresenceManager(
+		hub.updateUserPresenceInDB,
+		hub.broadcastPresenceUpdate,
+	)
+
+	return hub
 }
 
 // Run démarre la boucle principale du hub
@@ -91,8 +102,10 @@ func (h *Hub) Run() {
 			// 🔌 Auto-joindre tous les groupes de l'utilisateur
 			go h.autoJoinUserGroups(client.UserID)
 
-			// 🔌 Envoyer événement user_presence à tous les contacts
-			go h.notifyUserPresence(client.UserID, true)
+			// 🔌 Mettre à jour la présence avec timeout automatique
+			if h.presenceManager != nil {
+				h.presenceManager.UpdateUserPresence(client.UserID, true)
+			}
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -119,21 +132,11 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 			log.Printf("👋 Client déconnecté: %s (total: %d)", client.UserID, len(h.connections))
 
-			// Mettre à jour last_seen dans la DB (userID est maintenant un email)
-			if h.userRepo != nil {
-				if user, err := h.userRepo.FindByEmail(client.UserID); err == nil && user != nil {
-					if err := h.userRepo.UpdateLastSeen(user.ID); err != nil {
-						log.Printf("❌ Erreur mise à jour last_seen: %v", err)
-					} else {
-						log.Printf("✅ last_seen mis à jour pour %s", client.UserID)
-					}
-				} else {
-					log.Printf("❌ Utilisateur non trouvé pour last_seen: %s", client.UserID)
-				}
+			// 🔌 Mettre à jour la présence (marquer comme hors ligne immédiatement)
+			if h.presenceManager != nil {
+				h.presenceManager.UpdateUserPresence(client.UserID, false)
+				h.presenceManager.RemoveUser(client.UserID)
 			}
-
-			// 🔌 Envoyer événement user_presence à tous les contacts
-			go h.notifyUserPresence(client.UserID, false)
 
 		case message := <-h.broadcast:
 			h.mu.RLock()
@@ -519,4 +522,119 @@ func (h *Hub) HandleGroupTyping(userID, groupID string, isTyping bool) {
 	h.BroadcastToGroup(groupID, payload, userID)
 
 	log.Printf("✅ Group typing indicator envoyé pour groupe %s", groupID)
+}
+
+// ====================================
+// Méthodes pour le gestionnaire de présence
+// ====================================
+
+// updateUserPresenceInDB met à jour la présence d'un utilisateur en base de données
+func (h *Hub) updateUserPresenceInDB(userID string, isOnline bool) error {
+	if h.userRepo == nil {
+		log.Printf("⚠️  userRepo nil - présence non mise à jour en DB")
+		return nil
+	}
+
+	// Récupérer l'utilisateur par email
+	user, err := h.userRepo.FindByEmail(userID)
+	if err != nil || user == nil {
+		log.Printf("❌ Utilisateur non trouvé pour mise à jour présence: %s", userID)
+		return err
+	}
+
+	// Mettre à jour la présence
+	updateData := map[string]interface{}{
+		"is_online": isOnline,
+	}
+
+	if !isOnline {
+		// Si hors ligne, mettre à jour last_seen
+		updateData["last_seen"] = time.Now()
+	}
+
+	// Utiliser UpdateByEmail si disponible, sinon UpdateByID
+	if err := h.userRepo.UpdateByEmail(userID, updateData); err != nil {
+		log.Printf("❌ Erreur mise à jour présence en DB: %v", err)
+		return err
+	}
+
+	log.Printf("✅ Présence mise à jour en DB: %s -> %v", userID, isOnline)
+	return nil
+}
+
+// broadcastPresenceUpdate diffuse une mise à jour de présence à tous les contacts
+func (h *Hub) broadcastPresenceUpdate(userID string, isOnline bool, lastSeen *time.Time) {
+	if h.chatRepo == nil {
+		log.Printf("⚠️  chatRepo nil - présence non diffusée")
+		return
+	}
+
+	log.Printf("👁️  Diffusion présence pour %s (online=%v)", userID, isOnline)
+
+	// Récupérer l'utilisateur par email
+	user, err := h.userRepo.FindByEmail(userID)
+	if err != nil || user == nil {
+		log.Printf("❌ Utilisateur invalide pour diffusion présence: %s", userID)
+		return
+	}
+	userObjID := user.ID
+
+	// Récupérer toutes les conversations de cet utilisateur
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conversations, err := h.chatRepo.GetConversations(ctx, userObjID)
+	if err != nil {
+		log.Printf("❌ Erreur récupération conversations pour diffusion présence: %v", err)
+		return
+	}
+
+	// Préparer le payload de présence
+	payload := map[string]interface{}{
+		"type":      "user_presence",
+		"user_id":   userID,
+		"is_online": isOnline,
+	}
+
+	// Ajouter last_seen si hors ligne
+	if !isOnline && lastSeen != nil {
+		payload["last_seen"] = lastSeen.Format(time.RFC3339)
+	}
+
+	log.Printf("📦 Payload user_presence: %+v", payload)
+
+	// Envoyer à tous les autres participants (éviter doublons)
+	sentTo := make(map[string]bool)
+	for _, conv := range conversations {
+		otherUserEmail := conv.Participant.Email
+		if otherUserEmail != userID && !sentTo[otherUserEmail] {
+			h.SendToUser(otherUserEmail, payload)
+			sentTo[otherUserEmail] = true
+			log.Printf("📤 Présence diffusée à %s", otherUserEmail)
+		}
+	}
+
+	log.Printf("✅ Présence diffusée à %d contacts", len(sentTo))
+}
+
+// Shutdown arrête le hub et marque tous les utilisateurs comme hors ligne
+func (h *Hub) Shutdown() {
+	log.Printf("🔄 Arrêt du hub WebSocket...")
+
+	// Arrêter le gestionnaire de présence
+	if h.presenceManager != nil {
+		h.presenceManager.Shutdown()
+	}
+
+	// Fermer toutes les connexions
+	h.mu.Lock()
+	for userID, client := range h.connections {
+		close(client.send)
+		client.conn.Close()
+		log.Printf("🔌 Connexion fermée pour %s", userID)
+	}
+	h.connections = make(map[string]*Client)
+	h.mu.Unlock()
+
+	log.Printf("✅ Hub WebSocket arrêté")
 }

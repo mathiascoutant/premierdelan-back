@@ -120,6 +120,17 @@ func (c *Client) readPump() {
 				c.hub.HandleGroupTyping(c.UserID, groupID, isTyping)
 			}
 
+		case "user_presence":
+			// 👤 Gérer la présence utilisateur (mise à jour automatique)
+			if isOnline, ok := msg["is_online"].(bool); ok {
+				log.Printf("📤 Présence utilisateur: %s -> %v", c.UserID, isOnline)
+				if c.hub.presenceManager != nil {
+					c.hub.presenceManager.UpdateUserPresence(c.UserID, isOnline)
+				}
+			} else {
+				log.Printf("⚠️  Événement user_presence sans is_online")
+			}
+
 		default:
 			log.Printf("⚠️  Type de message inconnu: %s", msgType)
 		}
