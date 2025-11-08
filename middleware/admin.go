@@ -36,7 +36,6 @@ func RequireAdmin(db *mongo.Database) func(http.Handler) http.Handler {
 				return
 			}
 
-			log.Printf("✓ Accès admin autorisé pour: %s", user.Email)
 			next.ServeHTTP(w, r)
 		})
 	}
