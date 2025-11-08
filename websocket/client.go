@@ -81,12 +81,10 @@ func (c *Client) readPump() {
 			// ⌨️ Gérer le typing indicator
 			if convID, ok := msg["conversation_id"].(string); ok {
 				isTyping, _ := msg["is_typing"].(bool)
-				log.Printf("📤 Typing conversation: user=%s, conv=%s, typing=%v", c.UserID, convID, isTyping)
 				c.hub.HandleTyping(c.UserID, convID, isTyping)
 			} else if groupID, ok := msg["group_id"].(string); ok {
 				// ⌨️ Gérer le typing indicator pour les groupes
 				isTyping, _ := msg["is_typing"].(bool)
-				log.Printf("📤 Typing groupe: user=%s, group=%s, typing=%v", c.UserID, groupID, isTyping)
 				c.hub.HandleGroupTyping(c.UserID, groupID, isTyping)
 			} else {
 				log.Printf("⚠️  Événement typing sans conversation_id ni group_id")
@@ -95,14 +93,12 @@ func (c *Client) readPump() {
 		case "join_group":
 			// 👥 Rejoindre un groupe
 			if groupID, ok := msg["group_id"].(string); ok {
-				log.Printf("👥 User %s rejoint le groupe %s", c.UserID, groupID)
 				c.hub.JoinGroup(c.UserID, groupID)
 				// Confirmer au client
 				c.send <- map[string]interface{}{
 					"type":     "joined_group",
 					"group_id": groupID,
 				}
-				log.Printf("✅ User %s a rejoint le groupe %s", c.UserID, groupID)
 			} else {
 				log.Printf("⚠️  Événement join_group sans group_id")
 			}
@@ -123,7 +119,6 @@ func (c *Client) readPump() {
 		case "user_presence":
 			// 👤 Gérer la présence utilisateur (mise à jour automatique)
 			if isOnline, ok := msg["is_online"].(bool); ok {
-				log.Printf("📤 Présence utilisateur: %s -> %v", c.UserID, isOnline)
 				if c.hub.presenceManager != nil {
 					c.hub.presenceManager.UpdateUserPresence(c.UserID, isOnline)
 				}

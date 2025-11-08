@@ -43,13 +43,10 @@ func (pm *PresenceManager) UpdateUserPresence(userID string, isOnline bool) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	log.Printf("👤 Mise à jour présence: %s -> %v", userID, isOnline)
-
 	if isOnline {
 		// Annuler le timeout précédent s'il existe
 		if timer, exists := pm.userTimeouts[userID]; exists {
 			timer.Stop()
-			log.Printf("⏰ Timeout précédent annulé pour %s", userID)
 		}
 
 		// Programmer un nouveau timeout de 4 minutes
@@ -57,8 +54,6 @@ func (pm *PresenceManager) UpdateUserPresence(userID string, isOnline bool) {
 			pm.handleUserTimeout(userID)
 		})
 		pm.userTimeouts[userID] = timer
-
-		log.Printf("⏰ Timeout programmé pour %s (4 minutes)", userID)
 
 		// Mettre à jour la base de données
 		if pm.updatePresenceCallback != nil {
@@ -77,7 +72,6 @@ func (pm *PresenceManager) UpdateUserPresence(userID string, isOnline bool) {
 		if timer, exists := pm.userTimeouts[userID]; exists {
 			timer.Stop()
 			delete(pm.userTimeouts, userID)
-			log.Printf("⏰ Timeout supprimé pour %s (déconnexion manuelle)", userID)
 		}
 
 		// Mettre à jour la base de données
@@ -99,8 +93,6 @@ func (pm *PresenceManager) UpdateUserPresence(userID string, isOnline bool) {
 func (pm *PresenceManager) handleUserTimeout(userID string) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
-
-	log.Printf("⏰ Timeout d'inactivité pour %s (4 minutes)", userID)
 
 	// Supprimer le timeout de la map
 	delete(pm.userTimeouts, userID)
@@ -127,7 +119,6 @@ func (pm *PresenceManager) RemoveUser(userID string) {
 	if timer, exists := pm.userTimeouts[userID]; exists {
 		timer.Stop()
 		delete(pm.userTimeouts, userID)
-		log.Printf("🗑️  Utilisateur %s supprimé du gestionnaire de présence", userID)
 	}
 }
 
@@ -170,9 +161,7 @@ func (pm *PresenceManager) cleanupOrphanedTimeouts() {
 		}
 	}
 
-	if cleanedCount > 0 {
-		log.Printf("🧹 Nettoyage terminé: %d timeouts orphelins supprimés", cleanedCount)
-	}
+	_ = cleanedCount
 }
 
 // Shutdown arrête le gestionnaire de présence et marque tous les utilisateurs comme hors ligne
@@ -180,12 +169,10 @@ func (pm *PresenceManager) Shutdown() {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	log.Printf("🔄 Arrêt du gestionnaire de présence - Marquage des utilisateurs hors ligne...")
-
 	// Arrêter tous les timeouts
 	for userID, timer := range pm.userTimeouts {
 		timer.Stop()
-		log.Printf("⏰ Timeout arrêté pour %s", userID)
+		pm.userTimeouts[userID] = nil
 	}
 
 	// Marquer tous les utilisateurs actifs comme hors ligne
@@ -204,6 +191,4 @@ func (pm *PresenceManager) Shutdown() {
 
 	// Vider la map
 	pm.userTimeouts = make(map[string]*time.Timer)
-
-	log.Printf("✅ Gestionnaire de présence arrêté")
 }

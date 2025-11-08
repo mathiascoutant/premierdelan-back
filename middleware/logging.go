@@ -32,15 +32,15 @@ func Logging(next http.Handler) http.Handler {
 		// Traiter la requête
 		next.ServeHTTP(rw, r)
 
-		// Enregistrer les informations
 		duration := time.Since(start)
-		log.Printf(
-			"%s %s %d %s",
-			r.Method,
-			r.RequestURI,
-			rw.statusCode,
-			duration,
-		)
+		if rw.statusCode >= http.StatusBadRequest {
+			log.Printf(
+				"⚠️ %s %s -> %d (%s)",
+				r.Method,
+				r.RequestURI,
+				rw.statusCode,
+				duration,
+			)
+		}
 	})
 }
-
