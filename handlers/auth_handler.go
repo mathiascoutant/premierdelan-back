@@ -51,9 +51,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Décoder la requête
 	var req models.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("❌ Erreur parsing JSON inscription: %v", err)
 		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
 		return
 	}
+
+	// Logger les données reçues pour débogage
+	log.Printf("📥 Inscription reçue - Code: '%s', Email: '%s', Prénom: '%s', Nom: '%s'", 
+		req.CodeSoiree, req.Email, req.Firstname, req.Lastname)
 
 	// Valider les données
 	if err := h.validateRegisterRequest(&req); err != nil {
@@ -62,16 +67,20 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Vérifier que le code soirée existe et est actif
+	log.Printf("🔍 Vérification du code soirée: '%s'", req.CodeSoiree)
 	codeValid, err := h.codeSoireeRepo.IsCodeValid(req.CodeSoiree)
 	if err != nil {
-		log.Printf("Erreur lors de la vérification du code soirée: %v", err)
+		log.Printf("❌ Erreur lors de la vérification du code soirée '%s': %v", req.CodeSoiree, err)
 		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
 		return
 	}
 	if !codeValid {
+		log.Printf("❌ Code soirée invalide ou inactif: '%s'", req.CodeSoiree)
 		utils.RespondError(w, http.StatusBadRequest, "Code de soirée invalide ou inactif")
 		return
 	}
+	
+	log.Printf("✅ Code soirée valide: '%s'", req.CodeSoiree)
 
 	// Vérifier si l'email existe déjà
 	exists, err := h.userRepo.EmailExists(req.Email)

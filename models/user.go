@@ -24,11 +24,11 @@ type User struct {
 
 // RegisterRequest représente la requête d'inscription
 type RegisterRequest struct {
-	CodeSoiree string `json:"code_soiree"`
-	Firstname  string `json:"firstname"` // Le frontend envoie "firstname"
-	Lastname   string `json:"lastname"`  // Le frontend envoie "lastname"
+	CodeSoiree string `json:"codesoiree"` // Frontend envoie "codesoiree" (sans underscore)
+	Firstname  string `json:"prenom"`     // Frontend envoie "prenom" (français)
+	Lastname   string `json:"nom"`        // Frontend envoie "nom" (français)
 	Email      string `json:"email" validate:"required,email"`
-	Phone      string `json:"phone" validate:"required"` // Le frontend envoie "phone"
+	Phone      string `json:"telephone" validate:"required"` // Frontend envoie "telephone" (français)
 	Password   string `json:"password" validate:"required,min=6"`
 }
 
