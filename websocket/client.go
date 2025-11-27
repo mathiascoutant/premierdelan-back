@@ -47,10 +47,6 @@ func (c *Client) readPump() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			// Ne logger que les vraies erreurs inattendues (pas les déconnexions normales)
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("❌ Erreur WebSocket inattendue: %v", err)
-			}
 			// Les déconnexions normales (close 1000, 1001, 1005) ne sont pas loggées
 			break
 		}

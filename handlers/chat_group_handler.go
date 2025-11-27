@@ -128,6 +128,36 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 	// Compter les membres
 	memberCount, _ := h.groupRepo.GetMemberCount(group.ID)
 
+	// 🔌 Faire rejoindre automatiquement le créateur à la room WebSocket du groupe
+	if h.wsHub != nil {
+		h.wsHub.JoinGroup(claims.Email, group.ID.Hex())
+	}
+
+	// 🔌 Envoyer un événement WebSocket au créateur pour qu'il voie le groupe immédiatement
+	if h.wsHub != nil {
+		// Récupérer les infos du créateur
+		creator, err := h.userRepo.FindByEmail(claims.Email)
+		if err == nil && creator != nil {
+			payload := map[string]interface{}{
+				"type": "group_created",
+				"group": map[string]interface{}{
+					"id":           group.ID.Hex(),
+					"name":         group.Name,
+					"created_by":   group.CreatedBy,
+					"created_at":   group.CreatedAt,
+					"member_count": memberCount,
+					"creator": map[string]interface{}{
+						"id":        creator.Email,
+						"firstname": creator.Firstname,
+						"lastname":  creator.Lastname,
+						"email":     creator.Email,
+					},
+				},
+			}
+			h.wsHub.SendToUser(claims.Email, payload)
+		}
+	}
+
 	log.Printf("✓ Groupe créé: %s par %s", group.Name, claims.UserID)
 	utils.RespondSuccess(w, "Groupe créé avec succès", map[string]interface{}{
 		"id":           group.ID.Hex(),
