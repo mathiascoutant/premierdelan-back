@@ -19,17 +19,22 @@ type PresenceManager struct {
 
 	// Callback pour diffuser les mises à jour de présence
 	broadcastPresenceCallback func(userID string, isOnline bool, lastSeen *time.Time)
+
+	// Callback pour récupérer le statut actuel depuis la DB
+	getCurrentStatusCallback func(userID string) (bool, error)
 }
 
 // NewPresenceManager crée un nouveau gestionnaire de présence
 func NewPresenceManager(
 	updatePresenceCallback func(userID string, isOnline bool) error,
 	broadcastPresenceCallback func(userID string, isOnline bool, lastSeen *time.Time),
+	getCurrentStatusCallback func(userID string) (bool, error),
 ) *PresenceManager {
 	pm := &PresenceManager{
 		userTimeouts:              make(map[string]*time.Timer),
 		updatePresenceCallback:    updatePresenceCallback,
 		broadcastPresenceCallback: broadcastPresenceCallback,
+		getCurrentStatusCallback:  getCurrentStatusCallback,
 	}
 
 	// Démarrer le nettoyage périodique
@@ -43,6 +48,25 @@ func (pm *PresenceManager) UpdateUserPresence(userID string, isOnline bool) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
+	// 🔍 Vérifier le statut actuel en base de données
+	var currentStatus bool
+	var statusChanged bool
+	if pm.getCurrentStatusCallback != nil {
+		currentStatusDB, err := pm.getCurrentStatusCallback(userID)
+		if err == nil {
+			currentStatus = currentStatusDB
+			statusChanged = (currentStatus != isOnline)
+			log.Printf("🔍 Présence user %s: actuel=%v, nouveau=%v, changé=%v", userID, currentStatus, isOnline, statusChanged)
+		} else {
+			// Si erreur, considérer que le statut a changé pour être sûr
+			statusChanged = true
+			log.Printf("⚠️  Erreur récupération statut pour %s: %v, considérer comme changé", userID, err)
+		}
+	} else {
+		// Si pas de callback, considérer que le statut a changé
+		statusChanged = true
+	}
+
 	if isOnline {
 		// Annuler le timeout précédent s'il existe
 		if timer, exists := pm.userTimeouts[userID]; exists {
@@ -55,16 +79,19 @@ func (pm *PresenceManager) UpdateUserPresence(userID string, isOnline bool) {
 		})
 		pm.userTimeouts[userID] = timer
 
-		// Mettre à jour la base de données
+		// Mettre à jour la base de données (même si le statut n'a pas changé, pour last_activity)
 		if pm.updatePresenceCallback != nil {
 			if err := pm.updatePresenceCallback(userID, true); err != nil {
 				log.Printf("❌ Erreur mise à jour présence en ligne: %v", err)
 			}
 		}
 
-		// Diffuser la mise à jour
-		if pm.broadcastPresenceCallback != nil {
+		// ⚠️ CRITIQUE : Ne diffuser que si le statut a réellement changé
+		if statusChanged && pm.broadcastPresenceCallback != nil {
+			log.Printf("✅ Statut changé pour %s: %v -> %v, envoi événement", userID, currentStatus, isOnline)
 			pm.broadcastPresenceCallback(userID, true, nil)
+		} else if !statusChanged {
+			log.Printf("⏭️  Statut identique pour %s (déjà %v), pas d'envoi d'événement", userID, isOnline)
 		}
 
 	} else {
@@ -81,10 +108,13 @@ func (pm *PresenceManager) UpdateUserPresence(userID string, isOnline bool) {
 			}
 		}
 
-		// Diffuser la mise à jour avec last_seen
+		// ⚠️ CRITIQUE : Ne diffuser que si le statut a réellement changé
 		now := time.Now()
-		if pm.broadcastPresenceCallback != nil {
+		if statusChanged && pm.broadcastPresenceCallback != nil {
+			log.Printf("✅ Statut changé pour %s: %v -> %v, envoi événement", userID, currentStatus, isOnline)
 			pm.broadcastPresenceCallback(userID, false, &now)
+		} else if !statusChanged {
+			log.Printf("⏭️  Statut identique pour %s (déjà %v), pas d'envoi d'événement", userID, isOnline)
 		}
 	}
 }

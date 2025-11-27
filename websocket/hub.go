@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"premier-an-backend/database"
 	"premier-an-backend/models"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -81,6 +83,7 @@ func NewHub(userRepo *database.UserRepository, chatRepo *database.ChatRepository
 	hub.presenceManager = NewPresenceManager(
 		hub.updateUserPresenceInDB,
 		hub.broadcastPresenceUpdate,
+		hub.getCurrentUserStatus,
 	)
 
 	return hub
@@ -485,6 +488,35 @@ func (h *Hub) HandleGroupTyping(userID, groupID string, isTyping bool) {
 // ====================================
 // Méthodes pour le gestionnaire de présence
 // ====================================
+
+// getCurrentUserStatus récupère le statut actuel d'un utilisateur depuis la base de données
+func (h *Hub) getCurrentUserStatus(userID string) (bool, error) {
+	if h.userRepo == nil {
+		return false, fmt.Errorf("userRepo nil")
+	}
+
+	// Récupérer l'utilisateur par email pour vérifier qu'il existe
+	user, err := h.userRepo.FindByEmail(userID)
+	if err != nil || user == nil {
+		return false, fmt.Errorf("utilisateur non trouvé: %s", userID)
+	}
+
+	// Récupérer is_online depuis la DB avec une requête directe
+	// On utilise database.DB directement car userRepo n'expose pas la collection
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var result struct {
+		IsOnline bool `bson:"is_online"`
+	}
+	err = database.DB.Collection("users").FindOne(ctx, bson.M{"email": userID}).Decode(&result)
+	if err != nil {
+		// Si le champ n'existe pas ou erreur, considérer comme false (hors ligne par défaut)
+		return false, nil
+	}
+
+	return result.IsOnline, nil
+}
 
 // updateUserPresenceInDB met à jour la présence d'un utilisateur en base de données
 func (h *Hub) updateUserPresenceInDB(userID string, isOnline bool) error {
