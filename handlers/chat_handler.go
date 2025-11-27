@@ -733,38 +733,53 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 
 		// 🔌 Envoyer via WebSocket à l'expéditeur
 		if h.wsHub != nil {
-			// Récupérer les infos du participant pour le payload
-			h.wsHub.SendToUser(
-				invitation.FromUserID.Hex(),
-				map[string]interface{}{
-					"type":          "invitation_accepted",
-					"invitation_id": invitationID.Hex(),
-					"conversation": map[string]interface{}{
-						"id": conversation.ID.Hex(),
-						"participant": map[string]interface{}{
-							"id":        user.ID.Hex(),
-							"firstname": user.Firstname,
-							"lastname":  user.Lastname,
-							"email":     user.Email,
+			// Récupérer l'utilisateur qui a créé l'invitation (expéditeur)
+			fromUser, err := h.userRepo.FindByID(invitation.FromUserID)
+			if err != nil || fromUser == nil {
+				log.Printf("⚠️  Impossible de récupérer l'utilisateur expéditeur (ID: %s): %v", invitation.FromUserID.Hex(), err)
+			} else {
+				// ⚠️ IMPORTANT : Utiliser l'EMAIL de l'expéditeur, pas l'ObjectID
+				// Le WebSocket identifie les utilisateurs par leur email
+				h.wsHub.SendToUser(
+					fromUser.Email,
+					map[string]interface{}{
+						"type":          "invitation_accepted",
+						"invitation_id": invitationID.Hex(),
+						"conversation": map[string]interface{}{
+							"id": conversation.ID.Hex(),
+							"participant": map[string]interface{}{
+								"id":        user.ID.Hex(),
+								"firstname": user.Firstname,
+								"lastname":  user.Lastname,
+								"email":     user.Email,
+							},
+							"status":       "accepted",
+							"unread_count": 0,
 						},
-						"status":       "accepted",
-						"unread_count": 0,
 					},
-				},
-			)
-			log.Printf("🔌 invitation_accepted WebSocket envoyée à %s", invitation.FromUserID.Hex())
+				)
+				log.Printf("🔌 invitation_accepted WebSocket envoyée à %s (email: %s)", invitation.FromUserID.Hex(), fromUser.Email)
+			}
 		}
 	} else if request.Action == "reject" {
 		// 🔌 Envoyer via WebSocket à l'expéditeur
 		if h.wsHub != nil {
-			h.wsHub.SendToUser(
-				invitation.FromUserID.Hex(),
-				map[string]interface{}{
-					"type":          "invitation_rejected",
-					"invitation_id": invitationID.Hex(),
-				},
-			)
-			log.Printf("🔌 invitation_rejected WebSocket envoyée à %s", invitation.FromUserID.Hex())
+			// Récupérer l'utilisateur qui a créé l'invitation (expéditeur)
+			fromUser, err := h.userRepo.FindByID(invitation.FromUserID)
+			if err != nil || fromUser == nil {
+				log.Printf("⚠️  Impossible de récupérer l'utilisateur expéditeur (ID: %s): %v", invitation.FromUserID.Hex(), err)
+			} else {
+				// ⚠️ IMPORTANT : Utiliser l'EMAIL de l'expéditeur, pas l'ObjectID
+				// Le WebSocket identifie les utilisateurs par leur email
+				h.wsHub.SendToUser(
+					fromUser.Email,
+					map[string]interface{}{
+						"type":          "invitation_rejected",
+						"invitation_id": invitationID.Hex(),
+					},
+				)
+				log.Printf("🔌 invitation_rejected WebSocket envoyée à %s (email: %s)", invitation.FromUserID.Hex(), fromUser.Email)
+			}
 		}
 	}
 
