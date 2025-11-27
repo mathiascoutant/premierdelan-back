@@ -133,26 +133,30 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		h.wsHub.JoinGroup(claims.Email, group.ID.Hex())
 	}
 
-	// 🔌 Envoyer un événement WebSocket au créateur pour qu'il voie le groupe immédiatement
+	// 🔌 Envoyer un événement WebSocket au créateur avec le format GroupWithDetails
 	if h.wsHub != nil {
 		// Récupérer les infos du créateur
 		creator, err := h.userRepo.FindByEmail(claims.Email)
 		if err == nil && creator != nil {
-			payload := map[string]interface{}{
-				"type": "group_created",
-				"group": map[string]interface{}{
-					"id":           group.ID.Hex(),
-					"name":         group.Name,
-					"created_by":   group.CreatedBy,
-					"created_at":   group.CreatedAt,
-					"member_count": memberCount,
-					"creator": map[string]interface{}{
-						"id":        creator.Email,
-						"firstname": creator.Firstname,
-						"lastname":  creator.Lastname,
-						"email":     creator.Email,
-					},
+			// Construire un GroupWithDetails complet comme dans GetUserGroups
+			groupDetails := map[string]interface{}{
+				"id":           group.ID.Hex(),
+				"name":         group.Name,
+				"member_count": memberCount,
+				"unread_count": 0,
+				"created_at":   group.CreatedAt,
+				"created_by": map[string]interface{}{
+					"id":        creator.Email,
+					"firstname": creator.Firstname,
+					"lastname":  creator.Lastname,
+					"email":     creator.Email,
 				},
+				"last_message": nil, // Pas de message au moment de la création
+			}
+
+			payload := map[string]interface{}{
+				"type":  "group_created",
+				"group": groupDetails,
 			}
 			h.wsHub.SendToUser(claims.Email, payload)
 		}
