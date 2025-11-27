@@ -92,7 +92,6 @@ func (c *Client) readPump() {
 				isTyping, _ := msg["is_typing"].(bool)
 				c.hub.HandleGroupTyping(c.UserID, groupID, isTyping)
 			} else {
-				log.Printf("⚠️  Événement typing sans conversation_id ni group_id")
 			}
 
 		case "join_group":
@@ -105,7 +104,6 @@ func (c *Client) readPump() {
 					"group_id": groupID,
 				}
 			} else {
-				log.Printf("⚠️  Événement join_group sans group_id")
 			}
 
 		case "leave_group":
@@ -126,7 +124,6 @@ func (c *Client) readPump() {
 			// Le frontend envoie cet événement quand l'utilisateur navigue sur le site
 			isOnline, ok := msg["is_online"].(bool)
 			if !ok {
-				log.Printf("⚠️  Événement user_presence sans is_online")
 				continue
 			}
 
@@ -146,22 +143,17 @@ func (c *Client) readPump() {
 				// Si l'utilisateur est actif, mettre à jour last_activity en DB
 				if isOnline {
 					if err := c.hub.updateUserActivityInDB(c.UserID); err != nil {
-						log.Printf("⚠️  Erreur mise à jour activité: %v", err)
 					}
 				} else if lastSeen != nil {
 					// Si hors ligne avec last_seen, mettre à jour en DB
 					if err := c.hub.updateUserLastSeenInDB(c.UserID, lastSeen); err != nil {
-						log.Printf("⚠️  Erreur mise à jour last_seen: %v", err)
 					}
 				}
 
-				log.Printf("✅ Présence mise à jour: %s (online=%v)", c.UserID, isOnline)
 			} else {
-				log.Printf("⚠️  presenceManager est nil")
 			}
 
 		default:
-			log.Printf("⚠️  Type de message inconnu: %s", msgType)
 		}
 	}
 }

@@ -271,7 +271,7 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 	if h.wsHub != nil {
 		senderIDs, err = h.chatRepo.GetSendersOfUnreadMessages(r.Context(), conversationID, userID)
 		if err != nil {
-			log.Printf("⚠️  Erreur récupération expéditeurs: %v", err)
+			// Erreur silencieuse, on continue quand même
 		}
 	}
 
@@ -283,8 +283,6 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	log.Printf("✅ %d messages marqués comme lus dans la conversation %s", markedCount, conversationIDStr)
-
 	// 🔌 Envoyer via WebSocket UNIQUEMENT aux expéditeurs des messages qui viennent d'être lus
 	if h.wsHub != nil && markedCount > 0 && len(senderIDs) > 0 {
 		readAt := time.Now()
@@ -295,25 +293,17 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 		}
 
 		// ⚠️ CRITIQUE : Envoyer uniquement aux expéditeurs des messages (pas à tous les participants)
-		sentCount := 0
 		for _, senderID := range senderIDs {
 			// Convertir ObjectID en email pour SendToUser
 			senderUser, err := h.userRepo.FindByID(senderID)
 			if err != nil || senderUser == nil {
-				log.Printf("⚠️  Expéditeur non trouvé (ID: %s): %v", senderID.Hex(), err)
 				continue
 			}
 
 			// ⚠️ IMPORTANT : Utiliser l'EMAIL de l'expéditeur, pas l'ObjectID
 			// Le WebSocket identifie les utilisateurs par leur email
 			h.wsHub.SendToUser(senderUser.Email, payload)
-			sentCount++
-			log.Printf("📤 Envoi messages_read WS à l'expéditeur: %s (email: %s)", senderID.Hex(), senderUser.Email)
 		}
-
-		log.Printf("🔌 Événement messages_read envoyé à %d expéditeur(s)", sentCount)
-	} else if h.wsHub != nil && markedCount > 0 {
-		log.Printf("ℹ️  Aucun expéditeur trouvé pour les messages lus")
 	}
 
 	response := models.ChatResponse{
@@ -413,15 +403,11 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("📨 Message créé: ID=%s, ConvID=%s, Content=%s", message.ID.Hex(), conversationIDStr, message.Content)
-
 	// Envoyer une notification aux autres participants (FCM)
 	go h.sendMessageNotification(conversation, message, userID)
 
 	// 🔌 Envoyer via WebSocket à TOUS les participants (même ceux qui n'ont pas rejoint la room)
-	log.Printf("🔍 wsHub nil? %v", h.wsHub == nil)
 	if h.wsHub != nil {
-		log.Printf("🔌 Envoi WebSocket à tous les participants de la conversation %s...", conversationIDStr)
 
 		payload := map[string]interface{}{
 			"type":            "new_message",
@@ -444,17 +430,11 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 				// Récupérer l'email du participant depuis la DB
 				if participantUser, err := h.userRepo.FindByID(participant.UserID); err == nil && participantUser != nil {
 					participantEmail := participantUser.Email
-					log.Printf("📤 Envoi WS new_message à %s (email: %s)", participant.UserID.Hex(), participantEmail)
 					h.wsHub.SendToUser(participantEmail, payload)
-				} else {
-					log.Printf("❌ Participant introuvable: %s", participant.UserID.Hex())
 				}
 			}
 		}
 
-		log.Printf("🔌 Message WebSocket envoyé à tous les participants")
-	} else {
-		log.Printf("⚠️  wsHub est nil - WebSocket non disponible")
 	}
 
 	response := models.ChatResponse{
@@ -624,7 +604,6 @@ func (h *ChatHandler) SendInvitation(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		)
-		log.Printf("🔌 Invitation WebSocket envoyée à %s", toUserID.Hex())
 	}
 
 	response := models.ChatResponse{
@@ -754,9 +733,7 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 		if h.wsHub != nil {
 			// Récupérer l'utilisateur qui a créé l'invitation (expéditeur)
 			fromUser, err := h.userRepo.FindByID(invitation.FromUserID)
-			if err != nil || fromUser == nil {
-				log.Printf("⚠️  Impossible de récupérer l'utilisateur expéditeur (ID: %s): %v", invitation.FromUserID.Hex(), err)
-			} else {
+			if err == nil && fromUser != nil {
 				// ⚠️ IMPORTANT : Utiliser l'EMAIL de l'expéditeur, pas l'ObjectID
 				// Le WebSocket identifie les utilisateurs par leur email
 				h.wsHub.SendToUser(
@@ -777,7 +754,6 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 						},
 					},
 				)
-				log.Printf("🔌 invitation_accepted WebSocket envoyée à %s (email: %s)", invitation.FromUserID.Hex(), fromUser.Email)
 			}
 		}
 	} else if request.Action == "reject" {
@@ -785,9 +761,7 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 		if h.wsHub != nil {
 			// Récupérer l'utilisateur qui a créé l'invitation (expéditeur)
 			fromUser, err := h.userRepo.FindByID(invitation.FromUserID)
-			if err != nil || fromUser == nil {
-				log.Printf("⚠️  Impossible de récupérer l'utilisateur expéditeur (ID: %s): %v", invitation.FromUserID.Hex(), err)
-			} else {
+			if err == nil && fromUser != nil {
 				// ⚠️ IMPORTANT : Utiliser l'EMAIL de l'expéditeur, pas l'ObjectID
 				// Le WebSocket identifie les utilisateurs par leur email
 				h.wsHub.SendToUser(
@@ -797,7 +771,6 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 						"invitation_id": invitationID.Hex(),
 					},
 				)
-				log.Printf("🔌 invitation_rejected WebSocket envoyée à %s (email: %s)", invitation.FromUserID.Hex(), fromUser.Email)
 			}
 		}
 	}
@@ -915,21 +888,16 @@ func (h *ChatHandler) SendChatNotification(w http.ResponseWriter, r *http.Reques
 // sendMessageNotification envoie une notification pour un nouveau message
 func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation, message *models.Message, senderID primitive.ObjectID) {
 	if h.fcmService == nil {
-		log.Println("⚠️  FCM Service non disponible pour les notifications de message")
 		return
 	}
-
-	log.Printf("📨 Envoi de notification pour le message: %s", message.ID.Hex())
 
 	// Trouver les autres participants
 	for _, participant := range conversation.Participants {
 		if participant.UserID != senderID {
-			log.Printf("👤 Participant trouvé: %s", participant.UserID.Hex())
 
 			// Récupérer les informations de l'expéditeur
 			sender, err := h.userRepo.FindByID(senderID)
 			if err != nil {
-				log.Printf("❌ Erreur récupération expéditeur: %v", err)
 				continue
 			}
 
@@ -950,20 +918,14 @@ func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation,
 			// Récupérer l'utilisateur pour obtenir son email
 			participantUser, err := h.userRepo.FindByID(participant.UserID)
 			if err != nil {
-				log.Printf("❌ Erreur récupération participant: %v", err)
 				continue
 			}
-
-			log.Printf("📧 Email du participant: %s", participantUser.Email)
 
 			// Récupérer les tokens FCM du participant (par email)
 			fcmTokens, err := h.fcmTokenRepo.FindByUserID(participantUser.Email)
 			if err != nil {
-				log.Printf("❌ Erreur récupération tokens FCM: %v", err)
 				continue
 			}
-
-			log.Printf("🔑 Tokens FCM trouvés: %d", len(fcmTokens))
 
 			if len(fcmTokens) > 0 {
 				// Convertir les données en map[string]string pour FCM
@@ -975,22 +937,15 @@ func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation,
 				}
 
 				// 🔍 LOGS CRITIQUES - Vérifier que conversationId est bien présent
-				log.Printf("📤 Données FCM à envoyer:")
-				log.Printf("   type: %s", fcmData["type"])
-				log.Printf("   conversationId: %s", fcmData["conversationId"])
-				log.Printf("   messageId: %s", fcmData["messageId"])
 
 				// Envoyer à tous les tokens du participant
 				for _, token := range fcmTokens {
 					err := h.fcmService.SendToToken(token.Token, title, body, fcmData)
 					if err != nil {
-						log.Printf("❌ Erreur envoi FCM: %v", err)
 					} else {
-						log.Printf("✅ Notification envoyée à %s (token: %s...)", participantUser.Email, token.Token[:20])
 					}
 				}
 			} else {
-				log.Printf("⚠️  Aucun token FCM trouvé pour %s", participantUser.Email)
 			}
 		}
 	}

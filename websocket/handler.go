@@ -14,8 +14,6 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
 		// Permettre toutes les origines pour développement
-		origin := r.Header.Get("Origin")
-		log.Printf("🔍 WebSocket Origin: %s", origin)
 		return true
 	},
 }
@@ -36,12 +34,7 @@ func NewHandler(hub *Hub, jwtSecret string) *Handler {
 
 // ServeWS gère les requêtes WebSocket
 func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
-	log.Printf("🔌 Tentative de connexion WebSocket depuis %s", r.RemoteAddr)
-	log.Printf("🔍 Headers: Origin=%s, Upgrade=%s, Connection=%s", 
-		r.Header.Get("Origin"), 
-		r.Header.Get("Upgrade"), 
-		r.Header.Get("Connection"))
-	
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("❌ Erreur upgrade WebSocket: %v", err)
@@ -56,8 +49,6 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		send:   make(chan interface{}, 256),
 		UserID: "", // Sera défini après authentification
 	}
-
-	log.Println("🔌 Nouvelle connexion WebSocket en attente d'authentification...")
 
 	// Attendre le message d'authentification
 	go func() {
@@ -113,7 +104,6 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 		// Authentification réussie
 		client.UserID = claims.UserID
-		log.Printf("✅ WebSocket authentifié: %s", client.UserID)
 
 		// Envoyer la confirmation
 		conn.WriteJSON(map[string]interface{}{
@@ -129,4 +119,3 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		go client.readPump()
 	}()
 }
-

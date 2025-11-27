@@ -97,7 +97,6 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			h.connections[client.UserID] = client
 			h.mu.Unlock()
-			log.Printf("🔌 Client connecté: %s (total: %d)", client.UserID, len(h.connections))
 
 			// 🔌 Auto-joindre toutes les conversations de l'utilisateur
 			go h.autoJoinUserConversations(client.UserID)
@@ -133,7 +132,6 @@ func (h *Hub) Run() {
 				}
 			}
 			h.mu.Unlock()
-			log.Printf("👋 Client déconnecté: %s (total: %d)", client.UserID, len(h.connections))
 
 			// 🔌 Mettre à jour la présence (marquer comme hors ligne immédiatement)
 			if h.presenceManager != nil {
@@ -204,7 +202,6 @@ func (h *Hub) JoinConversation(userID, conversationID string) {
 		h.rooms[conversationID] = make(map[string]bool)
 	}
 	h.rooms[conversationID][userID] = true
-	log.Printf("✅ User %s a rejoint la conversation %s", userID, conversationID)
 }
 
 // LeaveConversation retire un utilisateur d'une room de conversation
@@ -217,7 +214,6 @@ func (h *Hub) LeaveConversation(userID, conversationID string) {
 		if len(members) == 0 {
 			delete(h.rooms, conversationID)
 		}
-		log.Printf("👋 User %s a quitté la conversation %s", userID, conversationID)
 	}
 }
 
@@ -250,11 +246,8 @@ func (h *Hub) IsUserOnline(userID string) bool {
 // notifyUserPresence envoie un événement de présence à tous les contacts d'un utilisateur
 func (h *Hub) notifyUserPresence(userID string, isOnline bool) {
 	if h.chatRepo == nil {
-		log.Printf("⚠️  chatRepo nil - présence non notifiée")
 		return
 	}
-
-	log.Printf("👁️  Notification présence pour %s (online=%v)", userID, isOnline)
 
 	// Récupérer l'utilisateur par email (userID est maintenant un email)
 	user, err := h.userRepo.FindByEmail(userID)
@@ -288,8 +281,6 @@ func (h *Hub) notifyUserPresence(userID string, isOnline bool) {
 		"last_seen": lastSeenStr, // ✅ Format ISO 8601 string
 	}
 
-	log.Printf("📦 Payload user_presence: %+v", payload)
-
 	// Envoyer à tous les autres participants (éviter doublons)
 	// ⚠️  IMPORTANT: Utiliser EMAIL, pas ObjectID !
 	sentTo := make(map[string]bool)
@@ -298,17 +289,14 @@ func (h *Hub) notifyUserPresence(userID string, isOnline bool) {
 		if otherUserEmail != userID && !sentTo[otherUserEmail] {
 			h.SendToUser(otherUserEmail, payload)
 			sentTo[otherUserEmail] = true
-			log.Printf("📤 Présence envoyée à %s", otherUserEmail)
 		}
 	}
 
-	log.Printf("✅ Présence notifiée à %d contacts", len(sentTo))
 }
 
 // autoJoinUserConversations ajoute automatiquement l'utilisateur à toutes ses conversations
 func (h *Hub) autoJoinUserConversations(userID string) {
 	if h.chatRepo == nil {
-		log.Printf("⚠️  chatRepo nil - auto-join impossible")
 		return
 	}
 
@@ -389,7 +377,6 @@ func (h *Hub) JoinGroup(userID, groupID string) {
 		h.groupRooms[groupID] = make(map[string]bool)
 	}
 	h.groupRooms[groupID][userID] = true
-	log.Printf("✅ User %s a rejoint le groupe %s", userID, groupID)
 }
 
 // LeaveGroup retire un utilisateur d'une room de groupe
@@ -402,7 +389,6 @@ func (h *Hub) LeaveGroup(userID, groupID string) {
 		if len(members) == 0 {
 			delete(h.groupRooms, groupID)
 		}
-		log.Printf("👋 User %s a quitté le groupe %s", userID, groupID)
 	}
 }
 
@@ -429,7 +415,6 @@ func (h *Hub) BroadcastToGroup(groupID string, payload interface{}, excludeUserI
 			}
 		}
 	} else {
-		log.Printf("⚠️  Groupe %s n'a aucun membre dans les rooms", groupID)
 	}
 }
 
@@ -521,7 +506,6 @@ func (h *Hub) getCurrentUserStatus(userID string) (bool, error) {
 // updateUserPresenceInDB met à jour la présence d'un utilisateur en base de données
 func (h *Hub) updateUserPresenceInDB(userID string, isOnline bool) error {
 	if h.userRepo == nil {
-		log.Printf("⚠️  userRepo nil - présence non mise à jour en DB")
 		return nil
 	}
 

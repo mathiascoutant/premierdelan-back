@@ -56,11 +56,9 @@ func (pm *PresenceManager) UpdateUserPresence(userID string, isOnline bool) {
 		if err == nil {
 			currentStatus = currentStatusDB
 			statusChanged = (currentStatus != isOnline)
-			log.Printf("🔍 Présence user %s: actuel=%v, nouveau=%v, changé=%v", userID, currentStatus, isOnline, statusChanged)
 		} else {
 			// Si erreur, considérer que le statut a changé pour être sûr
 			statusChanged = true
-			log.Printf("⚠️  Erreur récupération statut pour %s: %v, considérer comme changé", userID, err)
 		}
 	} else {
 		// Si pas de callback, considérer que le statut a changé
@@ -88,10 +86,7 @@ func (pm *PresenceManager) UpdateUserPresence(userID string, isOnline bool) {
 
 		// ⚠️ CRITIQUE : Ne diffuser que si le statut a réellement changé
 		if statusChanged && pm.broadcastPresenceCallback != nil {
-			log.Printf("✅ Statut changé pour %s: %v -> %v, envoi événement", userID, currentStatus, isOnline)
 			pm.broadcastPresenceCallback(userID, true, nil)
-		} else if !statusChanged {
-			log.Printf("⏭️  Statut identique pour %s (déjà %v), pas d'envoi d'événement", userID, isOnline)
 		}
 
 	} else {
@@ -111,10 +106,7 @@ func (pm *PresenceManager) UpdateUserPresence(userID string, isOnline bool) {
 		// ⚠️ CRITIQUE : Ne diffuser que si le statut a réellement changé
 		now := time.Now()
 		if statusChanged && pm.broadcastPresenceCallback != nil {
-			log.Printf("✅ Statut changé pour %s: %v -> %v, envoi événement", userID, currentStatus, isOnline)
 			pm.broadcastPresenceCallback(userID, false, &now)
-		} else if !statusChanged {
-			log.Printf("⏭️  Statut identique pour %s (déjà %v), pas d'envoi d'événement", userID, isOnline)
 		}
 	}
 }
