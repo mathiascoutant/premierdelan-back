@@ -12,6 +12,7 @@ import (
 	"premier-an-backend/utils"
 	"premier-an-backend/websocket"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -721,10 +722,13 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Normaliser l'email pour la cohérence
+	normalizedEmail := strings.ToLower(strings.TrimSpace(claims.Email))
+
 	// Créer le message
 	message := &models.ChatGroupMessage{
 		GroupID:     groupID,
-		SenderID:    claims.Email,
+		SenderID:    normalizedEmail, // Utiliser l'email normalisé
 		Content:     req.Content,
 		MessageType: "message",
 	}
@@ -735,8 +739,16 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Récupérer les infos de l'expéditeur
-	sender, _ := h.userRepo.FindByEmail(claims.Email)
+	// Récupérer les infos de l'expéditeur (utiliser l'email normalisé)
+	sender, err := h.userRepo.FindByEmail(normalizedEmail)
+	if err != nil {
+		log.Printf("❌ Erreur récupération expéditeur %s (normalisé: %s): %v", claims.Email, normalizedEmail, err)
+	}
+	if sender == nil {
+		log.Printf("⚠️ Expéditeur %s (normalisé: %s) non trouvé en base de données", claims.Email, normalizedEmail)
+	} else {
+		log.Printf("✅ Expéditeur trouvé: %s %s (%s)", sender.Firstname, sender.Lastname, sender.Email)
+	}
 
 	messageWithSender := models.GroupMessageWithSender{
 		ID:          message.ID,
@@ -758,6 +770,9 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 			ProfilePicture:  sender.ProfileImageURL,
 			ProfileImageURL: sender.ProfileImageURL,
 		}
+		log.Printf("✅ Infos expéditeur ajoutées au message: %s %s", sender.Firstname, sender.Lastname)
+	} else {
+		log.Printf("⚠️ Aucune info expéditeur disponible pour %s", claims.Email)
 	}
 
 	// Diffuser via WebSocket
