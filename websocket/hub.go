@@ -392,16 +392,13 @@ func (h *Hub) LeaveGroup(userID, groupID string) {
 	}
 }
 
-// BroadcastToGroup envoie un message à tous les membres d'un groupe
-func (h *Hub) BroadcastToGroup(groupID string, payload interface{}, excludeUserID string) {
+// BroadcastToGroup envoie un message à tous les membres d'un groupe (y compris l'expéditeur)
+func (h *Hub) BroadcastToGroup(groupID string, payload interface{}) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	if members, ok := h.groupRooms[groupID]; ok {
 		for userID := range members {
-			if userID == excludeUserID {
-				continue
-			}
 			if client, ok := h.connections[userID]; ok {
 				select {
 				case client.send <- payload:
@@ -466,8 +463,8 @@ func (h *Hub) HandleGroupTyping(userID, groupID string, isTyping bool) {
 		"is_typing": isTyping,
 	}
 
-	// Envoyer via BroadcastToGroup (qui envoie à tous SAUF l'expéditeur)
-	h.BroadcastToGroup(groupID, payload, userID)
+	// Envoyer via BroadcastToGroup (qui envoie maintenant à tout le monde, y compris l'expéditeur)
+	h.BroadcastToGroup(groupID, payload)
 }
 
 // ====================================
