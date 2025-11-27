@@ -84,17 +84,32 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ajouter le créateur comme admin (user_id en DB est un email)
-	member := &models.ChatGroupMember{
-		GroupID: group.ID,
-		UserID:  claims.Email,
-		Role:    "admin",
-	}
+	// ✅ IMPORTANT : Ajouter le créateur comme admin (user_id en DB est un email)
+	// Vérifier d'abord si le créateur n'est pas déjà membre (au cas où)
+	isAlreadyMember, _ := h.groupRepo.IsMember(group.ID, claims.Email)
+	if !isAlreadyMember {
+		member := &models.ChatGroupMember{
+			GroupID: group.ID,
+			UserID:  claims.Email,
+			Role:    "admin",
+		}
 
-	if err := h.groupRepo.AddMember(member); err != nil {
-		log.Printf("Erreur ajout admin: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de l'ajout du créateur")
-		return
+		if err := h.groupRepo.AddMember(member); err != nil {
+			log.Printf("❌ Erreur ajout créateur comme membre: %v", err)
+			utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de l'ajout du créateur")
+			return
+		}
+
+		// Vérifier que l'ajout s'est bien passé
+		isMember, err := h.groupRepo.IsMember(group.ID, claims.Email)
+		if err != nil || !isMember {
+			log.Printf("❌ Le créateur n'a pas été ajouté comme membre (vérification échouée)")
+			utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la vérification du créateur")
+			return
+		}
+		log.Printf("✓ Créateur ajouté comme membre admin du groupe %s", group.ID.Hex())
+	} else {
+		log.Printf("⚠️ Le créateur est déjà membre du groupe (cas improbable)")
 	}
 
 	// Créer les invitations pour les membres
