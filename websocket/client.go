@@ -47,8 +47,13 @@ func (c *Client) readPump() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
+			// Vérifier si c'est une déconnexion normale (close 1000, 1001, 1005) ou une erreur
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("❌ Erreur WebSocket: %v", err)
+				// C'est une déconnexion normale (fermeture propre ou navigation)
+				// Ne pas logger comme erreur, c'est attendu quand l'utilisateur change de page
+			} else {
+				// C'est une vraie erreur
+				log.Printf("❌ Erreur WebSocket inattendue: %v", err)
 			}
 			break
 		}
@@ -137,7 +142,7 @@ func (c *Client) readPump() {
 			// Mettre à jour la présence via le gestionnaire
 			if c.hub.presenceManager != nil {
 				c.hub.presenceManager.UpdateUserPresence(c.UserID, isOnline)
-				
+
 				// Si l'utilisateur est actif, mettre à jour last_activity en DB
 				if isOnline {
 					if err := c.hub.updateUserActivityInDB(c.UserID); err != nil {
@@ -149,7 +154,7 @@ func (c *Client) readPump() {
 						log.Printf("⚠️  Erreur mise à jour last_seen: %v", err)
 					}
 				}
-				
+
 				log.Printf("✅ Présence mise à jour: %s (online=%v)", c.UserID, isOnline)
 			} else {
 				log.Printf("⚠️  presenceManager est nil")

@@ -150,13 +150,16 @@ func (h *Hub) Run() {
 					if client, ok := h.connections[userID]; ok {
 						select {
 						case client.send <- message.Payload:
+							// Message envoyé avec succès
 						default:
 							log.Printf("❌ Canal plein pour %s", userID)
 							close(client.send)
 							delete(h.connections, userID)
 						}
 					} else {
-						log.Printf("⚠️  User %s non connecté pour réception du message", userID)
+						// Utilisateur non connecté - c'est normal s'il n'est pas sur une page avec WebSocket
+						// Ne pas logger comme erreur pour éviter de polluer les logs
+						_ = userID // Utilisé implicitement dans le commentaire ci-dessus
 					}
 				}
 			} else if message.ConversationID != "" {
@@ -169,13 +172,16 @@ func (h *Hub) Run() {
 						if client, ok := h.connections[userID]; ok {
 							select {
 							case client.send <- message.Payload:
+								// Message envoyé avec succès
 							default:
 								log.Printf("❌ Canal plein pour %s", userID)
 								close(client.send)
 								delete(h.connections, userID)
 							}
 						} else {
-							log.Printf("⚠️  User %s dans la room mais pas connecté WS", userID)
+							// Utilisateur dans la room mais pas connecté - c'est normal
+							// Ne pas logger comme erreur pour éviter de polluer les logs
+							_ = userID // Utilisé implicitement dans le commentaire ci-dessus
 						}
 					}
 				}
@@ -410,11 +416,13 @@ func (h *Hub) BroadcastToGroup(groupID string, payload interface{}, excludeUserI
 			if client, ok := h.connections[userID]; ok {
 				select {
 				case client.send <- payload:
+					// Message envoyé avec succès
 				default:
 					log.Printf("❌ Canal plein pour %s", userID)
 				}
 			} else {
-				log.Printf("⚠️  User %s dans le groupe mais pas connecté WS", userID)
+				// Utilisateur dans le groupe mais pas connecté - c'est normal
+				// Ne pas logger comme erreur pour éviter de polluer les logs
 			}
 		}
 	} else {
@@ -430,11 +438,13 @@ func (h *Hub) BroadcastToUser(userID string, payload []byte) {
 	if client, ok := h.connections[userID]; ok {
 		select {
 		case client.send <- payload:
+			// Message envoyé avec succès
 		default:
 			log.Printf("❌ Canal plein pour l'utilisateur %s", userID)
 		}
 	} else {
-		log.Printf("⚠️  Utilisateur %s non connecté", userID)
+		// Utilisateur non connecté - c'est normal
+		// Ne pas logger comme erreur pour éviter de polluer les logs
 	}
 }
 
