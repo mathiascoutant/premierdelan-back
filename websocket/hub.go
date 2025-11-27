@@ -495,7 +495,10 @@ func (h *Hub) updateUserPresenceInDB(userID string, isOnline bool) error {
 		"is_online": isOnline,
 	}
 
-	if !isOnline {
+	if isOnline {
+		// Si en ligne, mettre à jour last_activity
+		updateData["last_activity"] = time.Now()
+	} else {
 		// Si hors ligne, mettre à jour last_seen
 		updateData["last_seen"] = time.Now()
 	}
@@ -503,6 +506,50 @@ func (h *Hub) updateUserPresenceInDB(userID string, isOnline bool) error {
 	// Utiliser UpdateByEmail si disponible, sinon UpdateByID
 	if err := h.userRepo.UpdateByEmail(userID, updateData); err != nil {
 		log.Printf("❌ Erreur mise à jour présence en DB: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// updateUserActivityInDB met à jour la dernière activité d'un utilisateur en base de données
+func (h *Hub) updateUserActivityInDB(userID string) error {
+	if h.userRepo == nil {
+		return nil
+	}
+
+	// Mettre à jour last_activity (timestamp de dernière activité)
+	updateData := map[string]interface{}{
+		"last_activity": time.Now(),
+		"is_online":     true, // S'assurer que is_online est à true
+	}
+
+	if err := h.userRepo.UpdateByEmail(userID, updateData); err != nil {
+		log.Printf("❌ Erreur mise à jour activité en DB: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// updateUserLastSeenInDB met à jour le last_seen d'un utilisateur en base de données
+func (h *Hub) updateUserLastSeenInDB(userID string, lastSeen *time.Time) error {
+	if h.userRepo == nil {
+		return nil
+	}
+
+	if lastSeen == nil {
+		return nil
+	}
+
+	// Mettre à jour last_seen
+	updateData := map[string]interface{}{
+		"last_seen": *lastSeen,
+		"is_online": false, // S'assurer que is_online est à false
+	}
+
+	if err := h.userRepo.UpdateByEmail(userID, updateData); err != nil {
+		log.Printf("❌ Erreur mise à jour last_seen en DB: %v", err)
 		return err
 	}
 
@@ -540,9 +587,20 @@ func (h *Hub) broadcastPresenceUpdate(userID string, isOnline bool, lastSeen *ti
 		"is_online": isOnline,
 	}
 
-	// Ajouter last_seen si hors ligne
-	if !isOnline && lastSeen != nil {
+	// Ajouter last_seen (format ISO 8601 string ou null)
+	if isOnline {
+		// Si en ligne, last_seen est null
+		payload["last_seen"] = nil
+	} else if lastSeen != nil {
+		// Si hors ligne avec last_seen fourni, l'inclure
 		payload["last_seen"] = lastSeen.Format(time.RFC3339)
+	} else {
+		// Si hors ligne sans last_seen, utiliser celui de l'utilisateur en DB
+		if user.LastSeen != nil {
+			payload["last_seen"] = user.LastSeen.Format(time.RFC3339)
+		} else {
+			payload["last_seen"] = nil
+		}
 	}
 
 	// Envoyer à tous les autres participants (éviter doublons)

@@ -118,12 +118,41 @@ func (c *Client) readPump() {
 
 		case "user_presence":
 			// 👤 Gérer la présence utilisateur (mise à jour automatique)
-			if isOnline, ok := msg["is_online"].(bool); ok {
-				if c.hub.presenceManager != nil {
-					c.hub.presenceManager.UpdateUserPresence(c.UserID, isOnline)
-				}
-			} else {
+			// Le frontend envoie cet événement quand l'utilisateur navigue sur le site
+			isOnline, ok := msg["is_online"].(bool)
+			if !ok {
 				log.Printf("⚠️  Événement user_presence sans is_online")
+				continue
+			}
+
+			// Extraire last_seen si fourni (format ISO 8601 string)
+			var lastSeen *time.Time
+			if lastSeenStr, ok := msg["last_seen"].(string); ok && lastSeenStr != "" && lastSeenStr != "null" {
+				parsed, err := time.Parse(time.RFC3339, lastSeenStr)
+				if err == nil {
+					lastSeen = &parsed
+				}
+			}
+
+			// Mettre à jour la présence via le gestionnaire
+			if c.hub.presenceManager != nil {
+				c.hub.presenceManager.UpdateUserPresence(c.UserID, isOnline)
+				
+				// Si l'utilisateur est actif, mettre à jour last_activity en DB
+				if isOnline {
+					if err := c.hub.updateUserActivityInDB(c.UserID); err != nil {
+						log.Printf("⚠️  Erreur mise à jour activité: %v", err)
+					}
+				} else if lastSeen != nil {
+					// Si hors ligne avec last_seen, mettre à jour en DB
+					if err := c.hub.updateUserLastSeenInDB(c.UserID, lastSeen); err != nil {
+						log.Printf("⚠️  Erreur mise à jour last_seen: %v", err)
+					}
+				}
+				
+				log.Printf("✅ Présence mise à jour: %s (online=%v)", c.UserID, isOnline)
+			} else {
+				log.Printf("⚠️  presenceManager est nil")
 			}
 
 		default:
