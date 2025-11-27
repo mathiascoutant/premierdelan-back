@@ -454,16 +454,16 @@ func (h *Hub) HandleGroupTyping(userID, groupID string, isTyping bool) {
 		}
 	}
 
-	// Payload à envoyer aux autres participants
+	// Payload à envoyer à tous les membres (y compris l'utilisateur courant)
 	payload := map[string]interface{}{
-		"type":      "user_typing",
+		"type":      "group_user_typing",
 		"group_id":  groupID,
 		"user_id":   userID,
 		"username":  username,
 		"is_typing": isTyping,
 	}
 
-	// Envoyer via BroadcastToGroup (qui envoie maintenant à tout le monde, y compris l'expéditeur)
+	// Envoyer via BroadcastToGroup (qui envoie à tout le monde, y compris l'expéditeur)
 	h.BroadcastToGroup(groupID, payload)
 }
 
