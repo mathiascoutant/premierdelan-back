@@ -40,7 +40,7 @@ func main() {
 		fcmService = services.NewDisabledFCMService()
 	} else {
 		log.Println("✓ Firebase Cloud Messaging initialisé")
-		
+
 		// Initialiser et démarrer le cron job pour les notifications automatiques
 		notificationCron := services.NewNotificationCron(database.DB, fcmService)
 		notificationCron.Start()
@@ -48,7 +48,7 @@ func main() {
 
 	// Créer le routeur
 	router := mux.NewRouter()
-	
+
 	// Créer un routeur sans middleware pour WebSocket
 	rawRouter := mux.NewRouter()
 
@@ -71,7 +71,6 @@ func main() {
 		cfg.VAPIDSubject,
 	)
 	fcmHandler := handlers.NewFCMHandler(database.DB, fcmService)
-	adminHandler := handlers.NewAdminHandler(database.DB, fcmService)
 	eventHandler := handlers.NewEventHandler(database.DB)
 	inscriptionHandler := handlers.NewInscriptionHandler(database.DB, fcmService)
 	mediaHandler := handlers.NewMediaHandler(
@@ -96,7 +95,7 @@ func main() {
 		cfg.CloudinaryAPIKey,
 		cfg.CloudinaryAPISecret,
 	)
-	
+
 	// Initialiser le handler de notifications galerie
 	galleryNotificationHandler := handlers.NewGalleryNotificationHandler(
 		database.DB,
@@ -104,12 +103,14 @@ func main() {
 		cfg.CloudinaryCloudName,
 		cfg.CloudinaryPreviewPreset,
 	)
-	
+
 	// Initialiser le hub WebSocket pour le chat (avec repositories pour la présence)
 	wsHub := websocket.NewHub(userRepo, chatRepo)
 	go wsHub.Run()
-	log.Println("✅ Hub WebSocket initialisé et en cours d'exécution")
-	
+
+	// Créer adminHandler après wsHub car il en a besoin pour les notifications WebSocket
+	adminHandler := handlers.NewAdminHandler(database.DB, fcmService, wsHub)
+
 	chatHandler := handlers.NewChatHandler(chatRepo, userRepo, fcmTokenRepo, fcmService, wsHub)
 	testNotifHandler := handlers.NewTestNotifHandler(fcmTokenRepo, fcmService)
 	wsHandler := websocket.NewHandler(wsHub, cfg.JWTSecret)
@@ -122,7 +123,7 @@ func main() {
 	// Ces routes sont protégées par le middleware Guest (refusent les utilisateurs déjà connectés)
 	router.Handle("/api/inscription", guestMiddleware(http.HandlerFunc(authHandler.Register))).Methods("POST", "OPTIONS")
 	router.Handle("/api/connexion", guestMiddleware(http.HandlerFunc(authHandler.Login))).Methods("POST", "OPTIONS")
-	
+
 	// Routes alternatives (pour compatibilité)
 	router.Handle("/api/auth/register", guestMiddleware(http.HandlerFunc(authHandler.Register))).Methods("POST", "OPTIONS")
 	router.Handle("/api/auth/login", guestMiddleware(http.HandlerFunc(authHandler.Login))).Methods("POST", "OPTIONS")
@@ -156,7 +157,7 @@ func main() {
 	router.HandleFunc("/api/notifications/vapid-public-key", notificationHandler.GetVAPIDPublicKey).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/notifications/subscribe", notificationHandler.Subscribe).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/notifications/unsubscribe", notificationHandler.Unsubscribe).Methods("POST", "OPTIONS")
-	
+
 	// Routes FCM (Firebase Cloud Messaging) - Publiques
 	router.HandleFunc("/api/fcm/vapid-key", func(w http.ResponseWriter, r *http.Request) {
 		utils.RespondJSON(w, http.StatusOK, map[string]string{
@@ -168,54 +169,54 @@ func main() {
 	// Routes protégées
 	protected := router.PathPrefix("/api").Subrouter()
 	protected.Use(middleware.Auth(cfg.JWTSecret))
-	
+
 	// Routes de notifications (VAPID - ancienne méthode, garde pour compatibilité)
 	protected.HandleFunc("/notification/test", notificationHandler.SendTestNotification).Methods("POST", "OPTIONS")
-	
+
 	// Routes FCM (Firebase Cloud Messaging) - RECOMMANDÉ
 	protected.HandleFunc("/fcm/send", fcmHandler.SendNotification).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/fcm/send-to-user", fcmHandler.SendToUser).Methods("POST", "OPTIONS")
-	
+
 	// 🧪 ROUTES DE TEST ULTRA SIMPLE
 	protected.HandleFunc("/test/simple-notif", testNotifHandler.SendSimpleTest).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/test/list-tokens", testNotifHandler.ListMyTokens).Methods("POST", "OPTIONS")
-	
+
 	// 🔌 ROUTE WEBSOCKET CHAT (SANS middleware - Render.com supporté !)
 	// La route WebSocket doit être sur rawRouter pour éviter le wrapping du ResponseWriter
 	rawRouter.HandleFunc("/ws/chat", wsHandler.ServeWS).Methods("GET")
-	
+
 	// Routes Admin (protégées par Auth + RequireAdmin)
 	adminRouter := protected.PathPrefix("/admin").Subrouter()
 	adminRouter.Use(middleware.RequireAdmin(database.DB))
-	
+
 	// Gestion des utilisateurs
 	adminRouter.HandleFunc("/utilisateurs", adminHandler.GetUsers).Methods("GET", "OPTIONS")
 	adminRouter.HandleFunc("/utilisateurs/{id}", adminHandler.UpdateUser).Methods("PUT", "OPTIONS")
 	adminRouter.HandleFunc("/utilisateurs/{id}", adminHandler.DeleteUser).Methods("DELETE", "OPTIONS")
-	
+
 	// Gestion des événements
 	adminRouter.HandleFunc("/evenements", adminHandler.GetEvents).Methods("GET", "OPTIONS")
 	adminRouter.HandleFunc("/evenements", adminHandler.CreateEvent).Methods("POST", "OPTIONS")
 	adminRouter.HandleFunc("/evenements/{event_id}", adminHandler.GetEvent).Methods("GET", "OPTIONS")
 	adminRouter.HandleFunc("/evenements/{id}", adminHandler.UpdateEvent).Methods("PUT", "OPTIONS")
 	adminRouter.HandleFunc("/evenements/{id}", adminHandler.DeleteEvent).Methods("DELETE", "OPTIONS")
-	
+
 	// Routes de gestion des trailers vidéo (admin uniquement)
 	adminRouter.HandleFunc("/evenements/{event_id}/trailer", eventTrailerHandler.UploadTrailer).Methods("POST", "OPTIONS")
 	adminRouter.HandleFunc("/evenements/{event_id}/trailer", eventTrailerHandler.ReplaceTrailer).Methods("PUT", "OPTIONS")
 	adminRouter.HandleFunc("/evenements/{event_id}/trailer", eventTrailerHandler.DeleteTrailer).Methods("DELETE", "OPTIONS")
-	
+
 	// Statistiques
 	adminRouter.HandleFunc("/stats", adminHandler.GetStats).Methods("GET", "OPTIONS")
-	
+
 	// Notifications admin
 	adminRouter.HandleFunc("/notifications/send", adminHandler.SendAdminNotification).Methods("POST", "OPTIONS")
-	
+
 	// Codes soirée
 	adminRouter.HandleFunc("/codes-soiree", adminHandler.GetAllCodesSoiree).Methods("GET", "OPTIONS")
 	adminRouter.HandleFunc("/code-soiree/generate", adminHandler.GenerateCodeSoiree).Methods("POST", "OPTIONS")
 	adminRouter.HandleFunc("/code-soiree/current", adminHandler.GetCurrentCodeSoiree).Methods("GET", "OPTIONS")
-	
+
 	// Chat admin
 	adminRouter.HandleFunc("/chat/conversations", chatHandler.GetConversations).Methods("GET", "OPTIONS")
 	adminRouter.HandleFunc("/chat/conversations/{id}/messages", chatHandler.GetMessages).Methods("GET", "OPTIONS")
@@ -226,7 +227,7 @@ func main() {
 	adminRouter.HandleFunc("/chat/invitations", chatHandler.GetInvitations).Methods("GET", "OPTIONS")
 	adminRouter.HandleFunc("/chat/invitations/{id}/respond", chatHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
 	adminRouter.HandleFunc("/chat/notifications/send", chatHandler.SendChatNotification).Methods("POST", "OPTIONS")
-	
+
 	// 👥 Routes Groupes de chat (admin)
 	adminRouter.HandleFunc("/chat/groups", chatGroupHandler.CreateGroup).Methods("POST", "OPTIONS")
 	adminRouter.HandleFunc("/chat/groups", chatGroupHandler.GetGroups).Methods("GET", "OPTIONS")
@@ -242,7 +243,7 @@ func main() {
 	adminRouter.HandleFunc("/chat/group-invitations/{invitation_id}/respond", chatGroupHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
 	adminRouter.HandleFunc("/chat/group-invitations/{invitation_id}/cancel", chatGroupHandler.CancelInvitation).Methods("DELETE", "OPTIONS")
 	adminRouter.HandleFunc("/chat/users/search", chatGroupHandler.SearchUsers).Methods("GET", "OPTIONS")
-	
+
 	// Route protégée exemple
 	protected.HandleFunc("/protected/profile", func(w http.ResponseWriter, r *http.Request) {
 		claims := middleware.GetUserFromContext(r.Context())
@@ -250,7 +251,7 @@ func main() {
 			utils.RespondError(w, http.StatusUnauthorized, "Utilisateur non authentifié")
 			return
 		}
-		
+
 		utils.RespondSuccess(w, "Profil récupéré avec succès", map[string]interface{}{
 			"user_id": claims.UserID,
 			"email":   claims.Email,
@@ -259,7 +260,7 @@ func main() {
 
 	// Route de mise à jour du profil utilisateur
 	protected.HandleFunc("/user/profile", authHandler.UpdateProfile).Methods("PUT", "PATCH", "OPTIONS")
-	
+
 	// Route d'upload de photo de profil (protégée)
 	protected.HandleFunc("/user/profile/image", cloudinaryHandler.UploadProfileImage).Methods("POST", "OPTIONS")
 
@@ -268,14 +269,14 @@ func main() {
 	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.GetInscription).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/evenements/{event_id}/inscription/status", inscriptionHandler.GetInscription).Methods("GET", "OPTIONS") // Alias
 	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.UpdateInscription).Methods("PUT", "OPTIONS")
-	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.DeleteInscription).Methods("DELETE", "OPTIONS")         // Alias REST
+	protected.HandleFunc("/evenements/{event_id}/inscription", inscriptionHandler.DeleteInscription).Methods("DELETE", "OPTIONS")    // Alias REST
 	protected.HandleFunc("/evenements/{event_id}/desinscription", inscriptionHandler.DeleteInscription).Methods("DELETE", "OPTIONS") // Legacy
-	
+
 	// Routes de gestion des trailers vidéo (protégées - authentification requise)
 	protected.HandleFunc("/evenements/{event_id}/trailer", eventTrailerHandler.UploadTrailer).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/evenements/{event_id}/trailer", eventTrailerHandler.ReplaceTrailer).Methods("PUT", "OPTIONS")
 	protected.HandleFunc("/evenements/{event_id}/trailer", eventTrailerHandler.DeleteTrailer).Methods("DELETE", "OPTIONS")
-	
+
 	// Route pour récupérer les événements auxquels l'utilisateur est inscrit
 	protected.HandleFunc("/mes-evenements", inscriptionHandler.GetMesEvenements).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/users/me/inscriptions", inscriptionHandler.GetMesEvenements).Methods("GET", "OPTIONS") // Alias
@@ -293,7 +294,7 @@ func main() {
 	protected.HandleFunc("/chat/invitations", chatHandler.GetInvitations).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/chat/invitations/{id}/respond", chatHandler.RespondToInvitation).Methods("PUT", "OPTIONS")
 	protected.HandleFunc("/chat/notifications/send", chatHandler.SendChatNotification).Methods("POST", "OPTIONS")
-	
+
 	// 👥 Routes Groupes de chat (protégées - accessible aux non-admins aussi)
 	protected.HandleFunc("/chat/groups", chatGroupHandler.GetGroups).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/chat/groups/{group_id}/invite", chatGroupHandler.InviteToGroup).Methods("POST", "OPTIONS")
@@ -310,7 +311,7 @@ func main() {
 	// Routes médias (protégées - authentification requise)
 	protected.HandleFunc("/evenements/{event_id}/medias", mediaHandler.CreateMedia).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/evenements/{event_id}/medias/{media_id}", mediaHandler.DeleteMedia).Methods("DELETE", "OPTIONS")
-	
+
 	// Routes de notifications galerie
 	protected.HandleFunc("/evenements/{eventId}/medias/notify", galleryNotificationHandler.SendGalleryNotification).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/evenements/{eventId}/medias/test", galleryNotificationHandler.TestGalleryNotification).Methods("POST", "OPTIONS")
@@ -343,14 +344,14 @@ func main() {
 		log.Printf("🚀 Serveur démarré sur http://%s", addr)
 		log.Printf("📝 Environnement: %s", cfg.Environment)
 		log.Printf("🗄️  Base de données: MongoDB")
-	log.Println("📋 Routes disponibles:")
-	log.Println("   POST   /api/inscription                    - Inscription")
-	log.Println("   POST   /api/inscription/verify-code        - Vérifier code d'accès (public)")
-	log.Println("   POST   /api/connexion                      - Connexion")
-	log.Println("   GET    /api/health                         - Health check")
-	log.Println("   GET    /api/evenements/public              - Liste événements (public)")
-	log.Println("   GET    /api/evenements/{id}                - Détails événement (public)")
-	log.Println("   POST   /api/alerts/critical                - Alertes critiques admin (public)")
+		log.Println("📋 Routes disponibles:")
+		log.Println("   POST   /api/inscription                    - Inscription")
+		log.Println("   POST   /api/inscription/verify-code        - Vérifier code d'accès (public)")
+		log.Println("   POST   /api/connexion                      - Connexion")
+		log.Println("   GET    /api/health                         - Health check")
+		log.Println("   GET    /api/evenements/public              - Liste événements (public)")
+		log.Println("   GET    /api/evenements/{id}                - Détails événement (public)")
+		log.Println("   POST   /api/alerts/critical                - Alertes critiques admin (public)")
 		log.Println("")
 		log.Println("   🔔 Notifications VAPID (ancienne méthode):")
 		log.Println("   GET    /api/notifications/vapid-public-key - Clé publique VAPID")
@@ -360,55 +361,55 @@ func main() {
 		log.Println("   GET    /api/fcm/vapid-key                  - Clé VAPID Firebase")
 		log.Println("   POST   /api/fcm/subscribe                  - S'abonner (FCM)")
 		log.Println("")
-	log.Println("   🔒 Routes protégées:")
-	log.Println("   POST   /api/fcm/send                       - Envoyer à TOUS (FCM)")
-	log.Println("   POST   /api/fcm/send-to-user               - Envoyer à un user (FCM)")
-	log.Println("   GET    /api/protected/profile              - Profil utilisateur")
-	log.Println("   PUT    /api/user/profile                   - Mettre à jour profil")
-	log.Println("   POST   /api/user/profile/image             - Upload photo de profil")
+		log.Println("   🔒 Routes protégées:")
+		log.Println("   POST   /api/fcm/send                       - Envoyer à TOUS (FCM)")
+		log.Println("   POST   /api/fcm/send-to-user               - Envoyer à un user (FCM)")
+		log.Println("   GET    /api/protected/profile              - Profil utilisateur")
+		log.Println("   PUT    /api/user/profile                   - Mettre à jour profil")
+		log.Println("   POST   /api/user/profile/image             - Upload photo de profil")
 		log.Println("")
-	log.Println("   👑 Routes Admin (admin=1 requis):")
-	log.Println("   GET    /api/admin/utilisateurs             - Liste utilisateurs")
-	log.Println("   PUT    /api/admin/utilisateurs/{id}        - Modifier utilisateur")
-	log.Println("   DELETE /api/admin/utilisateurs/{id}        - Supprimer utilisateur")
-	log.Println("   GET    /api/admin/evenements               - Liste événements")
-	log.Println("   GET    /api/admin/evenements/{id}          - Détails événement")
-	log.Println("   POST   /api/admin/evenements               - Créer événement")
-	log.Println("   PUT    /api/admin/evenements/{id}          - Modifier événement")
-	log.Println("   DELETE /api/admin/evenements/{id}          - Supprimer événement")
-	log.Println("   POST   /api/admin/evenements/{id}/trailer  - Ajouter trailer vidéo")
-	log.Println("   PUT    /api/admin/evenements/{id}/trailer  - Remplacer trailer vidéo")
-	log.Println("   DELETE /api/admin/evenements/{id}/trailer  - Supprimer trailer vidéo")
-	log.Println("   GET    /api/admin/evenements/{id}/inscrits - Liste des inscrits")
-	log.Println("   DELETE /api/admin/evenements/{id}/inscrits/{insc_id} - Supprimer inscription")
-	log.Println("   DELETE /api/admin/evenements/{id}/inscrits/{insc_id}/accompagnant/{index} - Supprimer accompagnant")
-	log.Println("   GET    /api/admin/stats                    - Statistiques globales")
-	log.Println("   POST   /api/admin/notifications/send       - Envoyer notification admin")
-	log.Println("   GET    /api/admin/codes-soiree             - Liste tous les codes")
-	log.Println("   POST   /api/admin/code-soiree/generate     - Générer code soirée")
-	log.Println("   GET    /api/admin/code-soiree/current      - Code soirée actuel")
-	log.Println("")
-	log.Println("   📝 Inscriptions aux événements (authentifié):")
-	log.Println("   POST   /api/evenements/{id}/inscription    - S'inscrire")
-	log.Println("   GET    /api/evenements/{id}/inscription       - Voir son inscription")
-	log.Println("   PUT    /api/evenements/{id}/inscription       - Modifier inscription")
-	log.Println("   DELETE /api/evenements/{id}/inscription       - Se désinscrire (REST)")
-	log.Println("   DELETE /api/evenements/{id}/desinscription    - Se désinscrire (legacy)")
-	log.Println("   GET    /api/mes-evenements                 - Mes événements inscrits")
-	log.Println("")
-	log.Println("   🎬 Trailers vidéo (authentifié):")
-	log.Println("   POST   /api/evenements/{id}/trailer        - Ajouter trailer vidéo")
-	log.Println("   PUT    /api/evenements/{id}/trailer        - Remplacer trailer vidéo")
-	log.Println("   DELETE /api/evenements/{id}/trailer        - Supprimer trailer vidéo")
-	log.Println("")
-	log.Println("   📸 Galerie médias :")
-	log.Println("   GET    /api/evenements/{id}/medias         - Liste médias (public)")
-	log.Println("   POST   /api/evenements/{id}/medias         - Ajouter média (authentifié)")
-	log.Println("   DELETE /api/evenements/{id}/medias/{id}   - Supprimer média (authentifié)")
-	log.Println("")
-	log.Println("   📱 Notifications galerie (authentifié):")
-	log.Println("   POST   /api/evenements/{id}/medias/notify  - Envoyer notification galerie")
-	log.Println("   POST   /api/evenements/{id}/medias/test    - Test notification galerie")
+		log.Println("   👑 Routes Admin (admin=1 requis):")
+		log.Println("   GET    /api/admin/utilisateurs             - Liste utilisateurs")
+		log.Println("   PUT    /api/admin/utilisateurs/{id}        - Modifier utilisateur")
+		log.Println("   DELETE /api/admin/utilisateurs/{id}        - Supprimer utilisateur")
+		log.Println("   GET    /api/admin/evenements               - Liste événements")
+		log.Println("   GET    /api/admin/evenements/{id}          - Détails événement")
+		log.Println("   POST   /api/admin/evenements               - Créer événement")
+		log.Println("   PUT    /api/admin/evenements/{id}          - Modifier événement")
+		log.Println("   DELETE /api/admin/evenements/{id}          - Supprimer événement")
+		log.Println("   POST   /api/admin/evenements/{id}/trailer  - Ajouter trailer vidéo")
+		log.Println("   PUT    /api/admin/evenements/{id}/trailer  - Remplacer trailer vidéo")
+		log.Println("   DELETE /api/admin/evenements/{id}/trailer  - Supprimer trailer vidéo")
+		log.Println("   GET    /api/admin/evenements/{id}/inscrits - Liste des inscrits")
+		log.Println("   DELETE /api/admin/evenements/{id}/inscrits/{insc_id} - Supprimer inscription")
+		log.Println("   DELETE /api/admin/evenements/{id}/inscrits/{insc_id}/accompagnant/{index} - Supprimer accompagnant")
+		log.Println("   GET    /api/admin/stats                    - Statistiques globales")
+		log.Println("   POST   /api/admin/notifications/send       - Envoyer notification admin")
+		log.Println("   GET    /api/admin/codes-soiree             - Liste tous les codes")
+		log.Println("   POST   /api/admin/code-soiree/generate     - Générer code soirée")
+		log.Println("   GET    /api/admin/code-soiree/current      - Code soirée actuel")
+		log.Println("")
+		log.Println("   📝 Inscriptions aux événements (authentifié):")
+		log.Println("   POST   /api/evenements/{id}/inscription    - S'inscrire")
+		log.Println("   GET    /api/evenements/{id}/inscription       - Voir son inscription")
+		log.Println("   PUT    /api/evenements/{id}/inscription       - Modifier inscription")
+		log.Println("   DELETE /api/evenements/{id}/inscription       - Se désinscrire (REST)")
+		log.Println("   DELETE /api/evenements/{id}/desinscription    - Se désinscrire (legacy)")
+		log.Println("   GET    /api/mes-evenements                 - Mes événements inscrits")
+		log.Println("")
+		log.Println("   🎬 Trailers vidéo (authentifié):")
+		log.Println("   POST   /api/evenements/{id}/trailer        - Ajouter trailer vidéo")
+		log.Println("   PUT    /api/evenements/{id}/trailer        - Remplacer trailer vidéo")
+		log.Println("   DELETE /api/evenements/{id}/trailer        - Supprimer trailer vidéo")
+		log.Println("")
+		log.Println("   📸 Galerie médias :")
+		log.Println("   GET    /api/evenements/{id}/medias         - Liste médias (public)")
+		log.Println("   POST   /api/evenements/{id}/medias         - Ajouter média (authentifié)")
+		log.Println("   DELETE /api/evenements/{id}/medias/{id}   - Supprimer média (authentifié)")
+		log.Println("")
+		log.Println("   📱 Notifications galerie (authentifié):")
+		log.Println("   POST   /api/evenements/{id}/medias/notify  - Envoyer notification galerie")
+		log.Println("   POST   /api/evenements/{id}/medias/test    - Test notification galerie")
 		log.Println("\n✨ Le serveur est prêt à recevoir des requêtes!")
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -422,12 +423,12 @@ func main() {
 	<-quit
 
 	log.Println("\n🛑 Arrêt du serveur...")
-	
+
 	// Arrêter le hub WebSocket proprement
 	if wsHub != nil {
 		wsHub.Shutdown()
 	}
-	
+
 	if err := server.Close(); err != nil {
 		log.Printf("❌ Erreur lors de l'arrêt du serveur: %v", err)
 	}

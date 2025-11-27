@@ -151,8 +151,6 @@ func (h *ChatGroupHandler) GetGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("🔍 GetGroups appelé par: Email=%s, UserID=%s", claims.Email, claims.UserID)
-
 	// Utiliser la nouvelle méthode qui retourne tout enrichi
 	groups, err := h.groupRepo.GetUserGroups(claims.Email, h.messageRepo.Collection())
 	if err != nil {
@@ -745,8 +743,6 @@ func (h *ChatGroupHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		utils.RespondError(w, http.StatusBadRequest, "ID de groupe invalide")
 		return
 	}
-
-	log.Printf("🔍 GetMessages: groupID=%s, userEmail=%s", groupID.Hex(), claims.Email)
 
 	// Vérifier que l'utilisateur est membre (user_id en DB est un email)
 	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)

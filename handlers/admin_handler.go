@@ -28,12 +28,13 @@ type AdminHandler struct {
 		SendToAll(tokens []string, title, body string, data map[string]string) (success int, failed int, failedTokens []string)
 	}
 	fcmTokenRepo *database.FCMTokenRepository
+	wsHub        WebSocketHub
 }
 
 // NewAdminHandler crée une nouvelle instance de AdminHandler
 func NewAdminHandler(db *mongo.Database, fcmService interface {
 	SendToAll(tokens []string, title, body string, data map[string]string) (success int, failed int, failedTokens []string)
-}) *AdminHandler {
+}, wsHub WebSocketHub) *AdminHandler {
 	return &AdminHandler{
 		userRepo:        database.NewUserRepository(db),
 		eventRepo:       database.NewEventRepository(db),
@@ -42,6 +43,7 @@ func NewAdminHandler(db *mongo.Database, fcmService interface {
 		codeSoireeRepo:  database.NewCodeSoireeRepository(db),
 		fcmService:      fcmService,
 		fcmTokenRepo:    database.NewFCMTokenRepository(db),
+		wsHub:           wsHub,
 	}
 }
 
@@ -89,6 +91,17 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Récupérer l'utilisateur AVANT la mise à jour pour comparer le statut admin
+	var oldAdminStatus int
+	var adminStatusChanged bool
+	if req.Admin != nil {
+		oldUser, err := h.userRepo.FindByID(userID)
+		if err == nil && oldUser != nil {
+			oldAdminStatus = oldUser.Admin
+			adminStatusChanged = (oldAdminStatus != *req.Admin)
+		}
+	}
+
 	// Construire l'update
 	update := bson.M{}
 	if req.Firstname != "" {
@@ -127,7 +140,19 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("✓ Utilisateur modifié: %s (ID: %s)", updatedUser.Email, userID.Hex())
+	// 🔌 Envoyer l'événement WebSocket si les droits admin ont changé
+	if adminStatusChanged && h.wsHub != nil && req.Admin != nil {
+		payload := map[string]interface{}{
+			"type":       "admin_rights_changed",
+			"user_id":    userID.Hex(),
+			"user_email": updatedUser.Email,
+			"admin":      *req.Admin,
+		}
+		// ⚠️ IMPORTANT : Utiliser l'EMAIL de l'utilisateur, pas l'ObjectID
+		// Le WebSocket identifie les utilisateurs par leur email
+		h.wsHub.SendToUser(updatedUser.Email, payload)
+	}
+
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"success":     true,
 		"message":     "Utilisateur modifié avec succès",
@@ -428,7 +453,7 @@ func (h *AdminHandler) RecalculateEventCounters(w http.ResponseWriter, r *http.R
 	log.Printf("✓ Compteurs recalculés pour %s: %d inscrits, %d médias", event.Titre, totalPersonnes, totalMedias)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "Compteurs recalculés",
+		"message":   "Compteurs recalculés",
 		"evenement": event,
 	})
 }
