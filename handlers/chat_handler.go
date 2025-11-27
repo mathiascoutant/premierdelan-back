@@ -265,6 +265,16 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// ⚠️ IMPORTANT : Récupérer les expéditeurs AVANT de marquer comme lus
+	// Car après le marquage, les messages sont déjà marqués comme lus
+	var senderIDs []primitive.ObjectID
+	if h.wsHub != nil {
+		senderIDs, err = h.chatRepo.GetSendersOfUnreadMessages(r.Context(), conversationID, userID)
+		if err != nil {
+			log.Printf("⚠️  Erreur récupération expéditeurs: %v", err)
+		}
+	}
+
 	// Marquer les messages comme lus
 	markedCount, err := h.chatRepo.MarkConversationAsRead(r.Context(), conversationID, userID)
 	if err != nil {
@@ -275,26 +285,35 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 
 	log.Printf("✅ %d messages marqués comme lus dans la conversation %s", markedCount, conversationIDStr)
 
-	// 🔌 Envoyer via WebSocket aux autres participants pour mettre à jour les coches
-	if h.wsHub != nil && markedCount > 0 {
+	// 🔌 Envoyer via WebSocket UNIQUEMENT aux expéditeurs des messages qui viennent d'être lus
+	if h.wsHub != nil && markedCount > 0 && len(senderIDs) > 0 {
 		readAt := time.Now()
 		payload := map[string]interface{}{
 			"type":            "messages_read",
 			"conversation_id": conversationIDStr,
-			"read_by_user_id": userID.Hex(),
-			"read_at":         readAt,
+			"read_at":         readAt.Format(time.RFC3339),
 		}
 
-		// Envoyer à tous les autres participants
-		for _, participant := range conversation.Participants {
-			participantID := participant.UserID.Hex()
-			if participantID != userID.Hex() {
-				log.Printf("📤 Envoi messages_read WS au participant: %s", participantID)
-				h.wsHub.SendToUser(participantID, payload)
+		// ⚠️ CRITIQUE : Envoyer uniquement aux expéditeurs des messages (pas à tous les participants)
+		sentCount := 0
+		for _, senderID := range senderIDs {
+			// Convertir ObjectID en email pour SendToUser
+			senderUser, err := h.userRepo.FindByID(senderID)
+			if err != nil || senderUser == nil {
+				log.Printf("⚠️  Expéditeur non trouvé (ID: %s): %v", senderID.Hex(), err)
+				continue
 			}
+
+			// ⚠️ IMPORTANT : Utiliser l'EMAIL de l'expéditeur, pas l'ObjectID
+			// Le WebSocket identifie les utilisateurs par leur email
+			h.wsHub.SendToUser(senderUser.Email, payload)
+			sentCount++
+			log.Printf("📤 Envoi messages_read WS à l'expéditeur: %s (email: %s)", senderID.Hex(), senderUser.Email)
 		}
 
-		log.Printf("🔌 Événement messages_read envoyé à tous les participants")
+		log.Printf("🔌 Événement messages_read envoyé à %d expéditeur(s)", sentCount)
+	} else if h.wsHub != nil && markedCount > 0 {
+		log.Printf("ℹ️  Aucun expéditeur trouvé pour les messages lus")
 	}
 
 	response := models.ChatResponse{

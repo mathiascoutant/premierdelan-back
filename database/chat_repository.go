@@ -137,7 +137,7 @@ func (r *ChatRepository) GetConversations(ctx context.Context, userID primitive.
 				participant.Firstname = otherUser["firstname"].(string)
 				participant.Lastname = otherUser["lastname"].(string)
 				participant.Email = otherUser["email"].(string)
-				
+
 				// Ajouter la photo de profil
 				if profileImageURL, ok := otherUser["profile_image_url"].(string); ok {
 					participant.ProfilePicture = profileImageURL
@@ -247,6 +247,45 @@ func (r *ChatRepository) MarkConversationAsRead(ctx context.Context, conversatio
 	}
 
 	return int(result.ModifiedCount), nil
+}
+
+// GetSendersOfUnreadMessages récupère les expéditeurs des messages non lus d'une conversation
+// Cette méthode est utilisée pour envoyer l'événement messages_read uniquement aux expéditeurs
+func (r *ChatRepository) GetSendersOfUnreadMessages(ctx context.Context, conversationID primitive.ObjectID, readerID primitive.ObjectID) ([]primitive.ObjectID, error) {
+	// Récupérer les sender_id distincts des messages non lus
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"conversation_id": conversationID,
+				"sender_id":       bson.M{"$ne": readerID}, // Pas les messages du lecteur
+				"is_read":         false,                   // Pas encore lu
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id": "$sender_id",
+			},
+		},
+	}
+
+	cursor, err := r.messageCollection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var senders []primitive.ObjectID
+	for cursor.Next(ctx) {
+		var result struct {
+			ID primitive.ObjectID `bson:"_id"`
+		}
+		if err := cursor.Decode(&result); err != nil {
+			continue
+		}
+		senders = append(senders, result.ID)
+	}
+
+	return senders, nil
 }
 
 // SendMessage envoie un message dans une conversation
@@ -422,7 +461,7 @@ func (r *ChatRepository) getSentInvitations(ctx context.Context, userID primitiv
 			participant.Firstname = toUser["firstname"].(string)
 			participant.Lastname = toUser["lastname"].(string)
 			participant.Email = toUser["email"].(string)
-			
+
 			// Ajouter la photo de profil
 			if profileImageURL, ok := toUser["profile_image_url"].(string); ok {
 				participant.ProfilePicture = profileImageURL
