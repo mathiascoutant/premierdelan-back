@@ -197,21 +197,38 @@ func (h *AuthHandler) notifyAdminsNewUser(user *models.User) {
 
 // Login gère la connexion d'un utilisateur
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	// Logger la requête pour le débogage
+	log.Printf("📥 Tentative de connexion - Méthode: %s, Origin: %s, User-Agent: %s", 
+		r.Method, r.Header.Get("Origin"), r.Header.Get("User-Agent"))
+
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPost {
+		log.Printf("❌ Méthode non autorisée: %s", r.Method)
 		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
 		return
+	}
+
+	// Vérifier le Content-Type
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "" && !strings.Contains(contentType, "application/json") {
+		log.Printf("⚠️  Content-Type inattendu: %s", contentType)
+		// On continue quand même, certains clients peuvent envoyer différemment
 	}
 
 	// Décoder la requête
 	var req models.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("❌ Erreur parsing JSON connexion: %v", err)
 		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
 		return
 	}
 
+	// Logger les données reçues (sans le mot de passe)
+	log.Printf("📧 Tentative de connexion pour l'email: %s", req.Email)
+
 	// Valider les données
 	if err := h.validateLoginRequest(&req); err != nil {
+		log.Printf("❌ Validation échouée: %v", err)
 		utils.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -220,18 +237,20 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	user, err := h.userRepo.FindByEmail(email)
 	if err != nil {
-		log.Printf("Erreur lors de la recherche de l'utilisateur: %v", err)
+		log.Printf("❌ Erreur lors de la recherche de l'utilisateur: %v", err)
 		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
 		return
 	}
 
 	if user == nil {
+		log.Printf("❌ Utilisateur non trouvé: %s", email)
 		utils.RespondError(w, http.StatusUnauthorized, "Email ou mot de passe incorrect")
 		return
 	}
 
 	// Vérifier le mot de passe
 	if !utils.CheckPassword(user.Password, req.Password) {
+		log.Printf("❌ Mot de passe incorrect pour: %s", email)
 		utils.RespondError(w, http.StatusUnauthorized, "Email ou mot de passe incorrect")
 		return
 	}
@@ -239,7 +258,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Générer le token JWT (utiliser l'email comme UserID pour cohérence)
 	token, err := utils.GenerateToken(user.Email, user.Email, h.jwtSecret)
 	if err != nil {
-		log.Printf("Erreur lors de la génération du token: %v", err)
+		log.Printf("❌ Erreur lors de la génération du token: %v", err)
 		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
 		return
 	}
@@ -250,7 +269,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		User:  *user,
 	}
 
-	log.Printf("✓ Utilisateur connecté: %s (ID: %s)", user.Email, user.ID.Hex())
+	log.Printf("✓ Utilisateur connecté avec succès: %s (ID: %s)", user.Email, user.ID.Hex())
 	utils.RespondJSON(w, http.StatusOK, response)
 }
 

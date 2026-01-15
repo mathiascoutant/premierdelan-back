@@ -28,6 +28,7 @@ type Config struct {
 	CloudinaryPreviewPreset   string
 	CloudinaryAPIKey          string
 	CloudinaryAPISecret       string
+	SlackWebhookURL           string
 }
 
 // Load charge la configuration depuis les variables d'environnement
@@ -37,7 +38,7 @@ func Load() (*Config, error) {
 
 	config := &Config{
 		Port:                    getEnv("PORT", "8090"),
-		Host:                    getEnv("HOST", "0.0.0.0"), // 0.0.0.0 pour Railway/Cloud
+		Host:                    getEnv("HOST", "0.0.0.0"), // 0.0.0.0 pour serveur cloud
 		MongoURI:                getEnv("MONGO_URI", "mongodb://localhost:27017"),
 		MongoDB:                 getEnv("MONGO_DB", "premier_an_db"),
 		JWTSecret:               getEnv("JWT_SECRET", ""),
@@ -53,11 +54,20 @@ func Load() (*Config, error) {
 		CloudinaryPreviewPreset: getEnv("CLOUDINARY_PREVIEW_PRESET", "premierdelan_gallery_preview"),
 		CloudinaryAPIKey:        getEnv("CLOUDINARY_API_KEY", ""),
 		CloudinaryAPISecret:     getEnv("CLOUDINARY_API_SECRET", ""),
+		SlackWebhookURL:         getEnv("SLACK_WEBHOOK_URL", ""),
 	}
 
 	// Parser les origines CORS
 	origins := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
-	config.CORSOrigins = strings.Split(origins, ",")
+	originsList := strings.Split(origins, ",")
+	// Nettoyer les espaces autour de chaque origine
+	config.CORSOrigins = make([]string, 0, len(originsList))
+	for _, origin := range originsList {
+		trimmed := strings.TrimSpace(origin)
+		if trimmed != "" {
+			config.CORSOrigins = append(config.CORSOrigins, trimmed)
+		}
+	}
 
 	// Valider les configurations critiques
 	if config.JWTSecret == "" {

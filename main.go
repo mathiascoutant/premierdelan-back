@@ -31,12 +31,12 @@ func main() {
 	}
 	defer database.Close()
 
-	// Initialiser Firebase Cloud Messaging (optionnel pour Railway)
+	// Initialiser Firebase Cloud Messaging
 	fcmService, err := services.NewFCMService(cfg.FirebaseCredentialsFile)
 	if err != nil {
 		log.Printf("⚠️  Erreur d'initialisation Firebase: %v", err)
 		log.Println("⚠️  Le serveur démarre SANS notifications push")
-		log.Println("💡 Pour activer Firebase : configurez FIREBASE_CREDENTIALS_BASE64 dans Railway")
+		log.Println("💡 Pour activer Firebase : configurez FIREBASE_CREDENTIALS_BASE64")
 		fcmService = services.NewDisabledFCMService()
 	} else {
 		log.Println("✓ Firebase Cloud Messaging initialisé")
@@ -46,6 +46,14 @@ func main() {
 		notificationCron.Start()
 	}
 
+	// Initialiser le service Slack pour les notifications d'erreurs
+	slackService := services.NewSlackService(cfg.SlackWebhookURL)
+	if cfg.SlackWebhookURL != "" {
+		log.Println("✓ Service Slack initialisé pour les notifications d'erreurs")
+	} else {
+		log.Println("⚠️  Service Slack désactivé - configurez SLACK_WEBHOOK_URL pour activer")
+	}
+
 	// Créer le routeur
 	router := mux.NewRouter()
 
@@ -53,7 +61,7 @@ func main() {
 	rawRouter := mux.NewRouter()
 
 	// Appliquer les middlewares globaux (SAUF pour WebSocket)
-	router.Use(middleware.Logging)
+	router.Use(middleware.Logging(slackService))
 	router.Use(middleware.CORS(cfg.CORSOrigins))
 
 	// Créer les repositories
@@ -181,7 +189,7 @@ func main() {
 	protected.HandleFunc("/test/simple-notif", testNotifHandler.SendSimpleTest).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/test/list-tokens", testNotifHandler.ListMyTokens).Methods("POST", "OPTIONS")
 
-	// 🔌 ROUTE WEBSOCKET CHAT (SANS middleware - Render.com supporté !)
+	// 🔌 ROUTE WEBSOCKET CHAT (SANS middleware)
 	// La route WebSocket doit être sur rawRouter pour éviter le wrapping du ResponseWriter
 	rawRouter.HandleFunc("/ws/chat", wsHandler.ServeWS).Methods("GET")
 
