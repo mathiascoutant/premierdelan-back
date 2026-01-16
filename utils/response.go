@@ -8,12 +8,27 @@ import (
 
 // RespondJSON envoie une réponse JSON
 func RespondJSON(w http.ResponseWriter, statusCode int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
+	// S'assurer que les en-têtes ne sont pas déjà écrits
+	if w.Header().Get("Content-Type") == "" {
+		w.Header().Set("Content-Type", "application/json")
+	}
 	
+	// Écrire le code de statut
+	if statusCode > 0 {
+		w.WriteHeader(statusCode)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+	
+	// Encoder et envoyer les données
 	if data != nil {
 		if err := json.NewEncoder(w).Encode(data); err != nil {
-			http.Error(w, "Erreur lors de l'encodage JSON", http.StatusInternalServerError)
+			// Si l'encodage échoue, essayer d'envoyer une erreur simple
+			// Mais seulement si les en-têtes n'ont pas encore été écrits
+			if statusCode == http.StatusOK {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(`{"error":"Internal Server Error","message":"Erreur lors de l'encodage JSON"}`))
+			}
 		}
 	}
 }

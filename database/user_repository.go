@@ -44,7 +44,8 @@ func (r *UserRepository) Create(user *models.User) error {
 
 // FindByEmail recherche un utilisateur par email
 func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Augmenter le timeout à 10 secondes pour éviter les blocages
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	var user models.User
