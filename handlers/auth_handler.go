@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
 	"premier-an-backend/utils"
 	"strings"
-	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -199,90 +197,52 @@ func (h *AuthHandler) notifyAdminsNewUser(user *models.User) {
 
 // Login gère la connexion d'un utilisateur
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	// Logger la requête pour le débogage (avec flush immédiat et écriture directe sur stderr)
-	timestamp := time.Now().Format("2006/01/02 15:04:05")
-	origin := r.Header.Get("Origin")
-	userAgent := r.Header.Get("User-Agent")
-	fmt.Fprintf(os.Stderr, "%s 📥 [LOGIN] Début de la tentative de connexion - Méthode: %s, Origin: '%s', User-Agent: '%s'\n", 
-		timestamp, r.Method, origin, userAgent)
-	log.Printf("📥 [LOGIN] Début de la tentative de connexion - Méthode: %s, Origin: %s, User-Agent: %s", 
-		r.Method, origin, userAgent)
-
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPost {
-		log.Printf("❌ [LOGIN] Méthode non autorisée: %s", r.Method)
 		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
 		return
 	}
 
-	// Vérifier le Content-Type
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "" && !strings.Contains(contentType, "application/json") {
-		log.Printf("⚠️  [LOGIN] Content-Type inattendu: %s", contentType)
-		// On continue quand même, certains clients peuvent envoyer différemment
-	}
-
 	// Décoder la requête
 	var req models.LoginRequest
-	log.Printf("🔍 [LOGIN] Décodage de la requête...")
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("❌ [LOGIN] Erreur parsing JSON connexion: %v", err)
 		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
 		return
 	}
-	log.Printf("✅ [LOGIN] Requête décodée avec succès")
-
-	// Logger les données reçues (sans le mot de passe)
-	log.Printf("📧 [LOGIN] Tentative de connexion pour l'email: %s", req.Email)
 
 	// Valider les données
-	log.Printf("🔍 [LOGIN] Validation des données...")
 	if err := h.validateLoginRequest(&req); err != nil {
-		log.Printf("❌ [LOGIN] Validation échouée: %v", err)
 		utils.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	log.Printf("✅ [LOGIN] Données validées avec succès")
 
 	// Rechercher l'utilisateur par email
 	email := strings.ToLower(strings.TrimSpace(req.Email))
-	log.Printf("🔍 [LOGIN] Recherche de l'utilisateur avec l'email: %s", email)
 	user, err := h.userRepo.FindByEmail(email)
 	if err != nil {
-		log.Printf("❌ [LOGIN] Erreur lors de la recherche de l'utilisateur: %v", err)
+		log.Printf("Erreur lors de la recherche de l'utilisateur: %v", err)
 		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
 		return
 	}
 
 	if user == nil {
-		timestamp := time.Now().Format("2006/01/02 15:04:05")
-		fmt.Fprintf(os.Stderr, "%s ❌ [LOGIN] Utilisateur non trouvé: %s\n", timestamp, email)
-		log.Printf("❌ [LOGIN] Utilisateur non trouvé: %s", email)
 		utils.RespondError(w, http.StatusUnauthorized, "Email ou mot de passe incorrect")
 		return
 	}
-	log.Printf("✅ [LOGIN] Utilisateur trouvé: %s (ID: %s)", user.Email, user.ID.Hex())
 
 	// Vérifier le mot de passe
-	log.Printf("🔍 [LOGIN] Vérification du mot de passe...")
 	if !utils.CheckPassword(user.Password, req.Password) {
-		timestamp := time.Now().Format("2006/01/02 15:04:05")
-		fmt.Fprintf(os.Stderr, "%s ❌ [LOGIN] Mot de passe incorrect pour: %s\n", timestamp, email)
-		log.Printf("❌ [LOGIN] Mot de passe incorrect pour: %s", email)
 		utils.RespondError(w, http.StatusUnauthorized, "Email ou mot de passe incorrect")
 		return
 	}
-	log.Printf("✅ [LOGIN] Mot de passe correct")
 
-	// Générer le token JWT (utiliser l'email comme UserID pour cohérence)
-	log.Printf("🔍 [LOGIN] Génération du token JWT...")
+	// Générer le token JWT
 	token, err := utils.GenerateToken(user.Email, user.Email, h.jwtSecret)
 	if err != nil {
-		log.Printf("❌ [LOGIN] Erreur lors de la génération du token: %v", err)
+		log.Printf("Erreur lors de la génération du token: %v", err)
 		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
 		return
 	}
-	log.Printf("✅ [LOGIN] Token JWT généré avec succès")
 
 	// Répondre avec le token et les informations de l'utilisateur
 	response := models.AuthResponse{
@@ -290,9 +250,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		User:  *user,
 	}
 
-	log.Printf("✓ [LOGIN] Utilisateur connecté avec succès: %s (ID: %s) - Envoi de la réponse...", user.Email, user.ID.Hex())
+	log.Printf("✓ Utilisateur connecté: %s (ID: %s)", user.Email, user.ID.Hex())
 	utils.RespondJSON(w, http.StatusOK, response)
-	log.Printf("✅ [LOGIN] Réponse envoyée avec succès")
 }
 
 // validateRegisterRequest valide les données d'inscription

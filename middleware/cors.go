@@ -12,11 +12,6 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
 			
-			// Log pour debug (seulement pour les routes de connexion)
-			if r.URL.Path == "/api/connexion" || r.URL.Path == "/api/auth/login" {
-				log.Printf("🌐 [CORS] Requête %s %s - Origin: '%s'", r.Method, r.URL.Path, origin)
-			}
-			
 			// Vérifier si l'origine est autorisée
 			allowed := isOriginAllowed(origin, allowedOrigins)
 
@@ -58,16 +53,11 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 
 			// Pour les requêtes non-OPTIONS, continuer seulement si l'origine est autorisée ou si pas d'origine
 			if !allowed && origin != "" {
-				log.Printf("❌ [CORS] Blocage requête - Origine: %s, URI: %s %s", origin, r.Method, r.URL.Path)
+				log.Printf("⚠️  CORS: Origine non autorisée: %s (URI: %s %s)", origin, r.Method, r.URL.Path)
 				w.WriteHeader(http.StatusForbidden)
 				w.Header().Set("Content-Type", "application/json")
 				w.Write([]byte(`{"error":"Forbidden","message":"Origine non autorisée"}`))
 				return
-			}
-
-			// Log pour debug (seulement pour les routes de connexion)
-			if (r.URL.Path == "/api/connexion" || r.URL.Path == "/api/auth/login") && r.Method != http.MethodOptions {
-				log.Printf("✅ [CORS] Autorisation accordée - Origin: '%s', Allowed: %v", origin, allowed)
 			}
 
 			next.ServeHTTP(w, r)

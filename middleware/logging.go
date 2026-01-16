@@ -1,10 +1,8 @@
 package middleware
 
 import (
-	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"premier-an-backend/services"
 	"strconv"
 	"time"
@@ -55,18 +53,6 @@ func Logging(slackService *services.SlackService) func(http.Handler) http.Handle
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 
-			// Log toutes les requêtes de connexion pour debug (écriture directe sur stderr)
-			if r.URL.Path == "/api/connexion" || r.URL.Path == "/api/auth/login" {
-				timestamp := time.Now().Format("2006/01/02 15:04:05")
-				origin := r.Header.Get("Origin")
-				userAgent := r.Header.Get("User-Agent")
-				auth := r.Header.Get("Authorization")
-				fmt.Fprintf(os.Stderr, "%s 🔍 [LOGGING] Requête entrante: %s %s - Origin: '%s' - User-Agent: '%s' - Auth: '%s'\n", 
-					timestamp, r.Method, r.URL.Path, origin, userAgent, auth)
-				log.Printf("🔍 [LOGGING] Requête entrante: %s %s - Origin: '%s' - User-Agent: '%s' - Auth: '%s'", 
-					r.Method, r.URL.Path, origin, userAgent, auth)
-			}
-
 			// Créer un wrapper pour capturer le code de statut
 			rw := newResponseWriter(w)
 
@@ -78,19 +64,13 @@ func Logging(slackService *services.SlackService) func(http.Handler) http.Handle
 
 			// Logger toutes les erreurs
 			if statusCode >= http.StatusBadRequest {
-				// Log détaillé pour les erreurs de connexion
-				if r.URL.Path == "/api/connexion" || r.URL.Path == "/api/auth/login" {
-					log.Printf("❌ [LOGGING] Erreur %s %s -> %d (%s) - Origin: '%s'", 
-						r.Method, r.RequestURI, statusCode, duration, r.Header.Get("Origin"))
-				} else {
-					log.Printf(
-						"⚠️ %s %s -> %d (%s)",
-						r.Method,
-						r.RequestURI,
-						statusCode,
-						duration,
-					)
-				}
+				log.Printf(
+					"⚠️ %s %s -> %d (%s)",
+					r.Method,
+					r.RequestURI,
+					statusCode,
+					duration,
+				)
 
 				// Envoyer une notification Slack uniquement pour les erreurs critiques
 				if isCriticalError(statusCode, r.RequestURI) && slackService != nil {
