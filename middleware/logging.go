@@ -53,6 +53,12 @@ func Logging(slackService *services.SlackService) func(http.Handler) http.Handle
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 
+			// Log toutes les requêtes de connexion pour debug
+			if r.URL.Path == "/api/connexion" || r.URL.Path == "/api/auth/login" {
+				log.Printf("🔍 [LOGGING] Requête entrante: %s %s - Origin: '%s' - User-Agent: '%s' - Auth: '%s'", 
+					r.Method, r.URL.Path, r.Header.Get("Origin"), r.Header.Get("User-Agent"), r.Header.Get("Authorization"))
+			}
+
 			// Créer un wrapper pour capturer le code de statut
 			rw := newResponseWriter(w)
 
@@ -64,13 +70,19 @@ func Logging(slackService *services.SlackService) func(http.Handler) http.Handle
 
 			// Logger toutes les erreurs
 			if statusCode >= http.StatusBadRequest {
-				log.Printf(
-					"⚠️ %s %s -> %d (%s)",
-					r.Method,
-					r.RequestURI,
-					statusCode,
-					duration,
-				)
+				// Log détaillé pour les erreurs de connexion
+				if r.URL.Path == "/api/connexion" || r.URL.Path == "/api/auth/login" {
+					log.Printf("❌ [LOGGING] Erreur %s %s -> %d (%s) - Origin: '%s'", 
+						r.Method, r.RequestURI, statusCode, duration, r.Header.Get("Origin"))
+				} else {
+					log.Printf(
+						"⚠️ %s %s -> %d (%s)",
+						r.Method,
+						r.RequestURI,
+						statusCode,
+						duration,
+					)
+				}
 
 				// Envoyer une notification Slack uniquement pour les erreurs critiques
 				if isCriticalError(statusCode, r.RequestURI) && slackService != nil {
