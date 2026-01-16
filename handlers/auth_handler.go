@@ -11,6 +11,7 @@ import (
 	"premier-an-backend/models"
 	"premier-an-backend/utils"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -198,10 +199,14 @@ func (h *AuthHandler) notifyAdminsNewUser(user *models.User) {
 
 // Login gère la connexion d'un utilisateur
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	// Logger la requête pour le débogage (avec flush immédiat)
+	// Logger la requête pour le débogage (avec flush immédiat et écriture directe sur stderr)
+	timestamp := time.Now().Format("2006/01/02 15:04:05")
+	origin := r.Header.Get("Origin")
+	userAgent := r.Header.Get("User-Agent")
+	fmt.Fprintf(os.Stderr, "%s 📥 [LOGIN] Début de la tentative de connexion - Méthode: %s, Origin: '%s', User-Agent: '%s'\n", 
+		timestamp, r.Method, origin, userAgent)
 	log.Printf("📥 [LOGIN] Début de la tentative de connexion - Méthode: %s, Origin: %s, User-Agent: %s", 
-		r.Method, r.Header.Get("Origin"), r.Header.Get("User-Agent"))
-	os.Stdout.Sync() // Forcer le flush des logs
+		r.Method, origin, userAgent)
 
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPost {
@@ -250,8 +255,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if user == nil {
+		timestamp := time.Now().Format("2006/01/02 15:04:05")
+		fmt.Fprintf(os.Stderr, "%s ❌ [LOGIN] Utilisateur non trouvé: %s\n", timestamp, email)
 		log.Printf("❌ [LOGIN] Utilisateur non trouvé: %s", email)
-		os.Stdout.Sync() // Forcer le flush des logs
 		utils.RespondError(w, http.StatusUnauthorized, "Email ou mot de passe incorrect")
 		return
 	}
@@ -259,10 +265,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Vérifier le mot de passe
 	log.Printf("🔍 [LOGIN] Vérification du mot de passe...")
-	os.Stdout.Sync() // Forcer le flush des logs
 	if !utils.CheckPassword(user.Password, req.Password) {
+		timestamp := time.Now().Format("2006/01/02 15:04:05")
+		fmt.Fprintf(os.Stderr, "%s ❌ [LOGIN] Mot de passe incorrect pour: %s\n", timestamp, email)
 		log.Printf("❌ [LOGIN] Mot de passe incorrect pour: %s", email)
-		os.Stdout.Sync() // Forcer le flush des logs
 		utils.RespondError(w, http.StatusUnauthorized, "Email ou mot de passe incorrect")
 		return
 	}
