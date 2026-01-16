@@ -60,15 +60,17 @@ deps-update-minor:
 
 deps-vuln:
 	@echo "🔒 Vérification des vulnérabilités..."
-	@if command -v govulncheck &> /dev/null; then \
-		govulncheck ./... 2>/dev/null || echo "⚠️  Des vulnérabilités ont été détectées"; \
+	@GOVULNCHECK_CMD=$$(command -v govulncheck 2>/dev/null || echo "$(shell go env GOPATH)/bin/govulncheck"); \
+	if [ -f "$$GOVULNCHECK_CMD" ] || command -v govulncheck &> /dev/null; then \
+		$$GOVULNCHECK_CMD ./... 2>&1 || echo "⚠️  Des vulnérabilités ont été détectées"; \
 	else \
 		echo "⚠️  govulncheck n'est pas installé"; \
 		echo ""; \
 		echo "💡 Pour installer:"; \
-		echo "   go install golang.org/x/vuln/cmd/govulncheck@latest"; \
+		echo "   ./scripts/install-govulncheck.sh"; \
+		echo "   ou: go install golang.org/x/vuln/cmd/govulncheck@latest"; \
 		echo ""; \
-		echo "   Ou utiliser: go install golang.org/x/vuln/cmd/govulncheck@latest"; \
+		echo "   Puis ajouter au PATH: export PATH=\$$PATH:$$(go env GOPATH)/bin"; \
 	fi
 
 # Commandes utiles

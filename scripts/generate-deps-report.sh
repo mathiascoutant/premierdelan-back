@@ -69,14 +69,16 @@ cat >> "$REPORT_FILE" << EOF
 EOF
 
 # Vérifier les vulnérabilités si govulncheck est installé
-if command -v govulncheck &> /dev/null; then
+GOVULNCHECK_CMD=$(command -v govulncheck 2>/dev/null || echo "$(go env GOPATH)/bin/govulncheck")
+
+if [ -f "$GOVULNCHECK_CMD" ] || command -v govulncheck &> /dev/null; then
     echo "Analyse des vulnérabilités en cours..."
     cat >> "$REPORT_FILE" << EOF
 ### Résultats govulncheck
 
 \`\`\`
 EOF
-    govulncheck ./... >> "$REPORT_FILE" 2>&1 || echo "⚠️ Des vulnérabilités ont été détectées (voir détails ci-dessus)" >> "$REPORT_FILE"
+    $GOVULNCHECK_CMD ./... >> "$REPORT_FILE" 2>&1 || echo "⚠️ Des vulnérabilités ont été détectées (voir détails ci-dessus)" >> "$REPORT_FILE"
     echo "\`\`\`" >> "$REPORT_FILE"
 else
     cat >> "$REPORT_FILE" << EOF
@@ -115,8 +117,10 @@ cat >> "$REPORT_FILE" << EOF
 EOF
 
 # Analyser les vulnérabilités critiques
-if command -v govulncheck &> /dev/null; then
-    vuln_count=$(govulncheck ./... 2>&1 | grep -c "Found" || echo "0")
+GOVULNCHECK_CMD=$(command -v govulncheck 2>/dev/null || echo "$(go env GOPATH)/bin/govulncheck")
+
+if [ -f "$GOVULNCHECK_CMD" ] || command -v govulncheck &> /dev/null; then
+    vuln_count=$($GOVULNCHECK_CMD ./... 2>&1 | grep -c "Found" || echo "0")
     if [ "$vuln_count" -gt 0 ]; then
         cat >> "$REPORT_FILE" << EOF
 🚨 **Vulnérabilités détectées** : Des vulnérabilités ont été identifiées. Action immédiate requise :
