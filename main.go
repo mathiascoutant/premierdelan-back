@@ -331,6 +331,12 @@ func main() {
 
 	// Créer un multiplexeur qui combine les deux routers
 	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Log au tout début pour voir toutes les requêtes
+		if r.URL.Path == "/api/connexion" || r.URL.Path == "/api/auth/login" {
+			fmt.Fprintf(os.Stderr, "🔥 [MAIN] Requête reçue: %s %s - Origin: '%s'\n", 
+				r.Method, r.URL.Path, r.Header.Get("Origin"))
+		}
+		
 		// Si c'est une requête WebSocket, utiliser rawRouter (sans middleware)
 		if r.URL.Path == "/ws/chat" {
 			rawRouter.ServeHTTP(w, r)
@@ -349,6 +355,7 @@ func main() {
 
 	// Gérer l'arrêt gracieux du serveur
 	go func() {
+		fmt.Fprintf(os.Stderr, "🔥 [MAIN] Code de debug activé - logs détaillés pour /api/connexion\n")
 		log.Printf("🚀 Serveur démarré sur http://%s", addr)
 		log.Printf("📝 Environnement: %s", cfg.Environment)
 		log.Printf("🗄️  Base de données: MongoDB")
@@ -418,7 +425,7 @@ func main() {
 		log.Println("   📱 Notifications galerie (authentifié):")
 		log.Println("   POST   /api/evenements/{id}/medias/notify  - Envoyer notification galerie")
 		log.Println("   POST   /api/evenements/{id}/medias/test    - Test notification galerie")
-		log.Println("\n✨ Le serveur est prêt à recevoir des requêtes!")
+		log.Println("\n✨ Le serveur est prêt à recevoir des requêtes!!!!")
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("❌ Erreur du serveur: %v", err)
