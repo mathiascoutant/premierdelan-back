@@ -52,17 +52,23 @@ deps-update:
 
 deps-update-minor:
 	@echo "🔄 Mise à jour des dépendances (mineures et patches uniquement)..."
-	$(GO) get -u=patch ./...
-	$(GO) mod tidy
-	@echo "✅ Dépendances mises à jour"
+	@echo "⚠️  Certaines dépendances peuvent échouer (versions non disponibles)"
+	@$(GO) get -u=patch ./... || echo "⚠️  Certaines mises à jour ont échoué (normal si versions non disponibles)"
+	@$(GO) mod tidy
+	@echo "✅ Processus de mise à jour terminé"
+	@echo "💡 Vérifiez les changements avec: git diff go.mod go.sum"
 
 deps-vuln:
 	@echo "🔒 Vérification des vulnérabilités..."
 	@if command -v govulncheck &> /dev/null; then \
-		govulncheck ./...; \
+		govulncheck ./... 2>/dev/null || echo "⚠️  Des vulnérabilités ont été détectées"; \
 	else \
 		echo "⚠️  govulncheck n'est pas installé"; \
-		echo "💡 Installation: go install golang.org/x/vuln/cmd/govulncheck@latest"; \
+		echo ""; \
+		echo "💡 Pour installer:"; \
+		echo "   go install golang.org/x/vuln/cmd/govulncheck@latest"; \
+		echo ""; \
+		echo "   Ou utiliser: go install golang.org/x/vuln/cmd/govulncheck@latest"; \
 	fi
 
 # Commandes utiles

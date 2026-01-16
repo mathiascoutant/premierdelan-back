@@ -31,15 +31,23 @@ make deps-vuln
 ### Outils Utilisés
 
 1. **govulncheck** (Recommandé)
+
    ```bash
    # Installation
+   ./scripts/install-govulncheck.sh
+   # Ou manuellement:
    go install golang.org/x/vuln/cmd/govulncheck@latest
-   
+
    # Utilisation
+   make deps-vuln
+   # Ou directement:
    govulncheck ./...
    ```
 
+   **Note** : Si `govulncheck` n'est pas trouvé après installation, vérifiez que `$GOPATH/bin` est dans votre PATH.
+
 2. **GitHub Dependabot**
+
    - Surveille automatiquement les vulnérabilités connues
    - Envoie des alertes via GitHub
 
@@ -50,15 +58,18 @@ make deps-vuln
 ## 📦 Types de Mises à Jour
 
 ### Mises à Jour Majeures
+
 - Changements breaking possibles
 - Nécessitent une analyse approfondie
 - Processus manuel requis
 
 ### Mises à Jour Mineures
+
 - Nouvelles fonctionnalités compatibles
 - Peuvent être automatisées via Dependabot
 
 ### Mises à Jour de Patch
+
 - Corrections de bugs et de sécurité
 - Haute priorité pour les corrections de sécurité
 - Automatisées via Dependabot
@@ -78,6 +89,7 @@ make deps-check
 ### Étape 2 : Évaluer l'Impact
 
 Pour chaque mise à jour :
+
 1. **Consulter les release notes** du package
 2. **Vérifier les breaking changes**
 3. **Tester localement** avant déploiement
@@ -144,6 +156,7 @@ git push
 ### Journal des Mises à Jour
 
 Toutes les mises à jour sont documentées dans :
+
 - Les commits Git (avec préfixe `chore:`, `fix:`, `security:`)
 - Les Pull Requests Dependabot
 - Ce document (pour les mises à jour importantes)
@@ -194,9 +207,9 @@ security(deps): patch critical vulnerability CVE-YYYY-XXXXX
 
 ## 📅 Historique des Mises à Jour Importantes
 
-| Date | Package | Version | Raison |
-|------|---------|---------|--------|
-| 2026-01-16 | Tous | - | Initialisation du processus de gestion |
+| Date       | Package | Version | Raison                                 |
+| ---------- | ------- | ------- | -------------------------------------- |
+| 2026-01-16 | Tous    | -       | Initialisation du processus de gestion |
 
 ---
 

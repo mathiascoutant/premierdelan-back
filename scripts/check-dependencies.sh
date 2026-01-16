@@ -28,11 +28,16 @@ go list -u -m all 2>/dev/null | grep -E "\[" || echo "✅ Tous les modules sont 
 if command -v govulncheck &> /dev/null; then
     echo ""
     echo "🔒 Vérification des vulnérabilités avec govulncheck..."
-    govulncheck ./... || echo "⚠️  Des vulnérabilités ont été détectées. Vérifiez les résultats ci-dessus."
+    if govulncheck ./... 2>/dev/null; then
+        echo "✅ Aucune vulnérabilité connue détectée"
+    else
+        echo "⚠️  Des vulnérabilités ont été détectées. Vérifiez les résultats ci-dessus."
+    fi
 else
     echo ""
-    echo "⚠️  govulncheck n'est pas installé. Installation recommandée:"
-    echo "   go install golang.org/x/vuln/cmd/govulncheck@latest"
+    echo "⚠️  govulncheck n'est pas installé."
+    echo "💡 Pour installer: go install golang.org/x/vuln/cmd/govulncheck@latest"
+    echo "   Puis relancer: make deps-vuln"
 fi
 
 # Afficher les versions actuelles des dépendances principales
