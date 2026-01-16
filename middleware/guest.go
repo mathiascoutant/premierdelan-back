@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
 	"premier-an-backend/utils"
 	"strings"
@@ -16,6 +17,7 @@ func Guest(jwtSecret string) func(http.Handler) http.Handler {
 			
 			// Si pas de header Authorization, continuer (utilisateur non connecté)
 			if authHeader == "" {
+				log.Printf("🔓 [GUEST] Pas de token - autorisation de continuer vers %s", r.URL.Path)
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -24,6 +26,7 @@ func Guest(jwtSecret string) func(http.Handler) http.Handler {
 			parts := strings.Split(authHeader, " ")
 			if len(parts) != 2 || parts[0] != "Bearer" {
 				// Format invalide, continuer (pas de token valide)
+				log.Printf("⚠️  [GUEST] Format de token invalide - autorisation de continuer vers %s", r.URL.Path)
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -34,11 +37,13 @@ func Guest(jwtSecret string) func(http.Handler) http.Handler {
 			_, err := utils.ValidateToken(tokenString, jwtSecret)
 			if err == nil {
 				// Token valide = utilisateur déjà connecté
+				log.Printf("🚫 [GUEST] Token valide détecté - refus d'accès à %s (utilisateur déjà connecté)", r.URL.Path)
 				utils.RespondError(w, http.StatusForbidden, "Vous êtes déjà connecté")
 				return
 			}
 
 			// Token invalide ou expiré, continuer (c'est normal pour une nouvelle connexion)
+			log.Printf("🔓 [GUEST] Token invalide/expiré - autorisation de continuer vers %s (erreur: %v)", r.URL.Path, err)
 			next.ServeHTTP(w, r)
 		})
 	}
