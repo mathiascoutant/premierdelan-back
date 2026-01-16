@@ -1,7 +1,7 @@
-.PHONY: run build clean install dev test
+.PHONY: run build clean install dev test deps-check deps-update deps-vuln
 
 # Variables
-BINARY_NAME=premier-an-backend
+BINARY_NAME=backend
 GO=go
 GOFLAGS=-v
 
@@ -35,6 +35,36 @@ test:
 	@echo "🧪 Exécution des tests..."
 	$(GO) test -v ./...
 
+# Gestion des dépendances
+deps-check:
+	@echo "🔍 Vérification des dépendances..."
+	@chmod +x scripts/check-dependencies.sh
+	@./scripts/check-dependencies.sh
+
+deps-update:
+	@echo "🔄 Mise à jour des dépendances..."
+	@echo "⚠️  Attention: cette commande mettra à jour toutes les dépendances"
+	@read -p "Voulez-vous continuer? (y/N): " confirm && [ "$$confirm" = "y" ] || exit 1
+	$(GO) get -u ./...
+	$(GO) mod tidy
+	@echo "✅ Dépendances mises à jour"
+	@echo "📝 N'oubliez pas de tester et de commiter les changements"
+
+deps-update-minor:
+	@echo "🔄 Mise à jour des dépendances (mineures et patches uniquement)..."
+	$(GO) get -u=patch ./...
+	$(GO) mod tidy
+	@echo "✅ Dépendances mises à jour"
+
+deps-vuln:
+	@echo "🔒 Vérification des vulnérabilités..."
+	@if command -v govulncheck &> /dev/null; then \
+		govulncheck ./...; \
+	else \
+		echo "⚠️  govulncheck n'est pas installé"; \
+		echo "💡 Installation: go install golang.org/x/vuln/cmd/govulncheck@latest"; \
+	fi
+
 # Commandes utiles
 fmt:
 	@echo "✨ Formatage du code..."
@@ -47,14 +77,6 @@ vet:
 lint:
 	@echo "🔍 Analyse du code avec golangci-lint..."
 	golangci-lint run
-
-deps:
-	@echo "📊 Affichage des dépendances..."
-	$(GO) list -m all
-
-tidy:
-	@echo "🧹 Nettoyage des dépendances..."
-	$(GO) mod tidy
 
 # Base de données
 db-create:
@@ -71,17 +93,16 @@ db-reset: db-drop db-create
 # Aide
 help:
 	@echo "Commandes disponibles:"
-	@echo "  make run        - Démarrer le serveur"
-	@echo "  make build      - Compiler le projet"
-	@echo "  make install    - Installer les dépendances"
-	@echo "  make dev        - Mode développement (avec air)"
-	@echo "  make clean      - Nettoyer les fichiers compilés"
-	@echo "  make test       - Exécuter les tests"
-	@echo "  make fmt        - Formater le code"
-	@echo "  make vet        - Vérifier le code"
-	@echo "  make lint       - Analyser le code"
-	@echo "  make tidy       - Nettoyer les dépendances"
-	@echo "  make db-create  - Créer la base de données"
-	@echo "  make db-drop    - Supprimer la base de données"
-	@echo "  make db-reset   - Réinitialiser la base de données"
-
+	@echo "  make run              - Démarrer le serveur"
+	@echo "  make build            - Compiler le projet"
+	@echo "  make install          - Installer les dépendances"
+	@echo "  make dev              - Mode développement (avec air)"
+	@echo "  make clean            - Nettoyer les fichiers compilés"
+	@echo "  make test             - Exécuter les tests"
+	@echo "  make deps-check       - Vérifier l'état des dépendances"
+	@echo "  make deps-update      - Mettre à jour toutes les dépendances"
+	@echo "  make deps-update-minor - Mettre à jour (patches/mineures)"
+	@echo "  make deps-vuln        - Vérifier les vulnérabilités"
+	@echo "  make fmt              - Formater le code"
+	@echo "  make vet              - Vérifier le code"
+	@echo "  make lint             - Analyser le code"
