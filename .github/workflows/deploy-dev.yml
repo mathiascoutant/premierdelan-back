@@ -29,5 +29,8 @@ jobs:
             set -e
             echo "📦 Déploiement déclenché par commit sur dev"
             cd "${{ secrets.VPS_DEPLOY_PATH }}"
+            git fetch origin
+            git checkout dev
+            git pull origin dev
             chmod +x deploy.sh
             ./deploy.sh dev

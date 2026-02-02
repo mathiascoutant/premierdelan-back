@@ -23,8 +23,9 @@ git fetch origin
 git checkout "$BRANCH"
 git pull origin "$BRANCH"
 
-# Compiler le projet
+# Compiler le projet (GOPROXY=direct évite 403 sur certains VPS OVH)
 echo "🔨 Compilation du projet..."
+export GOPROXY=direct
 go build -o backend .
 
 # Vérifier que la compilation a réussi
