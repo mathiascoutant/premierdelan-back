@@ -42,4 +42,5 @@ jobs:
           args: >
             -Dsonar.projectKey=premierdelan-back
             -Dsonar.organization=mathiascoutant-1
+            -Dsonar.branch.name=dev
             -Dsonar.go.coverage.reportPaths=coverage.out
