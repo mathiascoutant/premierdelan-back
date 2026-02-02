@@ -1,5 +1,5 @@
 # Analyse SonarQube avec couverture de tests
-# Déclenché à chaque push sur dev
+# Déclenché à chaque push sur main et dev
 #
 # Secrets requis:
 #   SONAR_TOKEN    - Généré dans SonarQube > Mon compte > Sécurité
@@ -10,6 +10,7 @@ name: SonarQube
 on:
   push:
     branches:
+      - main
       - dev
   workflow_dispatch:  # Déclenchement manuel depuis GitHub Actions
 
@@ -42,5 +43,5 @@ jobs:
           args: >
             -Dsonar.projectKey=premierdelan-back
             -Dsonar.organization=mathiascoutant-1
-            -Dsonar.branch.name=dev
+            -Dsonar.branch.name=${{ github.ref_name }}
             -Dsonar.go.coverage.reportPaths=coverage.out
