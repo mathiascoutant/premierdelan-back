@@ -31,7 +31,7 @@ func NewNotificationCron(db *mongo.Database, fcmService *FCMService) *Notificati
 // Start démarre le cron job
 func (nc *NotificationCron) Start() {
 	// Vérifier toutes les minutes si des événements doivent ouvrir leurs inscriptions
-	nc.cron.AddFunc("@every 1m", nc.checkEventOpenings)
+	_, _ = nc.cron.AddFunc("@every 1m", nc.checkEventOpenings)
 	nc.cron.Start()
 	log.Println("✓ Cron job notifications démarré (vérification toutes les minutes)")
 }
@@ -57,9 +57,9 @@ func (nc *NotificationCron) checkEventOpenings() {
 
 	for _, event := range events {
 		nc.sendEventOpeningNotification(event)
-		
+
 		// Marquer comme envoyé
-		nc.eventRepo.Update(event.ID, map[string]interface{}{
+		_ = nc.eventRepo.Update(event.ID, map[string]interface{}{
 			"notification_sent_opening": true,
 		})
 	}
@@ -98,4 +98,3 @@ func (nc *NotificationCron) sendEventOpeningNotification(event models.Event) {
 	success, failed, _ := nc.fcmService.SendToAll(tokens, title, message, data)
 	log.Printf("📧 Notification ouverture '%s' envoyée: %d succès, %d échecs", event.Titre, success, failed)
 }
-

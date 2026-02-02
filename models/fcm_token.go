@@ -11,7 +11,7 @@ type FCMToken struct {
 	ID        primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	UserID    string             `json:"user_id" bson:"user_id"` // Email de l'utilisateur
 	Token     string             `json:"token" bson:"token"`
-	Device    string             `json:"device,omitempty" bson:"device,omitempty"`     // Type d'appareil (iOS, Android, Web)
+	Device    string             `json:"device,omitempty" bson:"device,omitempty"` // Type d'appareil (iOS, Android, Web)
 	UserAgent string             `json:"user_agent,omitempty" bson:"user_agent,omitempty"`
 	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
 	UpdatedAt time.Time          `json:"updated_at" bson:"updated_at"`
@@ -27,10 +27,10 @@ type FCMSubscribeRequest struct {
 
 // FCMNotificationRequest représente la requête pour envoyer une notification FCM
 type FCMNotificationRequest struct {
-	UserID  string                 `json:"user_id"`
-	Title   string                 `json:"title,omitempty"`
-	Message string                 `json:"message,omitempty"`
-	Data    map[string]string      `json:"data,omitempty"`
+	UserID  string            `json:"user_id"`
+	Title   string            `json:"title,omitempty"`
+	Message string            `json:"message,omitempty"`
+	Data    map[string]string `json:"data,omitempty"`
 }
 
 // FCMNotificationResponse représente la réponse d'envoi FCM
@@ -40,4 +40,3 @@ type FCMNotificationResponse struct {
 	Total        int      `json:"total"`
 	FailedTokens []string `json:"failed_tokens,omitempty"`
 }
-

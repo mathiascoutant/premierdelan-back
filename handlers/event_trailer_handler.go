@@ -21,11 +21,11 @@ import (
 
 // EventTrailerHandler gère les trailers vidéo des événements
 type EventTrailerHandler struct {
-	eventRepo       *database.EventRepository
-	cloudName       string
-	uploadPreset    string
-	apiKey          string
-	apiSecret       string
+	eventRepo    *database.EventRepository
+	cloudName    string
+	uploadPreset string
+	apiKey       string
+	apiSecret    string
 }
 
 // NewEventTrailerHandler crée une nouvelle instance
@@ -373,4 +373,3 @@ func (h *EventTrailerHandler) deleteVideoFromCloudinary(publicID string) error {
 
 	return nil
 }
-

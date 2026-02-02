@@ -14,8 +14,8 @@ import (
 
 // FCMHandler gère les requêtes de notifications FCM
 type FCMHandler struct {
-	fcmService  *services.FCMService
-	tokenRepo   *database.FCMTokenRepository
+	fcmService *services.FCMService
+	tokenRepo  *database.FCMTokenRepository
 }
 
 // NewFCMHandler crée une nouvelle instance de FCMHandler
@@ -135,7 +135,7 @@ func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
 	if title == "" {
 		title = "Nouvelle notification"
 	}
-	
+
 	message := req.Message
 	if message == "" {
 		message = "Vous avez reçu une nouvelle notification"
@@ -206,7 +206,7 @@ func (h *FCMHandler) SendToUser(w http.ResponseWriter, r *http.Request) {
 	if title == "" {
 		title = "Nouvelle notification"
 	}
-	
+
 	message := req.Message
 	if message == "" {
 		message = "Vous avez reçu une nouvelle notification"
@@ -230,4 +230,3 @@ func (h *FCMHandler) SendToUser(w http.ResponseWriter, r *http.Request) {
 	log.Printf("📊 Notifications envoyées à %s: %d succès, %d échecs", req.UserID, success, failed)
 	utils.RespondSuccess(w, "Notifications envoyées", response)
 }
-

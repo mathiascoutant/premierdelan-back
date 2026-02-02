@@ -84,7 +84,7 @@ func (r *SubscriptionRepository) FindByEndpoint(endpoint string) (*models.PushSu
 
 	var subscription models.PushSubscription
 	err := r.collection.FindOne(ctx, bson.M{"endpoint": endpoint}).Decode(&subscription)
-	
+
 	if err == mongo.ErrNoDocuments {
 		return nil, nil
 	}
@@ -121,4 +121,3 @@ func (r *SubscriptionRepository) DeleteByUserID(userID string) error {
 
 	return nil
 }
-

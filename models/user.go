@@ -14,11 +14,11 @@ type User struct {
 	Lastname        string             `json:"lastname" bson:"lastname"`
 	Email           string             `json:"email" bson:"email"`
 	Phone           string             `json:"phone" bson:"phone"`
-	Password        string             `json:"-" bson:"password"` // Le "-" empêche la sérialisation du mot de passe
+	Password        string             `json:"-" bson:"password"`                                            // Le "-" empêche la sérialisation du mot de passe
 	ProfileImageURL string             `json:"profileImageUrl,omitempty" bson:"profile_image_url,omitempty"` // URL de la photo de profil
-	FCMToken        string             `json:"fcm_token,omitempty" bson:"fcm_token,omitempty"` // Token FCM pour les notifications
-	Admin           int                `json:"admin" bson:"admin"` // 0 = utilisateur normal, 1 = admin
-	LastSeen        *time.Time         `json:"last_seen,omitempty" bson:"last_seen,omitempty"` // Dernière activité WebSocket
+	FCMToken        string             `json:"fcm_token,omitempty" bson:"fcm_token,omitempty"`               // Token FCM pour les notifications
+	Admin           int                `json:"admin" bson:"admin"`                                           // 0 = utilisateur normal, 1 = admin
+	LastSeen        *time.Time         `json:"last_seen,omitempty" bson:"last_seen,omitempty"`               // Dernière activité WebSocket
 	CreatedAt       time.Time          `json:"created_at" bson:"created_at"`
 }
 
@@ -56,4 +56,3 @@ type SuccessResponse struct {
 	Message string      `json:"message,omitempty"`
 	Data    interface{} `json:"data,omitempty"`
 }
-

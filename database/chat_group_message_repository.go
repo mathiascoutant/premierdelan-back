@@ -251,7 +251,9 @@ func (r *ChatGroupMessageRepository) MarkAsRead(groupID primitive.ObjectID, user
 	}
 
 	if err == nil {
-		update["$set"].(bson.M)["last_read_message_id"] = lastMessage.ID
+		if set, ok := update["$set"].(bson.M); ok {
+			set["last_read_message_id"] = lastMessage.ID
+		}
 	}
 
 	opts2 := options.Update().SetUpsert(true)

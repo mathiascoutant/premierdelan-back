@@ -34,9 +34,9 @@ func (r *CodeSoireeRepository) IsCodeValid(code string) (bool, error) {
 	// Chercher un événement avec ce code_soiree qui n'est pas annulé
 	filter := bson.M{
 		"code_soiree": code,
-		"statut": bson.M{"$ne": "annule"}, // Pas annulé
+		"statut":      bson.M{"$ne": "annule"}, // Pas annulé
 	}
-	
+
 	count, err := r.eventCollection.CountDocuments(ctx, filter)
 
 	if err != nil {
@@ -112,7 +112,7 @@ func (r *CodeSoireeRepository) FindCurrent() (*models.CodeSoiree, error) {
 	pipeline := []bson.M{
 		{"$match": bson.M{
 			"code_soiree": bson.M{"$ne": ""},
-			"statut": bson.M{"$ne": "annule"},
+			"statut":      bson.M{"$ne": "annule"},
 		}},
 		{"$sort": bson.M{"created_at": -1}},
 		{"$limit": 1},
@@ -154,4 +154,3 @@ func (r *CodeSoireeRepository) Create(code *models.CodeSoiree) error {
 	// Cette méthode n'est plus utilisée
 	return nil
 }
-

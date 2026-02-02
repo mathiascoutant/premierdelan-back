@@ -57,7 +57,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Logger les données reçues pour débogage
-	log.Printf("📥 Inscription reçue - Code: '%s', Email: '%s', Prénom: '%s', Nom: '%s'", 
+	log.Printf("📥 Inscription reçue - Code: '%s', Email: '%s', Prénom: '%s', Nom: '%s'",
 		req.CodeSoiree, req.Email, req.Firstname, req.Lastname)
 
 	// Valider les données
@@ -79,7 +79,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		utils.RespondError(w, http.StatusBadRequest, "Code de soirée invalide ou inactif")
 		return
 	}
-	
+
 	log.Printf("✅ Code soirée valide: '%s'", req.CodeSoiree)
 
 	// Vérifier si l'email existe déjà
@@ -371,7 +371,7 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Gestion du changement de mot de passe
 	hasPasswordFields := req.CurrentPassword != "" || req.NewPassword != "" || req.ConfirmPassword != ""
-	
+
 	if hasPasswordFields {
 		// Validation : tous les champs de mot de passe requis
 		if req.CurrentPassword == "" || req.NewPassword == "" || req.ConfirmPassword == "" {

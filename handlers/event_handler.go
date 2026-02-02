@@ -83,4 +83,3 @@ func (h *EventHandler) GetPublicEvent(w http.ResponseWriter, r *http.Request) {
 		"evenement": event,
 	})
 }
-

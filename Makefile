@@ -40,10 +40,11 @@ quality:
 	@echo "🔍 Contrôle qualité du code..."
 	@$(GO) vet ./...
 	@echo "✓ go vet OK"
-	@if command -v golangci-lint &> /dev/null; then \
-		golangci-lint run && echo "✓ golangci-lint OK"; \
+	@GOLANGCI=$$(command -v golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint"); \
+	if [ -x "$$GOLANGCI" ]; then \
+		$$GOLANGCI run && echo "✓ golangci-lint OK"; \
 	else \
-		echo "⚠️  golangci-lint non installé: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		echo "⚠️  golangci-lint non installé (optionnel): go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
 	fi
 	@$(GO) test ./... -count=1
 	@echo "✓ Tests OK"
@@ -98,7 +99,15 @@ vet:
 
 lint:
 	@echo "🔍 Analyse du code avec golangci-lint..."
-	golangci-lint run
+	@GOLANGCI=$$(command -v golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint"); \
+	if [ -x "$$GOLANGCI" ]; then \
+		$$GOLANGCI run; \
+	else \
+		echo "⚠️  golangci-lint non installé"; \
+		echo "   Installation: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		echo "   Puis: export PATH=\$$PATH:$$(go env GOPATH)/bin"; \
+		exit 1; \
+	fi
 
 # Base de données
 db-create:

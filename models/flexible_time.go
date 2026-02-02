@@ -54,16 +54,16 @@ func (ft FlexibleTime) MarshalJSON() ([]byte, error) {
 	if ft.Time.IsZero() {
 		return []byte("null"), nil
 	}
-	
+
 	// MongoDB stocke toujours en UTC, donc on doit reconvertir en heure française
 	paris, err := time.LoadLocation("Europe/Paris")
 	if err != nil {
 		paris = time.FixedZone("CET", 2*3600)
 	}
-	
+
 	// Convertir en timezone France
 	frenchTime := ft.Time.In(paris)
-	
+
 	// Retourner SANS le Z (format simple : YYYY-MM-DDTHH:MM:SS)
 	return []byte("\"" + frenchTime.Format("2006-01-02T15:04:05") + "\""), nil
 }
@@ -74,14 +74,14 @@ func (ft *FlexibleTime) MarshalBSONValue() (bsontype.Type, []byte, error) {
 		// Retourner null pour les dates vides
 		return bsontype.Null, nil, nil
 	}
-	
+
 	// Convertir en millisecondes depuis Unix epoch (format MongoDB)
 	timestampMs := ft.Time.UnixMilli()
-	
+
 	// Créer le buffer pour stocker l'int64 en little-endian
 	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint64(buf, uint64(timestampMs))
-	
+
 	return bsontype.DateTime, buf, nil
 }
 
@@ -93,27 +93,26 @@ func (ft *FlexibleTime) UnmarshalBSONValue(t bsontype.Type, data []byte) error {
 		if len(data) < 8 {
 			return fmt.Errorf("invalid DateTime data: need 8 bytes, got %d", len(data))
 		}
-		
+
 		// Lire le timestamp MongoDB (int64 en little-endian, en millisecondes depuis Unix epoch)
 		timestampMs := int64(binary.LittleEndian.Uint64(data[:8]))
-		
+
 		// Convertir millisecondes en secondes et nanosecondes
 		seconds := timestampMs / 1000
 		nanos := (timestampMs % 1000) * 1000000
-		
+
 		// Créer le time.Time
 		ft.Time = time.Unix(seconds, nanos)
 		return nil
 	}
-	
+
 	// Si c'est null, on retourne une date vide
 	if t == bsontype.Null {
 		ft.Time = time.Time{}
 		return nil
 	}
-	
+
 	// Pour tout autre type, on essaie de décoder comme un time.Time standard
 	// Cela peut arriver si l'événement a été créé d'une autre manière
 	return fmt.Errorf("cannot decode %v into FlexibleTime (expected DateTime, got %v)", t, t)
 }
-

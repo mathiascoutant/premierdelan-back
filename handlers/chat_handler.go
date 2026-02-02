@@ -110,7 +110,7 @@ func (h *ChatHandler) GetConversations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // GetMessages récupère les messages d'une conversation
@@ -210,7 +210,7 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // MarkConversationAsRead marque tous les messages d'une conversation comme lus
@@ -271,7 +271,7 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 	if h.wsHub != nil {
 		senderIDs, err = h.chatRepo.GetSendersOfUnreadMessages(r.Context(), conversationID, userID)
 		if err != nil {
-			// Erreur silencieuse, on continue quand même
+			log.Printf("Erreur récupération expéditeurs: %v", err)
 		}
 	}
 
@@ -314,7 +314,7 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // SendMessage envoie un message dans une conversation
@@ -445,7 +445,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // SearchAdmins recherche des administrateurs
@@ -501,7 +501,7 @@ func (h *ChatHandler) SearchAdmins(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // SendInvitation envoie une invitation de chat
@@ -614,7 +614,7 @@ func (h *ChatHandler) SendInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // GetInvitations récupère les invitations reçues
@@ -656,7 +656,7 @@ func (h *ChatHandler) GetInvitations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // RespondToInvitation répond à une invitation
@@ -783,7 +783,7 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // SendChatNotification envoie une notification de chat
@@ -882,7 +882,7 @@ func (h *ChatHandler) SendChatNotification(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // sendMessageNotification envoie une notification pour un nouveau message
@@ -940,12 +940,8 @@ func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation,
 
 				// Envoyer à tous les tokens du participant
 				for _, token := range fcmTokens {
-					err := h.fcmService.SendToToken(token.Token, title, body, fcmData)
-					if err != nil {
-					} else {
-					}
+					_ = h.fcmService.SendToToken(token.Token, title, body, fcmData)
 				}
-			} else {
 			}
 		}
 	}
@@ -985,7 +981,7 @@ func (h *ChatHandler) sendInvitationNotification(invitation *models.ChatInvitati
 		}
 		// Envoyer à tous les tokens du destinataire
 		for _, token := range fcmTokens {
-			h.fcmService.SendToToken(token.Token, title, body, fcmData)
+			_ = h.fcmService.SendToToken(token.Token, title, body, fcmData)
 		}
 	}
 }
@@ -1024,7 +1020,7 @@ func (h *ChatHandler) sendAcceptedInvitationNotification(invitation *models.Chat
 		}
 		// Envoyer à tous les tokens du demandeur
 		for _, token := range fcmTokens {
-			h.fcmService.SendToToken(token.Token, title, body, fcmData)
+			_ = h.fcmService.SendToToken(token.Token, title, body, fcmData)
 		}
 	}
 }

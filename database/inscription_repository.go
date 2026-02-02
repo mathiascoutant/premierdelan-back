@@ -246,4 +246,3 @@ func (r *InscriptionRepository) FindByEventID(eventID primitive.ObjectID) ([]mod
 
 	return inscriptions, nil
 }
-

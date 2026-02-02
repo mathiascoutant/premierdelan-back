@@ -24,8 +24,8 @@ type GalleryNotificationHandler struct {
 	fcmService      interface {
 		SendToAll(tokens []string, title, body string, data map[string]string) (success int, failed int, failedTokens []string)
 	}
-	cloudName       string
-	previewPreset   string
+	cloudName     string
+	previewPreset string
 }
 
 // NewGalleryNotificationHandler crée une nouvelle instance
@@ -273,9 +273,9 @@ func (h *GalleryNotificationHandler) TestGalleryNotification(w http.ResponseWrit
 	body := h.buildNotificationMessage(testData.UserName, testData.MediaCount, testData.EventTitle)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"success":      true,
-		"message":      "Test de notification galerie",
-		"preview_url":  previewURL,
+		"success":     true,
+		"message":     "Test de notification galerie",
+		"preview_url": previewURL,
 		"notification": map[string]string{
 			"title": "Nouveau contenu ajouté",
 			"body":  body,

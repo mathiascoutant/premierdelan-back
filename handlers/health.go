@@ -31,12 +31,12 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"status":    "ok",
-		"message":   "Le serveur fonctionne correctement",
-		"env":       h.environment,
-		"database":  "MongoDB",
-		"db_status": dbStatus,
-		"uptime":    uptime,
+		"status":     "ok",
+		"message":    "Le serveur fonctionne correctement",
+		"env":        h.environment,
+		"database":   "MongoDB",
+		"db_status":  dbStatus,
+		"uptime":     uptime,
 		"go_version": runtime.Version(),
 	})
 }

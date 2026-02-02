@@ -11,7 +11,7 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			
+
 			// Vérifier si l'origine est autorisée
 			allowed := isOriginAllowed(origin, allowedOrigins)
 
@@ -56,7 +56,7 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 				log.Printf("⚠️  CORS: Origine non autorisée: %s (URI: %s %s)", origin, r.Method, r.URL.Path)
 				w.WriteHeader(http.StatusForbidden)
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`{"error":"Forbidden","message":"Origine non autorisée"}`))
+				_, _ = w.Write([]byte(`{"error":"Forbidden","message":"Origine non autorisée"}`))
 				return
 			}
 
@@ -70,7 +70,7 @@ func isOriginAllowed(origin string, allowedOrigins []string) bool {
 	if origin == "" {
 		return false // Géré séparément dans le middleware
 	}
-	
+
 	for _, allowedOrigin := range allowedOrigins {
 		// Support pour wildcard
 		if allowedOrigin == "*" {
@@ -90,4 +90,3 @@ func isOriginAllowed(origin string, allowedOrigins []string) bool {
 	}
 	return false
 }
-

@@ -57,4 +57,3 @@ func (r *AlertRepository) CountRecentAlerts(adminEmail string, sinceMinutes int)
 
 	return count, nil
 }
-

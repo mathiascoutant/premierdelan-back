@@ -38,7 +38,7 @@ func (h *ThemeHandler) GetGlobalTheme(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // SetGlobalTheme définit le thème global du site (admin uniquement)
@@ -96,5 +96,5 @@ func (h *ThemeHandler) SetGlobalTheme(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }

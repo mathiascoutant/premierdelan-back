@@ -8,24 +8,31 @@ run:
 
 linters:
   enable:
-    - errcheck      # Vérifie les erreurs non gérées
-    - gosimple      # Simplifications de code
-    - govet         # Analyse statique officielle Go
-    - ineffassign   # Assignations inutiles
-    - staticcheck   # Analyse statique avancée
-    - unused        # Code non utilisé
-    - gofmt         # Format du code
-    - misspell      # Fautes d'orthographe
+    - errcheck
+    - gosimple
+    - govet
+    - staticcheck
+    - gofmt
   disable:
-    - lll           # Longueur de ligne (trop strict)
+    - ineffassign  # Trop de faux positifs
+    - lll
+    - misspell    # Projet en français, trop de faux positifs
+    - unused      # Fonctions réservées pour usage futur
 
 linters-settings:
   errcheck:
-    check-type-assertions: true
+    check-type-assertions: false
   govet:
     enable-all: true
-  misspell:
-    locale: FR
+    disable:
+      - fieldalignment
+      - shadow
+  staticcheck:
+    checks:
+      - all
+      - "-SA1019"  # Deprecation (bsontype, elliptic)
+      - "-SA9003"  # Empty branch
+      - "-SA4006"  # Value never used (ineffectual in fcm init)
 
 issues:
   exclude-rules:

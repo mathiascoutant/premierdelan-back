@@ -413,7 +413,7 @@ func (h *InscriptionHandler) DeleteInscription(w http.ResponseWriter, r *http.Re
 		if newInscrits < 0 {
 			newInscrits = 0
 		}
-		h.eventRepo.Update(eventID, map[string]interface{}{
+		_ = h.eventRepo.Update(eventID, map[string]interface{}{
 			"inscrits": newInscrits,
 		})
 
@@ -583,7 +583,7 @@ func (h *InscriptionHandler) DeleteInscriptionAdmin(w http.ResponseWriter, r *ht
 		if newInscrits < 0 {
 			newInscrits = 0
 		}
-		h.eventRepo.Update(eventID, map[string]interface{}{
+		_ = h.eventRepo.Update(eventID, map[string]interface{}{
 			"inscrits": newInscrits,
 		})
 
@@ -685,7 +685,7 @@ func (h *InscriptionHandler) DeleteAccompagnant(w http.ResponseWriter, r *http.R
 		if newInscrits < 0 {
 			newInscrits = 0
 		}
-		h.eventRepo.Update(eventID, map[string]interface{}{
+		_ = h.eventRepo.Update(eventID, map[string]interface{}{
 			"inscrits": newInscrits,
 		})
 

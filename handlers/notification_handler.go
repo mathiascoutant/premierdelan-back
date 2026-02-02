@@ -123,7 +123,7 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 
 	if len(subscriptions) == 0 {
 		utils.RespondSuccess(w, "Aucun abonné trouvé", map[string]interface{}{
-			"sent": 0,
+			"sent":  0,
 			"total": 0,
 		})
 		return
@@ -134,7 +134,7 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 	if title == "" {
 		title = "Nouvelle notification"
 	}
-	
+
 	message := req.Message
 	if message == "" {
 		message = "Vous avez reçu une nouvelle notification"
@@ -179,7 +179,7 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 		if err != nil {
 			log.Printf("❌ Erreur lors de l'envoi de la notification à %s: %v", sub.UserID, err)
 			failed++
-			
+
 			// Si l'endpoint n'est plus valide (410 Gone), supprimer l'abonnement
 			if resp != nil && resp.StatusCode == 410 {
 				log.Printf("🗑️  Suppression de l'abonnement invalide: %s", sub.Endpoint)
@@ -229,4 +229,3 @@ func (h *NotificationHandler) GetVAPIDPublicKey(w http.ResponseWriter, r *http.R
 		"publicKey": h.vapidPublicKey,
 	})
 }
-

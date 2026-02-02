@@ -9,7 +9,7 @@ import (
 // Participant représente un participant dans une conversation
 type Participant struct {
 	UserID primitive.ObjectID `json:"user_id" bson:"user_id"`
-	Role   string             `json:"role" bson:"role"` // "admin"
+	Role   string             `json:"role" bson:"role"`     // "admin"
 	Status string             `json:"status" bson:"status"` // "active", "left"
 }
 
@@ -41,40 +41,40 @@ type Message struct {
 
 // ReadReceipt représente une confirmation de lecture
 type ReadReceipt struct {
-	UserID  primitive.ObjectID `json:"user_id" bson:"user_id"`
-	ReadAt  time.Time          `json:"read_at" bson:"read_at"`
+	UserID primitive.ObjectID `json:"user_id" bson:"user_id"`
+	ReadAt time.Time          `json:"read_at" bson:"read_at"`
 }
 
 // ChatInvitation représente une invitation de chat
 type ChatInvitation struct {
-	ID          primitive.ObjectID  `json:"id" bson:"_id,omitempty"`
-	FromUserID  primitive.ObjectID  `json:"from_user_id" bson:"from_user_id"`
-	ToUserID    primitive.ObjectID  `json:"to_user_id" bson:"to_user_id"`
-	Status      string              `json:"status" bson:"status"` // "pending", "accepted", "rejected"
-	Message     string              `json:"message" bson:"message"`
-	CreatedAt   time.Time           `json:"created_at" bson:"created_at"`
-	RespondedAt *time.Time          `json:"responded_at,omitempty" bson:"responded_at,omitempty"`
+	ID          primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	FromUserID  primitive.ObjectID `json:"from_user_id" bson:"from_user_id"`
+	ToUserID    primitive.ObjectID `json:"to_user_id" bson:"to_user_id"`
+	Status      string             `json:"status" bson:"status"` // "pending", "accepted", "rejected"
+	Message     string             `json:"message" bson:"message"`
+	CreatedAt   time.Time          `json:"created_at" bson:"created_at"`
+	RespondedAt *time.Time         `json:"responded_at,omitempty" bson:"responded_at,omitempty"`
 }
 
 // ConversationResponse représente la réponse pour la liste des conversations
 type ConversationResponse struct {
-	ID           string                 `json:"id"`
-	Participant  UserInfo               `json:"participant"`
-	LastMessage  *MessageInfo           `json:"last_message,omitempty"`
-	Status       string                 `json:"status"`
-	UnreadCount  int                    `json:"unread_count"`
+	ID          string       `json:"id"`
+	Participant UserInfo     `json:"participant"`
+	LastMessage *MessageInfo `json:"last_message,omitempty"`
+	Status      string       `json:"status"`
+	UnreadCount int          `json:"unread_count"`
 }
 
 // UserInfo représente les informations d'un utilisateur
 type UserInfo struct {
-	ID             string     `json:"id"`
-	Firstname      string     `json:"firstname"`
-	Lastname       string     `json:"lastname"`
-	Email          string     `json:"email"`
-	ProfilePicture string     `json:"profile_picture,omitempty"` // URL de la photo de profil
-	ProfileImageURL string    `json:"profileImageUrl,omitempty"` // URL de la photo de profil (compatibilité)
-	IsOnline       bool       `json:"is_online"`                 // Si l'utilisateur est connecté au WebSocket
-	LastSeen       *time.Time `json:"last_seen,omitempty"`       // Dernière activité WebSocket
+	ID              string     `json:"id"`
+	Firstname       string     `json:"firstname"`
+	Lastname        string     `json:"lastname"`
+	Email           string     `json:"email"`
+	ProfilePicture  string     `json:"profile_picture,omitempty"` // URL de la photo de profil
+	ProfileImageURL string     `json:"profileImageUrl,omitempty"` // URL de la photo de profil (compatibilité)
+	IsOnline        bool       `json:"is_online"`                 // Si l'utilisateur est connecté au WebSocket
+	LastSeen        *time.Time `json:"last_seen,omitempty"`       // Dernière activité WebSocket
 }
 
 // MessageInfo représente les informations d'un message

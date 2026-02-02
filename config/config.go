@@ -22,13 +22,13 @@ type Config struct {
 	VAPIDSubject            string
 	FirebaseCredentialsFile string
 	FCMVAPIDKey             string
-	CloudinaryCloudName       string
-	CloudinaryUploadPreset    string
-	CloudinaryVideoPreset     string
-	CloudinaryPreviewPreset   string
-	CloudinaryAPIKey          string
-	CloudinaryAPISecret       string
-	SlackWebhookURL           string
+	CloudinaryCloudName     string
+	CloudinaryUploadPreset  string
+	CloudinaryVideoPreset   string
+	CloudinaryPreviewPreset string
+	CloudinaryAPIKey        string
+	CloudinaryAPISecret     string
+	SlackWebhookURL         string
 }
 
 // Load charge la configuration depuis les variables d'environnement

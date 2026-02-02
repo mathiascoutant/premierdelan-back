@@ -37,10 +37,10 @@ func (c *Client) readPump() {
 		c.conn.Close()
 	}()
 
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	_ = c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetReadLimit(maxMessageSize)
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		_ = c.conn.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 
@@ -84,7 +84,6 @@ func (c *Client) readPump() {
 				// ⌨️ Gérer le typing indicator pour les groupes
 				isTyping, _ := msg["is_typing"].(bool)
 				c.hub.HandleGroupTyping(c.UserID, groupID, isTyping)
-			} else {
 			}
 
 		case "join_group":
@@ -96,7 +95,6 @@ func (c *Client) readPump() {
 					"type":     "joined_group",
 					"group_id": groupID,
 				}
-			} else {
 			}
 
 		case "leave_group":
@@ -136,14 +134,14 @@ func (c *Client) readPump() {
 				// Si l'utilisateur est actif, mettre à jour last_activity en DB
 				if isOnline {
 					if err := c.hub.updateUserActivityInDB(c.UserID); err != nil {
+						log.Printf("Erreur update activité: %v", err)
 					}
 				} else if lastSeen != nil {
 					// Si hors ligne avec last_seen, mettre à jour en DB
 					if err := c.hub.updateUserLastSeenInDB(c.UserID, lastSeen); err != nil {
+						log.Printf("Erreur update last_seen: %v", err)
 					}
 				}
-
-			} else {
 			}
 
 		default:
@@ -162,10 +160,10 @@ func (c *Client) writePump() {
 	for {
 		select {
 		case message, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// Le hub a fermé le canal
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
@@ -176,7 +174,7 @@ func (c *Client) writePump() {
 			}
 
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}

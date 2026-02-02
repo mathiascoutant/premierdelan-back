@@ -12,14 +12,14 @@ func RespondJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	if w.Header().Get("Content-Type") == "" {
 		w.Header().Set("Content-Type", "application/json")
 	}
-	
+
 	// Écrire le code de statut
 	if statusCode > 0 {
 		w.WriteHeader(statusCode)
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}
-	
+
 	// Encoder et envoyer les données
 	if data != nil {
 		if err := json.NewEncoder(w).Encode(data); err != nil {
@@ -27,7 +27,7 @@ func RespondJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 			// Mais seulement si les en-têtes n'ont pas encore été écrits
 			if statusCode == http.StatusOK {
 				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(`{"error":"Internal Server Error","message":"Erreur lors de l'encodage JSON"}`))
+				_, _ = w.Write([]byte(`{"error":"Internal Server Error","message":"Erreur lors de l'encodage JSON"}`))
 			}
 		}
 	}
@@ -49,4 +49,3 @@ func RespondSuccess(w http.ResponseWriter, message string, data interface{}) {
 		Data:    data,
 	})
 }
-

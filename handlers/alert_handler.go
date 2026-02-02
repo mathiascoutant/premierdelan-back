@@ -108,12 +108,12 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 
 	// Créer l'alerte en DB
 	alert := &models.CriticalAlert{
-		AdminEmail:      req.AdminEmail,
-		ErrorType:       req.ErrorType,
-		ErrorMessage:    req.ErrorMessage,
-		EndpointFailed:  req.EndpointFailed,
-		Timestamp:       timestamp,
-		UserAgent:       req.UserAgent,
+		AdminEmail:       req.AdminEmail,
+		ErrorType:        req.ErrorType,
+		ErrorMessage:     req.ErrorMessage,
+		EndpointFailed:   req.EndpointFailed,
+		Timestamp:        timestamp,
+		UserAgent:        req.UserAgent,
 		NotificationSent: false,
 	}
 
@@ -124,8 +124,8 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 	// Si pas de tokens FCM, retourner quand même un succès
 	if len(fcmTokens) == 0 {
 		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
-			"success":          true,
-			"message":          "Alerte enregistrée mais admin sans token FCM",
+			"success":           true,
+			"message":           "Alerte enregistrée mais admin sans token FCM",
 			"notification_sent": false,
 		})
 		return
@@ -142,11 +142,11 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 	body := fmt.Sprintf("%s: %s", getErrorTypeLabel(req.ErrorType), req.ErrorMessage)
 
 	data := map[string]string{
-		"type":        "critical_error",
-		"error_type":  req.ErrorType,
-		"endpoint":    req.EndpointFailed,
-		"timestamp":   req.Timestamp,
-		"user_agent":  req.UserAgent,
+		"type":         "critical_error",
+		"error_type":   req.ErrorType,
+		"endpoint":     req.EndpointFailed,
+		"timestamp":    req.Timestamp,
+		"user_agent":   req.UserAgent,
 		"click_action": "https://mathiascoutant.github.io/premierdelan/maintenance",
 	}
 
@@ -161,11 +161,11 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 	log.Printf("🚨 Alerte critique envoyée à %s: %d succès, %d échecs", req.AdminEmail, success, failed)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"success":          true,
-		"message":          "Alerte envoyée à l'administrateur",
+		"success":           true,
+		"message":           "Alerte envoyée à l'administrateur",
 		"notification_sent": success > 0,
-		"tokens_sent":      len(tokens),
-		"success_count":    success,
+		"tokens_sent":       len(tokens),
+		"success_count":     success,
 	})
 }
 
@@ -182,4 +182,3 @@ func getErrorTypeLabel(errorType string) string {
 		return "Erreur Inconnue"
 	}
 }
-

@@ -122,4 +122,3 @@ func (r *MediaRepository) CountByEventAndType(eventID primitive.ObjectID, mediaT
 
 	return count, nil
 }
-

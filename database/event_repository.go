@@ -74,7 +74,7 @@ func (r *EventRepository) FindByID(id primitive.ObjectID) (*models.Event, error)
 
 	var event models.Event
 	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&event)
-	
+
 	if err == mongo.ErrNoDocuments {
 		return nil, nil
 	}
@@ -269,4 +269,3 @@ func (r *EventRepository) GetTotalPhotos() (int, error) {
 
 	return int(total), nil
 }
-

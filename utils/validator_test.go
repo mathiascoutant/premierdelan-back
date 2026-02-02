@@ -50,9 +50,9 @@ func TestValidatePassword(t *testing.T) {
 
 func TestValidateRequired(t *testing.T) {
 	tests := []struct {
-		name   string
-		field  string
-		value  string
+		name    string
+		field   string
+		value   string
 		wantErr bool
 	}{
 		{"champ rempli", "name", "John", false},

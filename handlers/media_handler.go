@@ -152,7 +152,7 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 	validURL := strings.HasPrefix(req.URL, "https://firebasestorage.googleapis.com") ||
 		strings.HasPrefix(req.URL, "https://res.cloudinary.com") ||
 		strings.Contains(req.URL, "cloudinary.com")
-	
+
 	if !validURL {
 		utils.RespondError(w, http.StatusBadRequest, "URL de média invalide")
 		return
@@ -190,7 +190,7 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 
 	// Mettre à jour le compteur photos_count
 	totalMedias, _ := h.mediaRepo.CountByEvent(eventID)
-	h.eventRepo.Update(eventID, map[string]interface{}{
+	_ = h.eventRepo.Update(eventID, map[string]interface{}{
 		"photos_count": int(totalMedias),
 	})
 
@@ -266,7 +266,7 @@ func (h *MediaHandler) DeleteMedia(w http.ResponseWriter, r *http.Request) {
 
 	// Mettre à jour le compteur photos_count
 	totalMedias, _ := h.mediaRepo.CountByEvent(eventID)
-	h.eventRepo.Update(eventID, map[string]interface{}{
+	_ = h.eventRepo.Update(eventID, map[string]interface{}{
 		"photos_count": int(totalMedias),
 	})
 
@@ -398,4 +398,3 @@ func (h *MediaHandler) cleanupInvalidTokens(failedTokens []string) {
 		// Pour l'instant on log juste
 	}
 }
-

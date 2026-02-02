@@ -1,0 +1,33 @@
+# Déploiement automatique sur le VPS OVH à chaque push sur la branche dev
+# 
+# Prérequis : configurer les secrets dans GitHub (Settings > Secrets and variables > Actions)
+#   - VPS_HOST      : adresse IP ou hostname du VPS (ex: 123.45.67.89)
+#   - VPS_USER      : utilisateur SSH (ex: ubuntu ou root)
+#   - VPS_SSH_KEY   : clé privée SSH pour se connecter au VPS
+#   - VPS_DEPLOY_PATH : chemin du projet sur le VPS (ex: /home/ubuntu/premier-an/back)
+
+name: Deploy to VPS (dev)
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    name: Deploy backend to OVH VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            echo "📦 Déploiement déclenché par commit sur dev"
+            cd "${{ secrets.VPS_DEPLOY_PATH }}"
+            chmod +x deploy.sh
+            ./deploy.sh dev

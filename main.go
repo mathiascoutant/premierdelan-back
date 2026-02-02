@@ -26,8 +26,8 @@ func main() {
 	}
 
 	// Connexion à MongoDB
-	if err := database.Connect(cfg.MongoURI, cfg.MongoDB); err != nil {
-		log.Fatalf("❌ Erreur de connexion à MongoDB: %v", err)
+	if connErr := database.Connect(cfg.MongoURI, cfg.MongoDB); connErr != nil {
+		log.Fatalf("❌ Erreur de connexion à MongoDB: %v", connErr)
 	}
 	defer database.Close()
 

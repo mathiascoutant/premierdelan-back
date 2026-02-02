@@ -53,4 +53,3 @@ func GetUserFromContext(ctx context.Context) *utils.Claims {
 	}
 	return claims
 }
-

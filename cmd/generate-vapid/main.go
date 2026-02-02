@@ -8,7 +8,7 @@ import (
 
 func main() {
 	log.Println("🔐 Génération des clés VAPID...")
-	
+
 	publicKey, privateKey, err := utils.GenerateVAPIDKeys()
 	if err != nil {
 		log.Fatalf("❌ Erreur lors de la génération des clés: %v", err)
@@ -24,4 +24,3 @@ func main() {
 	fmt.Println()
 	fmt.Println("⚠️  Important: Ne partagez JAMAIS votre clé privée!")
 }
-

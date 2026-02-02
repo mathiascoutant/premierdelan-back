@@ -19,11 +19,11 @@ import (
 
 // CloudinaryHandler gère les uploads vers Cloudinary
 type CloudinaryHandler struct {
-	userRepo      *database.UserRepository
-	cloudName     string
-	uploadPreset  string
-	apiKey        string
-	apiSecret     string
+	userRepo     *database.UserRepository
+	cloudName    string
+	uploadPreset string
+	apiKey       string
+	apiSecret    string
 }
 
 // NewCloudinaryHandler crée une nouvelle instance
@@ -241,4 +241,3 @@ func (h *CloudinaryHandler) uploadToCloudinary(file multipart.File, userEmail, f
 
 	return cloudinaryResp.SecureURL, nil
 }
-
