@@ -191,8 +191,7 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 
 // GetGroups récupère tous les groupes de l'utilisateur
 func (h *ChatGroupHandler) GetGroups(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -303,8 +302,7 @@ func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request)
 
 // GetPendingInvitations récupère les invitations en attente de l'utilisateur
 func (h *ChatGroupHandler) GetPendingInvitations(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -467,8 +465,7 @@ func (h *ChatGroupHandler) rejectInvitation(w http.ResponseWriter, invitation *m
 
 // GetGroupMembers récupère les membres d'un groupe
 func (h *ChatGroupHandler) GetGroupMembers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -601,8 +598,7 @@ func (h *ChatGroupHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
 
 // GetGroupPendingInvitations récupère les invitations en attente d'un groupe (admin seulement)
 func (h *ChatGroupHandler) GetGroupPendingInvitations(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -641,8 +637,7 @@ func (h *ChatGroupHandler) GetGroupPendingInvitations(w http.ResponseWriter, r *
 
 // CancelInvitation annule une invitation (admin seulement)
 func (h *ChatGroupHandler) CancelInvitation(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodDelete) {
 		return
 	}
 
@@ -791,8 +786,7 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 // GetMessages récupère les messages d'un groupe
 func (h *ChatGroupHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -932,8 +926,7 @@ func (h *ChatGroupHandler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 
 // SearchUsers recherche des utilisateurs (pour inviter)
 func (h *ChatGroupHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 

@@ -52,8 +52,7 @@ func NewAdminHandler(db *mongo.Database, fcmService interface {
 
 // GetUsers retourne la liste de tous les utilisateurs
 func (h *AdminHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -72,8 +71,7 @@ func (h *AdminHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 
 // UpdateUser met à jour un utilisateur
 func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPut) {
 		return
 	}
 
@@ -194,16 +192,11 @@ func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 // GetEvent retourne les détails d'un événement (admin)
 func (h *AdminHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
@@ -221,8 +214,7 @@ func (h *AdminHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 
 // GetEvents retourne la liste de tous les événements
 func (h *AdminHandler) GetEvents(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -240,8 +232,7 @@ func (h *AdminHandler) GetEvents(w http.ResponseWriter, r *http.Request) {
 
 // CreateEvent crée un nouvel événement
 func (h *AdminHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -294,8 +285,7 @@ func (h *AdminHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 // UpdateEvent met à jour un événement
 func (h *AdminHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPut) {
 		return
 	}
 
@@ -403,20 +393,15 @@ func (h *AdminHandler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
 
 // RecalculateEventCounters recalcule les compteurs d'un événement
 func (h *AdminHandler) RecalculateEventCounters(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
-	// Récupérer l'événement
 	event, err := h.eventRepo.FindByID(eventID)
 	if err != nil || event == nil {
 		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
@@ -463,8 +448,7 @@ func (h *AdminHandler) RecalculateEventCounters(w http.ResponseWriter, r *http.R
 
 // GetStats retourne les statistiques globales
 func (h *AdminHandler) GetStats(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -516,8 +500,7 @@ func (h *AdminHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 
 // SendAdminNotification envoie une notification depuis l'espace admin
 func (h *AdminHandler) SendAdminNotification(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -599,8 +582,7 @@ func generateRandomCode(length int) string {
 
 // GenerateCodeSoiree génère un nouveau code de soirée aléatoire
 func (h *AdminHandler) GenerateCodeSoiree(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -617,8 +599,7 @@ func (h *AdminHandler) GenerateCodeSoiree(w http.ResponseWriter, r *http.Request
 
 // GetCurrentCodeSoiree retourne le code de soirée actuel
 func (h *AdminHandler) GetCurrentCodeSoiree(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -644,8 +625,7 @@ func (h *AdminHandler) GetCurrentCodeSoiree(w http.ResponseWriter, r *http.Reque
 
 // GetAllCodesSoiree retourne tous les codes de soirée (admin uniquement)
 func (h *AdminHandler) GetAllCodesSoiree(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 

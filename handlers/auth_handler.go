@@ -44,8 +44,7 @@ func NewAuthHandler(db *mongo.Database, jwtSecret string, fcmService interface {
 // Register gère l'inscription d'un nouvel utilisateur
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -198,8 +197,7 @@ func (h *AuthHandler) notifyAdminsNewUser(user *models.User) {
 // Login gère la connexion d'un utilisateur
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 

@@ -38,8 +38,7 @@ func NewAlertHandler(db *mongo.Database, fcmService interface {
 
 // SendCriticalAlert reçoit et traite une alerte critique du frontend
 func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 

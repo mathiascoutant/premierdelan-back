@@ -49,8 +49,7 @@ type CloudinaryUploadResponse struct {
 // UploadProfileImage gère l'upload de la photo de profil
 func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 

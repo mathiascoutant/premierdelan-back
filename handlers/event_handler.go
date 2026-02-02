@@ -8,8 +8,6 @@ import (
 	"premier-an-backend/models"
 	"premier-an-backend/utils"
 
-	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -27,8 +25,7 @@ func NewEventHandler(db *mongo.Database) *EventHandler {
 
 // GetPublicEvents retourne la liste publique des événements
 func (h *EventHandler) GetPublicEvents(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -52,16 +49,11 @@ func (h *EventHandler) GetPublicEvents(w http.ResponseWriter, r *http.Request) {
 
 // GetPublicEvent retourne les détails d'un événement spécifique (PUBLIC)
 func (h *EventHandler) GetPublicEvent(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 

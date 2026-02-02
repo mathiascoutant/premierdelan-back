@@ -12,7 +12,6 @@ import (
 	"premier-an-backend/utils"
 
 	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -57,16 +56,11 @@ func NewInscriptionHandler(db *mongo.Database, fcmService interface {
 
 // CreateInscription gère la création d'une inscription
 func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
@@ -182,16 +176,11 @@ func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Re
 
 // GetInscription récupère l'inscription d'un utilisateur
 func (h *InscriptionHandler) GetInscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
@@ -232,16 +221,11 @@ func (h *InscriptionHandler) GetInscription(w http.ResponseWriter, r *http.Reque
 
 // UpdateInscription modifie une inscription existante
 func (h *InscriptionHandler) UpdateInscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPut) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
@@ -360,16 +344,11 @@ func (h *InscriptionHandler) UpdateInscription(w http.ResponseWriter, r *http.Re
 
 // DeleteInscription supprime une inscription
 func (h *InscriptionHandler) DeleteInscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodDelete) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
@@ -437,23 +416,17 @@ func (h *InscriptionHandler) DeleteInscription(w http.ResponseWriter, r *http.Re
 
 // GetInscrits retourne la liste des inscrits (admin uniquement)
 func (h *InscriptionHandler) GetInscrits(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
+		return
+	}
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
-		return
-	}
-
-	// Récupérer l'événement
 	event, err := h.eventRepo.FindByID(eventID)
 	if err != nil || event == nil {
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
 		return
 	}
 
@@ -530,22 +503,16 @@ func getUserEmailFromContext(r *http.Request) string {
 
 // DeleteInscriptionAdmin permet à un admin de supprimer n'importe quelle inscription
 func (h *InscriptionHandler) DeleteInscriptionAdmin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodDelete) {
 		return
 	}
-
-	// Récupérer les IDs depuis l'URL
 	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
-
-	inscriptionID, err := primitive.ObjectIDFromHex(vars["inscription_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInscriptionInvalidID)
+	inscriptionID, ok2 := ParseObjectIDVar(w, vars, "inscription_id", constants.ErrInscriptionInvalidID)
+	if !ok2 {
 		return
 	}
 
@@ -608,28 +575,22 @@ func (h *InscriptionHandler) DeleteInscriptionAdmin(w http.ResponseWriter, r *ht
 
 // DeleteAccompagnant supprime un accompagnant spécifique (admin uniquement)
 func (h *InscriptionHandler) DeleteAccompagnant(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodDelete) {
 		return
 	}
-
-	// Récupérer les paramètres depuis l'URL
 	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
-
-	inscriptionID, err := primitive.ObjectIDFromHex(vars["inscription_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInscriptionInvalidID)
+	inscriptionID, ok := ParseObjectIDVar(w, vars, "inscription_id", constants.ErrInscriptionInvalidID)
+	if !ok {
 		return
 	}
 
 	indexStr := vars["index"]
 	index := 0
-	_, err = fmt.Sscanf(indexStr, "%d", &index)
+	_, err := fmt.Sscanf(indexStr, "%d", &index)
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidIndex)
 		return
@@ -774,8 +735,7 @@ func (h *InscriptionHandler) notifyAdminsNewInscription(userEmail string, event 
 
 // GetMesEvenements retourne la liste des événements auxquels l'utilisateur est inscrit
 func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -844,8 +804,7 @@ func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Req
 
 // VerifyCode vérifie si un code d'accès existe et est valide
 func (h *InscriptionHandler) VerifyCode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 

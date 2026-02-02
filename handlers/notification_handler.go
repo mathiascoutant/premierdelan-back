@@ -34,8 +34,7 @@ func NewNotificationHandler(db *mongo.Database, vapidPublicKey, vapidPrivateKey,
 
 // Subscribe permet à un utilisateur de s'abonner aux notifications
 func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -77,8 +76,7 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 
 // Unsubscribe permet à un utilisateur de se désabonner
 func (h *NotificationHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -103,8 +101,7 @@ func (h *NotificationHandler) Unsubscribe(w http.ResponseWriter, r *http.Request
 
 // SendTestNotification envoie une notification de test à tous les abonnés
 func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -217,8 +214,7 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 
 // GetVAPIDPublicKey retourne la clé publique VAPID
 func (h *NotificationHandler) GetVAPIDPublicKey(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 

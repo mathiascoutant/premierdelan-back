@@ -53,16 +53,11 @@ func NewMediaHandler(
 
 // GetMedias retourne tous les médias d'un événement (PUBLIC)
 func (h *MediaHandler) GetMedias(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
@@ -106,16 +101,11 @@ func (h *MediaHandler) GetMedias(w http.ResponseWriter, r *http.Request) {
 
 // CreateMedia enregistre un média après upload Firebase
 func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
@@ -208,22 +198,16 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 
 // DeleteMedia supprime un média
 func (h *MediaHandler) DeleteMedia(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodDelete) {
 		return
 	}
-
-	// Récupérer les IDs depuis l'URL
 	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
-
-	mediaID, err := primitive.ObjectIDFromHex(vars["media_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, constants.ErrMediaInvalidID)
+	mediaID, ok := ParseObjectIDVar(w, vars, "media_id", constants.ErrMediaInvalidID)
+	if !ok {
 		return
 	}
 

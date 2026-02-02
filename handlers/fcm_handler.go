@@ -29,8 +29,7 @@ func NewFCMHandler(db *mongo.Database, fcmService *services.FCMService) *FCMHand
 
 // Subscribe enregistre un token FCM pour un utilisateur
 func (h *FCMHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -66,8 +65,7 @@ func (h *FCMHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 
 // Unsubscribe supprime un token FCM
 func (h *FCMHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -97,8 +95,7 @@ func (h *FCMHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 
 // SendNotification envoie une notification à tous les abonnés
 func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -167,8 +164,7 @@ func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
 
 // SendToUser envoie une notification à un utilisateur spécifique
 func (h *FCMHandler) SendToUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 

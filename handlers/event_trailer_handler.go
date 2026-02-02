@@ -105,8 +105,7 @@ type TrailerDataRequest struct {
 // UploadTrailer gère l'ajout d'un trailer vidéo (POST)
 // Le frontend upload directement vers Cloudinary puis envoie les métadonnées ici
 func (h *EventTrailerHandler) UploadTrailer(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 	eventObjID, event, ok := h.getEventFromRequest(w, r)
@@ -190,8 +189,7 @@ func (h *EventTrailerHandler) ReplaceTrailer(w http.ResponseWriter, r *http.Requ
 
 // DeleteTrailer gère la suppression d'un trailer (DELETE)
 func (h *EventTrailerHandler) DeleteTrailer(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
+	if !RequireMethod(w, r, http.MethodDelete) {
 		return
 	}
 	eventObjID, event, ok := h.getEventFromRequest(w, r)
