@@ -46,6 +46,16 @@ func Connect(uri, dbName string) error {
 	return nil
 }
 
+// Ping vérifie que la connexion MongoDB est active
+func Ping() error {
+	if Client == nil {
+		return fmt.Errorf("client MongoDB non initialisé")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return Client.Ping(ctx, nil)
+}
+
 // Close ferme la connexion à la base de données
 func Close() error {
 	if Client != nil {

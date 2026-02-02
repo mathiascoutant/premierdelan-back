@@ -136,14 +136,9 @@ func main() {
 	router.Handle("/api/auth/register", guestMiddleware(http.HandlerFunc(authHandler.Register))).Methods("POST", "OPTIONS")
 	router.Handle("/api/auth/login", guestMiddleware(http.HandlerFunc(authHandler.Login))).Methods("POST", "OPTIONS")
 
-	// Route de santé (health check)
-	router.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		utils.RespondSuccess(w, "Le serveur fonctionne correctement", map[string]string{
-			"status":   "ok",
-			"env":      cfg.Environment,
-			"database": "MongoDB",
-		})
-	}).Methods("GET")
+	// Route de santé (health check) avec métriques
+	healthHandler := handlers.NewHealthHandler(cfg.Environment)
+	router.HandleFunc("/api/health", healthHandler.Health).Methods("GET")
 
 	// Routes publiques des événements
 	router.HandleFunc("/api/evenements/public", eventHandler.GetPublicEvents).Methods("GET", "OPTIONS")

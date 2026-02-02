@@ -1,4 +1,4 @@
-.PHONY: run build clean install dev test deps-check deps-update deps-vuln
+.PHONY: run build clean install dev test deps-check deps-update deps-vuln quality
 
 # Variables
 BINARY_NAME=backend
@@ -34,6 +34,20 @@ clean:
 test:
 	@echo "🧪 Exécution des tests..."
 	$(GO) test -v ./...
+
+# Qualité : exécute vet, lint et test
+quality:
+	@echo "🔍 Contrôle qualité du code..."
+	@$(GO) vet ./...
+	@echo "✓ go vet OK"
+	@if command -v golangci-lint &> /dev/null; then \
+		golangci-lint run && echo "✓ golangci-lint OK"; \
+	else \
+		echo "⚠️  golangci-lint non installé: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+	fi
+	@$(GO) test ./... -count=1
+	@echo "✓ Tests OK"
+	@echo "✅ Contrôle qualité terminé"
 
 # Gestion des dépendances
 deps-check:
@@ -114,3 +128,4 @@ help:
 	@echo "  make fmt              - Formater le code"
 	@echo "  make vet              - Vérifier le code"
 	@echo "  make lint             - Analyser le code"
+	@echo "  make quality          - Vet + Lint + Tests"
