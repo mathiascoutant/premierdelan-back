@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
 	"premier-an-backend/database"
 	"premier-an-backend/services"
+	"premier-an-backend/utils"
 )
 
 // TestNotifHandler - Handler ultra simple pour tester les notifications
@@ -31,8 +33,8 @@ func (h *TestNotifHandler) SendSimpleTest(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("❌ Erreur décodage: %v", err)
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		log.Printf("Erreur décodage: %v", err)
+		utils.RespondError(w, http.StatusBadRequest, "Invalid request")
 		return
 	}
 
@@ -45,15 +47,14 @@ func (h *TestNotifHandler) SendSimpleTest(w http.ResponseWriter, r *http.Request
 	// Récupérer le token
 	fcmTokens, err := h.fcmTokenRepo.FindByUserID(req.Email)
 	if err != nil {
-		log.Printf("❌ Erreur DB: %v", err)
-		http.Error(w, "Database error", http.StatusInternalServerError)
+		log.Printf("Erreur DB: %v", err)
+		utils.RespondError(w, http.StatusInternalServerError, "Database error")
 		return
 	}
 
 	if len(fcmTokens) == 0 {
-		log.Printf("⚠️  Aucun token pour: %s", req.Email)
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		log.Printf("Aucun token pour cet utilisateur")
+		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 			"success": false,
 			"error":   "No token found",
 		})
@@ -76,20 +77,16 @@ func (h *TestNotifHandler) SendSimpleTest(w http.ResponseWriter, r *http.Request
 	// Envoyer
 	err = h.fcmService.SendToToken(tokenString, title, message, nil)
 	if err != nil {
-		log.Printf("❌ ERREUR ENVOI: %v", err)
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		log.Printf("Erreur envoi: %v", err)
+		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
 		})
 		return
 	}
 
-	log.Printf("✅ NOTIFICATION ENVOYÉE AVEC SUCCÈS !")
-	log.Println("🧪 ================================================")
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	log.Printf("Notification envoyée avec succès")
+	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Notification sent",
 		"token":   tokenString[:30] + "...",
@@ -139,8 +136,7 @@ func (h *TestNotifHandler) ListMyTokens(w http.ResponseWriter, r *http.Request) 
 		log.Printf("   %d. %s (Device: %s, Created: %v)", i+1, tokenPreview, t.Device, t.CreatedAt)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"count":   len(tokens),
 		"tokens":  result,

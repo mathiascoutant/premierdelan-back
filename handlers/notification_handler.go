@@ -41,7 +41,7 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 
 	var req models.SubscribeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -67,7 +67,7 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 
 	if err := h.subscriptionRepo.Create(subscription); err != nil {
 		log.Printf("Erreur lors de la création de l'abonnement: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la création de l'abonnement")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrSubscriptionCreate)
 		return
 	}
 
@@ -87,7 +87,7 @@ func (h *NotificationHandler) Unsubscribe(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -110,7 +110,7 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 
 	var req models.NotificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 

@@ -26,7 +26,7 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 
 	// Vérifier la connexion MongoDB
 	dbStatus := "ok"
-	if err := database.Ping(); err != nil {
+	if database.Ping() != nil {
 		dbStatus = "error"
 	}
 

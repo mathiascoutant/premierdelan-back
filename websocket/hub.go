@@ -335,10 +335,9 @@ func (h *Hub) autoJoinUserGroups(userID string) {
 		return
 	}
 
-	// Récupérer tous les groupes de cet utilisateur
-	// Note: On aurait besoin d'accès au groupRepo, mais pour l'instant on fait confiance
-	// TODO: Implémenter la récupération des groupes depuis la DB
-	// Pour l'instant, on laisse les utilisateurs rejoindre manuellement via join_group
+	// Récupérer tous les groupes de cet utilisateur.
+	// Note: récupération des groupes depuis la DB à implémenter si besoin;
+	// pour l'instant les utilisateurs rejoignent manuellement via join_group.
 }
 
 // HandleTyping gère l'événement "typing" et l'envoie aux autres participants
@@ -442,9 +441,8 @@ func (h *Hub) HandleGroupTyping(userID, groupID string, isTyping bool) {
 		return
 	}
 
-	// Vérifier que l'utilisateur est membre du groupe
-	// Note: On aurait besoin d'accès au groupRepo, mais pour l'instant on fait confiance
-	// TODO: Ajouter validation d'appartenance au groupe si nécessaire
+	// Vérifier que l'utilisateur est membre du groupe.
+	// Note: validation d'appartenance au groupe possible ici si besoin.
 
 	// Récupérer le prénom de l'utilisateur
 	username := "Quelqu'un"

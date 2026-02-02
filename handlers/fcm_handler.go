@@ -36,13 +36,13 @@ func (h *FCMHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 
 	var req models.FCMSubscribeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Valider les données
 	if req.UserID == "" || req.FCMToken == "" {
-		utils.RespondError(w, http.StatusBadRequest, "user_id et fcm_token sont requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrFCMUserTokenRequired)
 		return
 	}
 
@@ -76,12 +76,12 @@ func (h *FCMHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	if req.FCMToken == "" {
-		utils.RespondError(w, http.StatusBadRequest, "fcm_token est requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrFCMTokenRequired)
 		return
 	}
 
@@ -104,7 +104,7 @@ func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
 
 	var req models.FCMNotificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -174,12 +174,12 @@ func (h *FCMHandler) SendToUser(w http.ResponseWriter, r *http.Request) {
 
 	var req models.FCMNotificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	if req.UserID == "" {
-		utils.RespondError(w, http.StatusBadRequest, "user_id est requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrFCMUserIDRequired)
 		return
 	}
 
@@ -192,7 +192,7 @@ func (h *FCMHandler) SendToUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(userTokens) == 0 {
-		utils.RespondError(w, http.StatusNotFound, "Aucun token trouvé pour cet utilisateur")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrNoTokenForUser)
 		return
 	}
 

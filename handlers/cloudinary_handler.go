@@ -50,14 +50,14 @@ type CloudinaryUploadResponse struct {
 func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	// Récupérer l'utilisateur depuis le contexte (mis par le middleware Auth)
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Token d'authentification invalide")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrAuthTokenInvalid)
 		return
 	}
 
@@ -70,14 +70,14 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 	// Vérifier que le Content-Type est bien multipart/form-data
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
 		log.Println("Content-Type invalide (attendu: multipart/form-data)")
-		utils.RespondError(w, http.StatusBadRequest, "Le Content-Type doit être multipart/form-data. Assurez-vous de ne pas définir explicitement le Content-Type côté frontend lors de l'envoi de FormData.")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMultipartRequired)
 		return
 	}
 
 	// Parser le formulaire multipart (limite 10 MB)
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		log.Printf("❌ Erreur parsing form: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Erreur lors du parsing du formulaire")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrFormParse)
 		return
 	}
 
@@ -85,7 +85,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 	file, header, err := r.FormFile("profileImage")
 	if err != nil {
 		log.Printf("Erreur récupération fichier: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Aucun fichier fourni")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrNoFileProvided)
 		return
 	}
 	defer file.Close()
@@ -108,7 +108,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 	}
 
 	if !isValidType {
-		utils.RespondError(w, http.StatusBadRequest, "Format de fichier non supporté. Formats acceptés : JPEG, PNG, WebP, GIF")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrFileFormatUnsupported)
 		return
 	}
 
@@ -118,7 +118,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 	user, err := h.userRepo.FindByEmail(userEmail)
 	if err != nil || user == nil {
 		log.Printf("Erreur récupération utilisateur: %v", err)
-		utils.RespondError(w, http.StatusNotFound, "Utilisateur non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrUserNotFound)
 		return
 	}
 
@@ -126,7 +126,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 	cloudinaryURL, err := h.uploadToCloudinary(file, userEmail, header.Filename)
 	if err != nil {
 		log.Printf("Erreur upload Cloudinary: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de l'upload de l'image")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrUploadImage)
 		return
 	}
 
@@ -139,7 +139,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 
 	if err := h.userRepo.UpdateByEmail(userEmail, updateData); err != nil {
 		log.Printf("Erreur mise à jour DB: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la mise à jour du profil")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrUpdateProfile)
 		return
 	}
 

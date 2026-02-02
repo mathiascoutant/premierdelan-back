@@ -28,7 +28,7 @@ func NewEventHandler(db *mongo.Database) *EventHandler {
 // GetPublicEvents retourne la liste publique des événements
 func (h *EventHandler) GetPublicEvents(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -53,7 +53,7 @@ func (h *EventHandler) GetPublicEvents(w http.ResponseWriter, r *http.Request) {
 // GetPublicEvent retourne les détails d'un événement spécifique (PUBLIC)
 func (h *EventHandler) GetPublicEvent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -61,7 +61,7 @@ func (h *EventHandler) GetPublicEvent(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
 		return
 	}
 
@@ -74,7 +74,7 @@ func (h *EventHandler) GetPublicEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if event == nil {
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
 		return
 	}
 

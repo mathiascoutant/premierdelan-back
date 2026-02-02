@@ -62,14 +62,14 @@ func (h *MediaHandler) GetMedias(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
 		return
 	}
 
 	// Vérifier que l'événement existe
 	event, err := h.eventRepo.FindByID(eventID)
 	if err != nil || event == nil {
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
 		return
 	}
 
@@ -115,14 +115,14 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
 		return
 	}
 
 	// Vérifier que l'événement existe
 	event, err := h.eventRepo.FindByID(eventID)
 	if err != nil || event == nil {
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
 		return
 	}
 
@@ -135,17 +135,17 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 
 	// Validations
 	if req.UserEmail == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Email utilisateur requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrUserEmailRequired)
 		return
 	}
 
 	if req.Type != "image" && req.Type != "video" {
-		utils.RespondError(w, http.StatusBadRequest, "Type de média invalide. Utilisez 'image' ou 'video'.")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMediaTypeInvalid)
 		return
 	}
 
 	if req.URL == "" {
-		utils.RespondError(w, http.StatusBadRequest, "URL du média requise")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMediaURLRequired)
 		return
 	}
 
@@ -155,12 +155,12 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 		strings.Contains(req.URL, "cloudinary.com")
 
 	if !validURL {
-		utils.RespondError(w, http.StatusBadRequest, "URL de média invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMediaURLInvalid)
 		return
 	}
 
 	if req.Filename == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Nom de fichier requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMediaFileNameRequired)
 		return
 	}
 
@@ -185,7 +185,7 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.mediaRepo.Create(media); err != nil {
 		log.Printf("Erreur création média: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de l'ajout du média")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrAddMedia)
 		return
 	}
 
@@ -195,7 +195,7 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 		"photos_count": int(totalMedias),
 	})
 
-	log.Printf("Média ajouté: %s (%s)", req.Filename, req.Type)
+	log.Println("Média ajouté")
 
 	// NOUVEAU: Envoyer notification de galerie
 	go h.sendGalleryNotification(eventID, req.UserEmail, userName, req.URL)
@@ -217,13 +217,13 @@ func (h *MediaHandler) DeleteMedia(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
 		return
 	}
 
 	mediaID, err := primitive.ObjectIDFromHex(vars["media_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID média invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMediaInvalidID)
 		return
 	}
 
@@ -236,32 +236,32 @@ func (h *MediaHandler) DeleteMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if media == nil {
-		utils.RespondError(w, http.StatusNotFound, "Média non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrMediaNotFound)
 		return
 	}
 
 	// Vérifier que le média appartient bien à cet événement
 	if media.EventID != eventID {
-		utils.RespondError(w, http.StatusBadRequest, "Ce média n'appartient pas à cet événement")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMediaNotOwned)
 		return
 	}
 
 	// Vérifier que l'utilisateur authentifié est le propriétaire
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non autorisé")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	if media.UserEmail != claims.Email {
-		utils.RespondError(w, http.StatusForbidden, "Vous ne pouvez supprimer que vos propres médias")
+		utils.RespondError(w, http.StatusForbidden, constants.ErrMediaOwnOnly)
 		return
 	}
 
 	// Supprimer le média
 	if err := h.mediaRepo.Delete(mediaID); err != nil {
 		log.Printf("Erreur suppression média: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la suppression")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrDeleteMedia)
 		return
 	}
 

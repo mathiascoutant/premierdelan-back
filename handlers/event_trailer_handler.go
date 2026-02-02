@@ -86,7 +86,7 @@ func (h *EventTrailerHandler) decodeTrailerData(w http.ResponseWriter, r *http.R
 		return nil, false
 	}
 	if trailerData.URL == "" || trailerData.PublicID == "" {
-		utils.RespondError(w, http.StatusBadRequest, "URL et public_id sont requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrTrailerURLRequired)
 		return nil, false
 	}
 	return &trailerData, true
@@ -114,7 +114,7 @@ func (h *EventTrailerHandler) UploadTrailer(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if event.Trailer != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Cet événement a déjà un trailer. Utilisez PUT pour le remplacer.")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrTrailerAlreadyExists)
 		return
 	}
 	trailerData, ok := h.decodeTrailerData(w, r)
@@ -132,7 +132,7 @@ func (h *EventTrailerHandler) UploadTrailer(w http.ResponseWriter, r *http.Reque
 	}
 	updateData := bson.M{"trailer": trailer, "updated_at": time.Now()}
 	if err := h.eventRepo.Update(eventObjID, updateData); err != nil {
-		log.Printf("Erreur mise à jour DB trailer: %v", err)
+		log.Printf(constants.ErrDBUpdateTrailer, err)
 		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
@@ -155,7 +155,7 @@ func (h *EventTrailerHandler) ReplaceTrailer(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if event.Trailer == nil {
-		utils.RespondError(w, http.StatusNotFound, "Cet événement n'a pas de trailer à remplacer.")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrTrailerNotFoundReplace)
 		return
 	}
 	oldPublicID := event.Trailer.PublicID
@@ -177,7 +177,7 @@ func (h *EventTrailerHandler) ReplaceTrailer(w http.ResponseWriter, r *http.Requ
 	}
 	updateData := bson.M{"trailer": newTrailer, "updated_at": time.Now()}
 	if err := h.eventRepo.Update(eventObjID, updateData); err != nil {
-		log.Printf("Erreur mise à jour DB trailer: %v", err)
+		log.Printf(constants.ErrDBUpdateTrailer, err)
 		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
@@ -199,7 +199,7 @@ func (h *EventTrailerHandler) DeleteTrailer(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if event.Trailer == nil {
-		utils.RespondError(w, http.StatusNotFound, "Cet événement n'a pas de trailer à supprimer.")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrTrailerNotFoundDelete)
 		return
 	}
 	publicID := event.Trailer.PublicID
@@ -214,7 +214,7 @@ func (h *EventTrailerHandler) DeleteTrailer(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := h.eventRepo.Update(eventObjID, updateData); err != nil {
-		log.Printf("Erreur mise à jour DB trailer: %v", err)
+		log.Printf(constants.ErrDBUpdateTrailer, err)
 		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}

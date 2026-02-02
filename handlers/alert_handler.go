@@ -52,7 +52,7 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 
 	// Validation des champs requis
 	if req.AdminEmail == "" || req.ErrorType == "" || req.ErrorMessage == "" || req.EndpointFailed == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Champs manquants ou invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrAlertFieldsInvalid)
 		return
 	}
 
@@ -80,13 +80,13 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 	admin, err := h.userRepo.FindByEmail(req.AdminEmail)
 	if err != nil || admin == nil {
 		log.Println("Admin non trouvé pour alerte")
-		utils.RespondError(w, http.StatusNotFound, "Administrateur non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrAdminNotFound)
 		return
 	}
 
 	// Vérifier que l'utilisateur est bien admin
 	if admin.Admin != 1 {
-		utils.RespondError(w, http.StatusForbidden, "L'email fourni n'est pas un administrateur")
+		utils.RespondError(w, http.StatusForbidden, constants.ErrNotAdmin)
 		return
 	}
 

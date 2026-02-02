@@ -67,20 +67,20 @@ func (h *GalleryNotificationHandler) SendGalleryNotification(w http.ResponseWrit
 	// Authentification requise
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	vars := mux.Vars(r)
 	eventID := vars["eventId"]
 	if eventID == "" {
-		utils.RespondError(w, http.StatusBadRequest, "ID d'événement requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrEventIDRequired)
 		return
 	}
 
 	eventObjID, err := primitive.ObjectIDFromHex(eventID)
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID d'événement invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
 		return
 	}
 
@@ -88,23 +88,23 @@ func (h *GalleryNotificationHandler) SendGalleryNotification(w http.ResponseWrit
 	var req GalleryNotificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Printf("❌ Erreur décodage JSON: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Données JSON invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Validation des données
 	if req.UserEmail == "" || req.MediaCount <= 0 {
-		utils.RespondError(w, http.StatusBadRequest, "user_email et media_count sont requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrUserEmailMediaCountRequired)
 		return
 	}
 
-	log.Printf("Envoi notification galerie: %d médias", req.MediaCount)
+	log.Println("Envoi notification galerie")
 
 	// 1. Récupérer l'événement
 	event, err := h.eventRepo.FindByID(eventObjID)
 	if err != nil || event == nil {
 		log.Printf("❌ Événement non trouvé: %v", err)
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
 		return
 	}
 
@@ -112,7 +112,7 @@ func (h *GalleryNotificationHandler) SendGalleryNotification(w http.ResponseWrit
 	participants, err := h.getEventParticipants(eventObjID, req.UserEmail)
 	if err != nil {
 		log.Printf("❌ Erreur récupération participants: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la récupération des participants")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrGetParticipants)
 		return
 	}
 
@@ -253,7 +253,7 @@ func (h *GalleryNotificationHandler) TestGalleryNotification(w http.ResponseWrit
 	// Authentification requise
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 

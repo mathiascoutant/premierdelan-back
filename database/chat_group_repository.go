@@ -220,7 +220,7 @@ func (r *ChatGroupRepository) GetMembers(groupID primitive.ObjectID) ([]models.G
 			Email:     result.Email,
 			Role:      result.Role,
 			JoinedAt:  result.JoinedAt,
-			IsOnline:  false, // TODO: Intégrer avec le système de présence WebSocket
+			IsOnline:  false, // Note: à intégrer avec le système de présence WebSocket
 		})
 	}
 

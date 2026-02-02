@@ -81,7 +81,7 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID, err := primitive.ObjectIDFromHex(vars["id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID utilisateur invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrUserIDInvalid)
 		return
 	}
 
@@ -122,7 +122,7 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(update) == 0 {
-		utils.RespondError(w, http.StatusBadRequest, "Aucune donnée à mettre à jour")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrNoDataToUpdate)
 		return
 	}
 
@@ -172,7 +172,7 @@ func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID, err := primitive.ObjectIDFromHex(vars["id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID utilisateur invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrUserIDInvalid)
 		return
 	}
 
@@ -210,7 +210,7 @@ func (h *AdminHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 	// Récupérer l'événement
 	event, err := h.eventRepo.FindByID(eventID)
 	if err != nil || event == nil {
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
 		return
 	}
 
@@ -253,7 +253,7 @@ func (h *AdminHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	// Valider les données
 	if req.Titre == "" || req.CodeSoiree == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Titre et code_soiree sont requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrTitleCodeRequired)
 		return
 	}
 
@@ -284,7 +284,7 @@ func (h *AdminHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Événement créé: %s", event.Titre)
+	log.Println("Événement créé")
 	utils.RespondJSON(w, http.StatusCreated, map[string]interface{}{
 		"success":   true,
 		"message":   "Événement créé avec succès",
@@ -345,7 +345,7 @@ func (h *AdminHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(update) == 0 {
-		utils.RespondError(w, http.StatusBadRequest, "Aucune donnée à mettre à jour")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrNoDataToUpdate)
 		return
 	}
 
@@ -419,7 +419,7 @@ func (h *AdminHandler) RecalculateEventCounters(w http.ResponseWriter, r *http.R
 	// Récupérer l'événement
 	event, err := h.eventRepo.FindByID(eventID)
 	if err != nil || event == nil {
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
 		return
 	}
 
@@ -444,7 +444,7 @@ func (h *AdminHandler) RecalculateEventCounters(w http.ResponseWriter, r *http.R
 	})
 
 	if err != nil {
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors du recalcul")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrRecalc)
 		return
 	}
 
@@ -561,7 +561,7 @@ func (h *AdminHandler) SendAdminNotification(w http.ResponseWriter, r *http.Requ
 	}
 
 	if len(tokens) == 0 {
-		utils.RespondError(w, http.StatusBadRequest, "Aucun token trouvé pour ces utilisateurs")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrNoTokenForUsers)
 		return
 	}
 
@@ -631,7 +631,7 @@ func (h *AdminHandler) GetCurrentCodeSoiree(w http.ResponseWriter, r *http.Reque
 	}
 
 	if code == nil {
-		utils.RespondError(w, http.StatusNotFound, "Aucun code de soirée actif")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrNoActiveCode)
 		return
 	}
 
