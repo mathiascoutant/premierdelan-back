@@ -6,15 +6,20 @@ import (
 	"testing"
 )
 
+const (
+	testOriginExample   = "https://example.com"
+	testOriginApp       = "https://app.example.com"
+)
+
 func TestIsOriginAllowed(t *testing.T) {
-	origins := []string{"https://example.com", "https://app.example.com"}
+	origins := []string{testOriginExample, testOriginApp}
 
 	tests := []struct {
 		origin string
 		want   bool
 	}{
-		{"https://example.com", true},
-		{"https://app.example.com", true},
+		{testOriginExample, true},
+		{testOriginApp, true},
 		{"https://evil.com", false},
 		{"https://example.com.evil.com", false},
 		{"", false},
@@ -27,17 +32,17 @@ func TestIsOriginAllowed(t *testing.T) {
 	}
 }
 
-func TestCORS_allowedOrigin(t *testing.T) {
-	handler := CORS([]string{"https://app.example.com"})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestCORSAllowedOrigin(t *testing.T) {
+	handler := CORS([]string{testOriginApp})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("Origin", "https://app.example.com")
+	req.Header.Set("Origin", testOriginApp)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	if got := rr.Header().Get("Access-Control-Allow-Origin"); got != "https://app.example.com" {
+	if got := rr.Header().Get("Access-Control-Allow-Origin"); got != testOriginApp {
 		t.Errorf("Access-Control-Allow-Origin = %v", got)
 	}
 	if rr.Code != http.StatusOK {
@@ -45,13 +50,13 @@ func TestCORS_allowedOrigin(t *testing.T) {
 	}
 }
 
-func TestCORS_optionsPreflight(t *testing.T) {
-	handler := CORS([]string{"https://example.com"})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestCORSOptionsPreflight(t *testing.T) {
+	handler := CORS([]string{testOriginExample})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
 	req := httptest.NewRequest(http.MethodOptions, "/", nil)
-	req.Header.Set("Origin", "https://example.com")
+	req.Header.Set("Origin", testOriginExample)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 

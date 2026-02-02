@@ -87,7 +87,7 @@ func (r *ChatGroupMessageRepository) FindByGroupID(groupID primitive.ObjectID, l
 				"let":  bson.M{"sender_id": "$sender_id", "msg_type": "$message_type"},
 				"pipeline": []bson.M{
 					{
-						"$match": bson.M{
+						BSONMatch: bson.M{
 							"$expr": bson.M{
 								"$and": []bson.M{
 									{"$eq": []interface{}{"$email", "$$sender_id"}},
@@ -160,7 +160,7 @@ func (r *ChatGroupMessageRepository) GetLastMessageByGroup(groupID primitive.Obj
 	defer cancel()
 
 	pipeline := []bson.M{
-		{"$match": bson.M{"group_id": groupID}},
+		{BSONMatch: bson.M{"group_id": groupID}},
 		{"$sort": bson.M{"created_at": -1}},
 		{"$limit": 1},
 		{
@@ -169,7 +169,7 @@ func (r *ChatGroupMessageRepository) GetLastMessageByGroup(groupID primitive.Obj
 				"let":  bson.M{"sender_id": "$sender_id", "msg_type": "$message_type"},
 				"pipeline": []bson.M{
 					{
-						"$match": bson.M{
+						BSONMatch: bson.M{
 							"$expr": bson.M{
 								"$and": []bson.M{
 									{"$eq": []interface{}{"$email", "$$sender_id"}},

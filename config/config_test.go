@@ -5,70 +5,94 @@ import (
 	"testing"
 )
 
+const testSecret = "test-secret"
+const loadErrFmt = "Load() erreur = %v"
+
 func TestLoad(t *testing.T) {
-	// Sauvegarder et restaurer les variables d'environnement
 	origJWT := os.Getenv("JWT_SECRET")
 	origPort := os.Getenv("PORT")
-	defer func() {
-		if origJWT != "" {
-			os.Setenv("JWT_SECRET", origJWT)
-		} else {
-			os.Unsetenv("JWT_SECRET")
-		}
-		if origPort != "" {
-			os.Setenv("PORT", origPort)
-		} else {
-			os.Unsetenv("PORT")
-		}
-	}()
+	defer restoreEnv(origJWT, origPort)
 
 	t.Run("erreur sans JWT_SECRET", func(t *testing.T) {
 		os.Unsetenv("JWT_SECRET")
 		_, err := Load()
-		if err == nil {
-			t.Error("Load() devrait échouer sans JWT_SECRET")
-		}
-		if err != nil && err.Error() != "JWT_SECRET est requis" {
-			t.Errorf("Load() erreur = %v, attendu 'JWT_SECRET est requis'", err)
-		}
+		assertLoadError(t, err, "JWT_SECRET est requis")
 	})
 
 	t.Run("succès avec JWT_SECRET", func(t *testing.T) {
-		os.Setenv("JWT_SECRET", "test-secret")
+		os.Setenv("JWT_SECRET", testSecret)
 		os.Unsetenv("PORT")
 		cfg, err := Load()
-		if err != nil {
-			t.Fatalf("Load() erreur = %v", err)
-		}
-		if cfg.JWTSecret != "test-secret" {
-			t.Errorf("JWTSecret = %v, attendu test-secret", cfg.JWTSecret)
-		}
-		if cfg.Port != "8090" {
-			t.Errorf("Port = %v, attendu 8090 (défaut)", cfg.Port)
-		}
+		assertNoError(t, err)
+		assertJWTSecret(t, cfg, testSecret)
+		assertPort(t, cfg, "8090")
 	})
 
 	t.Run("PORT depuis env", func(t *testing.T) {
-		os.Setenv("JWT_SECRET", "test-secret")
+		os.Setenv("JWT_SECRET", testSecret)
 		os.Setenv("PORT", "9999")
 		cfg, err := Load()
-		if err != nil {
-			t.Fatalf("Load() erreur = %v", err)
-		}
-		if cfg.Port != "9999" {
-			t.Errorf("Port = %v, attendu 9999", cfg.Port)
-		}
+		assertNoError(t, err)
+		assertPort(t, cfg, "9999")
 	})
 
 	t.Run("CORS parsing", func(t *testing.T) {
-		os.Setenv("JWT_SECRET", "test-secret")
+		os.Setenv("JWT_SECRET", testSecret)
 		os.Setenv("CORS_ALLOWED_ORIGINS", "http://a.com, http://b.com , c.com")
 		cfg, err := Load()
-		if err != nil {
-			t.Fatalf("Load() erreur = %v", err)
-		}
-		if len(cfg.CORSOrigins) != 3 {
-			t.Errorf("CORSOrigins = %v, attendu 3 éléments", cfg.CORSOrigins)
-		}
+		assertNoError(t, err)
+		assertCORSOrigins(t, cfg, 3)
 	})
+}
+
+func restoreEnv(origJWT, origPort string) {
+	if origJWT != "" {
+		os.Setenv("JWT_SECRET", origJWT)
+	} else {
+		os.Unsetenv("JWT_SECRET")
+	}
+	if origPort != "" {
+		os.Setenv("PORT", origPort)
+	} else {
+		os.Unsetenv("PORT")
+	}
+}
+
+func assertLoadError(t *testing.T, err error, expected string) {
+	t.Helper()
+	if err == nil {
+		t.Error("Load() devrait échouer sans JWT_SECRET")
+		return
+	}
+	if err.Error() != expected {
+		t.Errorf(loadErrFmt+", attendu %q", err, expected)
+	}
+}
+
+func assertNoError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf(loadErrFmt, err)
+	}
+}
+
+func assertJWTSecret(t *testing.T, cfg *Config, expected string) {
+	t.Helper()
+	if cfg.JWTSecret != expected {
+		t.Errorf("JWTSecret = %v, attendu %s", cfg.JWTSecret, expected)
+	}
+}
+
+func assertPort(t *testing.T, cfg *Config, expected string) {
+	t.Helper()
+	if cfg.Port != expected {
+		t.Errorf("Port = %v, attendu %s", cfg.Port, expected)
+	}
+}
+
+func assertCORSOrigins(t *testing.T, cfg *Config, expected int) {
+	t.Helper()
+	if len(cfg.CORSOrigins) != expected {
+		t.Errorf("CORSOrigins = %v, attendu %d éléments", cfg.CORSOrigins, expected)
+	}
 }

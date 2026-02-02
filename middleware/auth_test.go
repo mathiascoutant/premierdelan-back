@@ -7,8 +7,10 @@ import (
 	"testing"
 )
 
-func TestAuth_missingToken(t *testing.T) {
-	handler := Auth("test-secret")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+const testAuthSecret = "test-secret"
+
+func TestAuthMissingToken(t *testing.T) {
+	handler := Auth(testAuthSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -21,8 +23,8 @@ func TestAuth_missingToken(t *testing.T) {
 	}
 }
 
-func TestAuth_invalidFormat(t *testing.T) {
-	handler := Auth("test-secret")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestAuthInvalidFormat(t *testing.T) {
+	handler := Auth(testAuthSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -36,14 +38,13 @@ func TestAuth_invalidFormat(t *testing.T) {
 	}
 }
 
-func TestAuth_validToken(t *testing.T) {
-	secret := "test-secret"
-	token, err := utils.GenerateToken("user1", "test@example.com", secret)
+func TestAuthValidToken(t *testing.T) {
+	token, err := utils.GenerateToken("user1", "test@example.com", testAuthSecret)
 	if err != nil {
 		t.Fatalf("GenerateToken: %v", err)
 	}
 
-	handler := Auth(secret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := Auth(testAuthSecret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		claims := GetUserFromContext(r.Context())
 		if claims == nil {
 			t.Error("GetUserFromContext retourne nil")

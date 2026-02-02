@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestHealthHandler_Health(t *testing.T) {
+func TestHealthHandlerHealth(t *testing.T) {
 	handler := NewHealthHandler("test")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)

@@ -40,7 +40,7 @@ func TestValidateToken(t *testing.T) {
 	}
 }
 
-func TestValidateToken_mauvaisSecret(t *testing.T) {
+func TestValidateTokenMauvaisSecret(t *testing.T) {
 	token, _ := GenerateToken("u", "e@e.com", "secret1")
 	_, err := ValidateToken(token, "secret2")
 	if err == nil {
@@ -48,7 +48,7 @@ func TestValidateToken_mauvaisSecret(t *testing.T) {
 	}
 }
 
-func TestValidateToken_tokenInvalide(t *testing.T) {
+func TestValidateTokenInvalide(t *testing.T) {
 	_, err := ValidateToken("invalid-token", "secret")
 	if err == nil {
 		t.Error("ValidateToken() devrait échouer avec un token invalide")

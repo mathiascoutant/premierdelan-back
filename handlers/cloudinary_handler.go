@@ -112,7 +112,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	log.Printf("Upload photo de profil (%d bytes)", header.Size)
+	log.Printf("Upload photo de profil en cours")
 
 	// Récupérer l'utilisateur
 	user, err := h.userRepo.FindByEmail(userEmail)

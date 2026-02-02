@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestPing_clientNil(t *testing.T) {
+func TestPingClientNil(t *testing.T) {
 	// Sauvegarder l'état actuel
 	oldClient := Client
 	Client = nil

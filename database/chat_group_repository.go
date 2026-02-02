@@ -290,7 +290,7 @@ func (r *ChatGroupRepository) GetGroupsWithDetails(userID string) ([]models.Grou
 	// Pipeline complexe pour récupérer tous les détails
 	pipeline := []bson.M{
 		// 1. Filtrer les membres de l'utilisateur
-		{"$match": bson.M{"user_id": userID}},
+		{BSONMatch: bson.M{"user_id": userID}},
 		// 2. Joindre avec les groupes
 		{
 			"$lookup": bson.M{
@@ -300,9 +300,9 @@ func (r *ChatGroupRepository) GetGroupsWithDetails(userID string) ([]models.Grou
 				"as":           "group",
 			},
 		},
-		{"$unwind": "$group"},
+		{BSONUnwind: "$group"},
 		// 3. Filtrer les groupes actifs
-		{"$match": bson.M{"group.is_active": true}},
+		{BSONMatch: bson.M{"group.is_active": true}},
 		// 4. Joindre avec les infos du créateur
 		{
 			"$lookup": bson.M{
@@ -312,7 +312,7 @@ func (r *ChatGroupRepository) GetGroupsWithDetails(userID string) ([]models.Grou
 				"as":           "creator",
 			},
 		},
-		{"$unwind": "$creator"},
+		{BSONUnwind: "$creator"},
 		// 5. Compter les membres
 		{
 			"$lookup": bson.M{
@@ -452,7 +452,7 @@ func (r *ChatGroupRepository) GetUserGroups(userEmail string, messagesCollection
 				"as":           "creator",
 			},
 		},
-		{"$unwind": bson.M{"path": "$creator", "preserveNullAndEmptyArrays": true}},
+		{BSONUnwind: bson.M{"path": "$creator", "preserveNullAndEmptyArrays": true}},
 		// Compter les membres
 		{
 			"$lookup": bson.M{

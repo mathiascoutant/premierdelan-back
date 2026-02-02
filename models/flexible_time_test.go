@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestFlexibleTime_UnmarshalJSON(t *testing.T) {
+func TestFlexibleTimeUnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
@@ -28,7 +28,7 @@ func TestFlexibleTime_UnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestFlexibleTime_MarshalJSON(t *testing.T) {
+func TestFlexibleTimeMarshalJSON(t *testing.T) {
 	var ft FlexibleTime
 	_ = json.Unmarshal([]byte(`"2025-12-31T20:00:00"`), &ft)
 	data, err := json.Marshal(ft)
