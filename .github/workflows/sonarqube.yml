@@ -1,5 +1,5 @@
 # Analyse SonarQube avec couverture de tests
-# Déclenché à chaque push sur main et dev
+# Déclenché à chaque push sur main uniquement
 #
 # Secrets requis:
 #   SONAR_TOKEN    - Généré dans SonarQube > Mon compte > Sécurité
@@ -11,7 +11,6 @@ on:
   push:
     branches:
       - main
-      - dev
   workflow_dispatch:  # Déclenchement manuel depuis GitHub Actions
 
 jobs:
