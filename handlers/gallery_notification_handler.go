@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/utils"
@@ -59,7 +60,7 @@ type GalleryNotificationRequest struct {
 // SendGalleryNotification gère l'envoi de notifications de galerie
 func (h *GalleryNotificationHandler) SendGalleryNotification(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -245,7 +246,7 @@ func (h *GalleryNotificationHandler) cleanupInvalidTokens(failedTokens []string)
 // TestGalleryNotification endpoint de test pour les notifications
 func (h *GalleryNotificationHandler) TestGalleryNotification(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 

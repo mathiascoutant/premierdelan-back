@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/models"
 	"premier-an-backend/utils"
@@ -38,14 +39,14 @@ func NewAlertHandler(db *mongo.Database, fcmService interface {
 // SendCriticalAlert reçoit et traite une alerte critique du frontend
 func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	// Décoder la requête
 	var req models.CriticalAlertRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -78,7 +79,7 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 	// Vérifier que l'admin existe
 	admin, err := h.userRepo.FindByEmail(req.AdminEmail)
 	if err != nil || admin == nil {
-		log.Printf("Admin non trouvé: %s", req.AdminEmail)
+		log.Println("Admin non trouvé pour alerte")
 		utils.RespondError(w, http.StatusNotFound, "Administrateur non trouvé")
 		return
 	}
@@ -97,7 +98,7 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 
 	if len(fcmTokens) == 0 {
 		// Pas de token FCM, mais on enregistre quand même l'alerte
-		log.Printf("⚠️  Admin %s n'a pas de token FCM", req.AdminEmail)
+		log.Println("Admin sans token FCM pour alerte")
 	}
 
 	// Parser le timestamp
@@ -158,7 +159,7 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 		alert.NotificationSent = true
 	}
 
-	log.Printf("🚨 Alerte critique envoyée à %s: %d succès, %d échecs", req.AdminEmail, success, failed)
+	log.Printf("Alerte critique envoyée: %d succès, %d échecs", success, failed)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"success":           true,

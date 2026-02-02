@@ -77,12 +77,12 @@ func (r *ChatGroupMessageRepository) FindByGroupID(groupID primitive.ObjectID, l
 
 	// Pipeline d'agrégation pour joindre les infos de l'expéditeur
 	pipeline := []bson.M{
-		{"$match": filter},
+		{BSONMatch: filter},
 		{"$sort": bson.M{"created_at": -1}},
 		{"$limit": limit},
 		// Lookup conditionnnel : ne pas joindre si c'est un message système
 		{
-			"$lookup": bson.M{
+			BSONLookup: bson.M{
 				"from": "users",
 				"let":  bson.M{"sender_id": "$sender_id", "msg_type": "$message_type"},
 				"pipeline": []bson.M{

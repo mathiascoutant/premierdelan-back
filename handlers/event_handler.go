@@ -3,6 +3,7 @@ package handlers
 import (
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/models"
 	"premier-an-backend/utils"
@@ -35,7 +36,7 @@ func (h *EventHandler) GetPublicEvents(w http.ResponseWriter, r *http.Request) {
 	events, err := h.eventRepo.FindAll()
 	if err != nil {
 		log.Printf("Erreur lors de la récupération des événements publics: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -68,7 +69,7 @@ func (h *EventHandler) GetPublicEvent(w http.ResponseWriter, r *http.Request) {
 	event, err := h.eventRepo.FindByID(eventID)
 	if err != nil {
 		log.Printf("Erreur lors de la récupération de l'événement: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 

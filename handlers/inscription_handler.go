@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
@@ -72,7 +73,7 @@ func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Re
 	// Décoder la requête
 	var req models.CreateInscriptionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -121,7 +122,7 @@ func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Re
 	existingInscription, err := h.inscriptionRepo.FindByEventAndUser(eventID, req.UserEmail)
 	if err != nil {
 		log.Printf("Erreur vérification inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -210,7 +211,7 @@ func (h *InscriptionHandler) GetInscription(w http.ResponseWriter, r *http.Reque
 	inscription, err := h.inscriptionRepo.FindByEventAndUser(eventID, userEmail)
 	if err != nil {
 		log.Printf("Erreur recherche inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -247,7 +248,7 @@ func (h *InscriptionHandler) UpdateInscription(w http.ResponseWriter, r *http.Re
 	// Décoder la requête
 	var req models.UpdateInscriptionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -280,7 +281,7 @@ func (h *InscriptionHandler) UpdateInscription(w http.ResponseWriter, r *http.Re
 	inscription, err := h.inscriptionRepo.FindByEventAndUser(eventID, req.UserEmail)
 	if err != nil {
 		log.Printf("Erreur recherche inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -375,7 +376,7 @@ func (h *InscriptionHandler) DeleteInscription(w http.ResponseWriter, r *http.Re
 	// Décoder la requête
 	var req models.DesinscriptionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -388,7 +389,7 @@ func (h *InscriptionHandler) DeleteInscription(w http.ResponseWriter, r *http.Re
 	inscription, err := h.inscriptionRepo.FindByEventAndUser(eventID, req.UserEmail)
 	if err != nil {
 		log.Printf("Erreur recherche inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -460,7 +461,7 @@ func (h *InscriptionHandler) GetInscrits(w http.ResponseWriter, r *http.Request)
 	inscriptions, err := h.inscriptionRepo.FindByEvent(eventID)
 	if err != nil {
 		log.Printf("Erreur récupération inscriptions: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -552,7 +553,7 @@ func (h *InscriptionHandler) DeleteInscriptionAdmin(w http.ResponseWriter, r *ht
 	inscription, err := h.inscriptionRepo.FindByID(inscriptionID)
 	if err != nil {
 		log.Printf("Erreur recherche inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -638,7 +639,7 @@ func (h *InscriptionHandler) DeleteAccompagnant(w http.ResponseWriter, r *http.R
 	inscription, err := h.inscriptionRepo.FindByID(inscriptionID)
 	if err != nil {
 		log.Printf("Erreur recherche inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -794,7 +795,7 @@ func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Req
 	inscriptions, err := h.inscriptionRepo.FindByUser(userEmail)
 	if err != nil {
 		log.Printf("Erreur lors de la récupération des inscriptions: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -857,7 +858,7 @@ func (h *InscriptionHandler) VerifyCode(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 

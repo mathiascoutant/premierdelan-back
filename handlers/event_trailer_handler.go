@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
@@ -63,7 +64,7 @@ type TrailerDataRequest struct {
 func (h *EventTrailerHandler) UploadTrailer(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -160,7 +161,7 @@ func (h *EventTrailerHandler) UploadTrailer(w http.ResponseWriter, r *http.Reque
 func (h *EventTrailerHandler) ReplaceTrailer(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPut {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -266,7 +267,7 @@ func (h *EventTrailerHandler) ReplaceTrailer(w http.ResponseWriter, r *http.Requ
 func (h *EventTrailerHandler) DeleteTrailer(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 

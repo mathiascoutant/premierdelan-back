@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/models"
 	"premier-an-backend/services"
@@ -29,7 +30,7 @@ func NewFCMHandler(db *mongo.Database, fcmService *services.FCMService) *FCMHand
 // Subscribe enregistre un token FCM pour un utilisateur
 func (h *FCMHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -55,18 +56,18 @@ func (h *FCMHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.tokenRepo.Upsert(token); err != nil {
 		log.Printf("Erreur lors de l'enregistrement du token FCM: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
-	log.Printf("✓ Token FCM enregistré pour: %s (appareil: %s)", req.UserID, req.Device)
+	log.Println("Token FCM enregistré")
 	utils.RespondSuccess(w, "Abonnement FCM réussi", token)
 }
 
 // Unsubscribe supprime un token FCM
 func (h *FCMHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -86,7 +87,7 @@ func (h *FCMHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.tokenRepo.Delete(req.FCMToken); err != nil {
 		log.Printf("Erreur lors de la suppression du token: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -97,7 +98,7 @@ func (h *FCMHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 // SendNotification envoie une notification à tous les abonnés
 func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -111,7 +112,7 @@ func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
 	allTokens, err := h.tokenRepo.FindAll()
 	if err != nil {
 		log.Printf("Erreur lors de la récupération des tokens: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -167,7 +168,7 @@ func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
 // SendToUser envoie une notification à un utilisateur spécifique
 func (h *FCMHandler) SendToUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -186,7 +187,7 @@ func (h *FCMHandler) SendToUser(w http.ResponseWriter, r *http.Request) {
 	userTokens, err := h.tokenRepo.FindByUserID(req.UserID)
 	if err != nil {
 		log.Printf("Erreur lors de la récupération des tokens: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 

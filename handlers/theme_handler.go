@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
@@ -37,7 +38,7 @@ func (h *ThemeHandler) GetGlobalTheme(w http.ResponseWriter, r *http.Request) {
 		Theme:   theme,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(constants.HeaderContentType, constants.HeaderApplicationJSON)
 	_ = json.NewEncoder(w).Encode(response)
 }
 
@@ -95,6 +96,6 @@ func (h *ThemeHandler) SetGlobalTheme(w http.ResponseWriter, r *http.Request) {
 		Theme:   theme,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(constants.HeaderContentType, constants.HeaderApplicationJSON)
 	_ = json.NewEncoder(w).Encode(response)
 }

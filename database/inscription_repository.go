@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"premier-an-backend/constants"
 	"premier-an-backend/models"
 	"time"
 
@@ -82,7 +83,7 @@ func (r *InscriptionRepository) FindByEvent(eventID primitive.ObjectID) ([]model
 
 	var inscriptions []models.Inscription
 	if err = cursor.All(ctx, &inscriptions); err != nil {
-		return nil, fmt.Errorf("erreur lors du décodage des inscriptions: %w", err)
+		return nil, fmt.Errorf(constants.ErrDecodeInscriptions, err)
 	}
 
 	return inscriptions, nil
@@ -222,7 +223,7 @@ func (r *InscriptionRepository) FindByUser(userEmail string) ([]models.Inscripti
 
 	var inscriptions []models.Inscription
 	if err = cursor.All(ctx, &inscriptions); err != nil {
-		return nil, fmt.Errorf("erreur lors du décodage des inscriptions: %w", err)
+		return nil, fmt.Errorf(constants.ErrDecodeInscriptions, err)
 	}
 
 	return inscriptions, nil
@@ -241,7 +242,7 @@ func (r *InscriptionRepository) FindByEventID(eventID primitive.ObjectID) ([]mod
 
 	var inscriptions []models.Inscription
 	if err = cursor.All(ctx, &inscriptions); err != nil {
-		return nil, fmt.Errorf("erreur lors du décodage des inscriptions: %w", err)
+		return nil, fmt.Errorf(constants.ErrDecodeInscriptions, err)
 	}
 
 	return inscriptions, nil

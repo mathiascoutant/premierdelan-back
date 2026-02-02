@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/models"
 	"premier-an-backend/utils"
@@ -34,7 +35,7 @@ func NewNotificationHandler(db *mongo.Database, vapidPublicKey, vapidPrivateKey,
 // Subscribe permet à un utilisateur de s'abonner aux notifications
 func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -48,7 +49,7 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 	existing, err := h.subscriptionRepo.FindByEndpoint(req.Subscription.Endpoint)
 	if err != nil {
 		log.Printf("Erreur lors de la vérification de l'abonnement: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -77,7 +78,7 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 // Unsubscribe permet à un utilisateur de se désabonner
 func (h *NotificationHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -92,7 +93,7 @@ func (h *NotificationHandler) Unsubscribe(w http.ResponseWriter, r *http.Request
 
 	if err := h.subscriptionRepo.Delete(req.Endpoint); err != nil {
 		log.Printf("Erreur lors de la suppression de l'abonnement: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -103,7 +104,7 @@ func (h *NotificationHandler) Unsubscribe(w http.ResponseWriter, r *http.Request
 // SendTestNotification envoie une notification de test à tous les abonnés
 func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -117,7 +118,7 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 	subscriptions, err := h.subscriptionRepo.FindAll()
 	if err != nil {
 		log.Printf("Erreur lors de la récupération des abonnements: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -151,7 +152,7 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		log.Printf("Erreur lors de la création du payload: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -221,7 +222,7 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 // GetVAPIDPublicKey retourne la clé publique VAPID
 func (h *NotificationHandler) GetVAPIDPublicKey(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 

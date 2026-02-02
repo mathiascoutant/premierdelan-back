@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
@@ -53,7 +54,7 @@ func NewMediaHandler(
 // GetMedias retourne tous les médias d'un événement (PUBLIC)
 func (h *MediaHandler) GetMedias(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -76,7 +77,7 @@ func (h *MediaHandler) GetMedias(w http.ResponseWriter, r *http.Request) {
 	medias, err := h.mediaRepo.FindByEvent(eventID)
 	if err != nil {
 		log.Printf("Erreur récupération médias: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -106,7 +107,7 @@ func (h *MediaHandler) GetMedias(w http.ResponseWriter, r *http.Request) {
 // CreateMedia enregistre un média après upload Firebase
 func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -128,7 +129,7 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 	// Décoder la requête
 	var req models.CreateMediaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -208,7 +209,7 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 // DeleteMedia supprime un média
 func (h *MediaHandler) DeleteMedia(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -230,7 +231,7 @@ func (h *MediaHandler) DeleteMedia(w http.ResponseWriter, r *http.Request) {
 	media, err := h.mediaRepo.FindByID(mediaID)
 	if err != nil {
 		log.Printf("Erreur recherche média: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 

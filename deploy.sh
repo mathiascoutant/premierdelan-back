@@ -29,7 +29,7 @@ export GOPROXY=direct
 go build -o backend .
 
 # Vérifier que la compilation a réussi
-if [ ! -f "./backend" ]; then
+if [[ ! -f "./backend" ]]; then
     echo "❌ Erreur: La compilation a échoué"
     exit 1
 fi

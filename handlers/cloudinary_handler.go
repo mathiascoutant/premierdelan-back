@@ -8,6 +8,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/utils"
@@ -146,7 +147,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 	updatedUser, err := h.userRepo.FindByEmail(userEmail)
 	if err != nil || updatedUser == nil {
 		log.Printf("Erreur récupération utilisateur mis à jour: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 

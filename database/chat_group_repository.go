@@ -167,16 +167,16 @@ func (r *ChatGroupRepository) GetMembers(groupID primitive.ObjectID) ([]models.G
 
 	// Pipeline d'agrégation pour joindre les infos utilisateur
 	pipeline := []bson.M{
-		{"$match": bson.M{"group_id": groupID}},
+		{BSONMatch: bson.M{"group_id": groupID}},
 		{
-			"$lookup": bson.M{
+			BSONLookup: bson.M{
 				"from":         "users",
 				"localField":   "user_id",
 				"foreignField": "email",
 				"as":           "user_info",
 			},
 		},
-		{"$unwind": bson.M{"path": "$user_info", "preserveNullAndEmptyArrays": true}},
+		{BSONUnwind: bson.M{"path": "$user_info", "preserveNullAndEmptyArrays": true}},
 		{
 			"$project": bson.M{
 				"id":        "$user_id", // ✅ ID = user_id (email) pour SendToUser

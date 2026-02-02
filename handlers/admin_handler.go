@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/models"
 	"premier-an-backend/utils"
@@ -52,7 +53,7 @@ func NewAdminHandler(db *mongo.Database, fcmService interface {
 // GetUsers retourne la liste de tous les utilisateurs
 func (h *AdminHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -60,7 +61,7 @@ func (h *AdminHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.userRepo.FindAll()
 	if err != nil {
 		log.Printf("Erreur lors de la récupération des utilisateurs: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -72,7 +73,7 @@ func (h *AdminHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 // UpdateUser met à jour un utilisateur
 func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -87,7 +88,7 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	// Décoder la requête
 	var req models.UpdateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -128,7 +129,7 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	// Mettre à jour l'utilisateur
 	if err := h.userRepo.UpdateFields(userID, update); err != nil {
 		log.Printf("Erreur lors de la mise à jour de l'utilisateur: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -136,7 +137,7 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	updatedUser, err := h.userRepo.FindByID(userID)
 	if err != nil || updatedUser == nil {
 		log.Printf("Erreur lors de la récupération de l'utilisateur: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -163,7 +164,7 @@ func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 // DeleteUser supprime un utilisateur
 func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -178,7 +179,7 @@ func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	// Supprimer l'utilisateur
 	if err := h.userRepo.Delete(userID); err != nil {
 		log.Printf("Erreur lors de la suppression de l'utilisateur: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -194,7 +195,7 @@ func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 // GetEvent retourne les détails d'un événement (admin)
 func (h *AdminHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -202,7 +203,7 @@ func (h *AdminHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
 		return
 	}
 
@@ -221,14 +222,14 @@ func (h *AdminHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 // GetEvents retourne la liste de tous les événements
 func (h *AdminHandler) GetEvents(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	events, err := h.eventRepo.FindAll()
 	if err != nil {
 		log.Printf("Erreur lors de la récupération des événements: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -240,13 +241,13 @@ func (h *AdminHandler) GetEvents(w http.ResponseWriter, r *http.Request) {
 // CreateEvent crée un nouvel événement
 func (h *AdminHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	var req models.CreateEventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -294,7 +295,7 @@ func (h *AdminHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 // UpdateEvent met à jour un événement
 func (h *AdminHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -302,14 +303,14 @@ func (h *AdminHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	eventID, err := primitive.ObjectIDFromHex(vars["id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
 		return
 	}
 
 	// Décoder la requête
 	var req models.UpdateEventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -351,7 +352,7 @@ func (h *AdminHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	// Mettre à jour
 	if err := h.eventRepo.Update(eventID, update); err != nil {
 		log.Printf("Erreur lors de la mise à jour de l'événement: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -359,7 +360,7 @@ func (h *AdminHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	updatedEvent, err := h.eventRepo.FindByID(eventID)
 	if err != nil || updatedEvent == nil {
 		log.Printf("Erreur lors de la récupération de l'événement: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -374,7 +375,7 @@ func (h *AdminHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 // DeleteEvent supprime un événement
 func (h *AdminHandler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -382,14 +383,14 @@ func (h *AdminHandler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	eventID, err := primitive.ObjectIDFromHex(vars["id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
 		return
 	}
 
 	// Supprimer l'événement
 	if err := h.eventRepo.Delete(eventID); err != nil {
 		log.Printf("Erreur lors de la suppression de l'événement: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -403,7 +404,7 @@ func (h *AdminHandler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
 // RecalculateEventCounters recalcule les compteurs d'un événement
 func (h *AdminHandler) RecalculateEventCounters(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -411,7 +412,7 @@ func (h *AdminHandler) RecalculateEventCounters(w http.ResponseWriter, r *http.R
 	vars := mux.Vars(r)
 	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
 		return
 	}
 
@@ -463,7 +464,7 @@ func (h *AdminHandler) RecalculateEventCounters(w http.ResponseWriter, r *http.R
 // GetStats retourne les statistiques globales
 func (h *AdminHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -516,7 +517,7 @@ func (h *AdminHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 // SendAdminNotification envoie une notification depuis l'espace admin
 func (h *AdminHandler) SendAdminNotification(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -528,7 +529,7 @@ func (h *AdminHandler) SendAdminNotification(w http.ResponseWriter, r *http.Requ
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -540,7 +541,7 @@ func (h *AdminHandler) SendAdminNotification(w http.ResponseWriter, r *http.Requ
 		allTokens, err := h.fcmTokenRepo.FindAll()
 		if err != nil {
 			log.Printf("Erreur récupération tokens: %v", err)
-			utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+			utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 			return
 		}
 		for _, t := range allTokens {
@@ -599,7 +600,7 @@ func generateRandomCode(length int) string {
 // GenerateCodeSoiree génère un nouveau code de soirée aléatoire
 func (h *AdminHandler) GenerateCodeSoiree(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -617,7 +618,7 @@ func (h *AdminHandler) GenerateCodeSoiree(w http.ResponseWriter, r *http.Request
 // GetCurrentCodeSoiree retourne le code de soirée actuel
 func (h *AdminHandler) GetCurrentCodeSoiree(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -625,7 +626,7 @@ func (h *AdminHandler) GetCurrentCodeSoiree(w http.ResponseWriter, r *http.Reque
 	code, err := h.codeSoireeRepo.FindCurrent()
 	if err != nil {
 		log.Printf("Erreur lors de la récupération du code actuel: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -644,7 +645,7 @@ func (h *AdminHandler) GetCurrentCodeSoiree(w http.ResponseWriter, r *http.Reque
 // GetAllCodesSoiree retourne tous les codes de soirée (admin uniquement)
 func (h *AdminHandler) GetAllCodesSoiree(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -652,7 +653,7 @@ func (h *AdminHandler) GetAllCodesSoiree(w http.ResponseWriter, r *http.Request)
 	codes, err := h.codeSoireeRepo.FindAll()
 	if err != nil {
 		log.Printf("Erreur lors de la récupération des codes de soirée: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 

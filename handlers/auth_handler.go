@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
@@ -44,21 +45,20 @@ func NewAuthHandler(db *mongo.Database, jwtSecret string, fcmService interface {
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	// Décoder la requête
 	var req models.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("❌ Erreur parsing JSON inscription: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		log.Printf("Erreur parsing JSON inscription: %v", err)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Logger les données reçues pour débogage
-	log.Printf("📥 Inscription reçue - Code: '%s', Email: '%s', Prénom: '%s', Nom: '%s'",
-		req.CodeSoiree, req.Email, req.Firstname, req.Lastname)
+	log.Println("Inscription reçue")
 
 	// Valider les données
 	if err := h.validateRegisterRequest(&req); err != nil {
@@ -67,26 +67,26 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Vérifier que le code soirée existe et est actif
-	log.Printf("🔍 Vérification du code soirée: '%s'", req.CodeSoiree)
+	log.Println("Vérification du code soirée")
 	codeValid, err := h.codeSoireeRepo.IsCodeValid(req.CodeSoiree)
 	if err != nil {
-		log.Printf("❌ Erreur lors de la vérification du code soirée '%s': %v", req.CodeSoiree, err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		log.Printf("Erreur lors de la vérification du code soirée: %v", err)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 	if !codeValid {
-		log.Printf("❌ Code soirée invalide ou inactif: '%s'", req.CodeSoiree)
+		log.Println("Code soirée invalide ou inactif")
 		utils.RespondError(w, http.StatusBadRequest, "Code de soirée invalide ou inactif")
 		return
 	}
 
-	log.Printf("✅ Code soirée valide: '%s'", req.CodeSoiree)
+	log.Println("Code soirée valide")
 
 	// Vérifier si l'email existe déjà
 	exists, err := h.userRepo.EmailExists(req.Email)
 	if err != nil {
 		log.Printf("Erreur lors de la vérification de l'email: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 	if exists {
@@ -98,7 +98,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
 		log.Printf("Erreur lors du hachage du mot de passe: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -129,7 +129,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	token, err := utils.GenerateToken(user.Email, user.Email, h.jwtSecret)
 	if err != nil {
 		log.Printf("Erreur lors de la génération du token: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -199,14 +199,14 @@ func (h *AuthHandler) notifyAdminsNewUser(user *models.User) {
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	// Décoder la requête
 	var req models.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -221,7 +221,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.userRepo.FindByEmail(email)
 	if err != nil {
 		log.Printf("Erreur lors de la recherche de l'utilisateur: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -240,7 +240,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	token, err := utils.GenerateToken(user.Email, user.Email, h.jwtSecret)
 	if err != nil {
 		log.Printf("Erreur lors de la génération du token: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -295,7 +295,7 @@ func (h *AuthHandler) validateLoginRequest(req *models.LoginRequest) error {
 func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
@@ -320,7 +320,7 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -344,7 +344,7 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		exists, err := h.userRepo.EmailExists(req.Email)
 		if err != nil {
 			log.Printf("Erreur vérification email: %v", err)
-			utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+			utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 			return
 		}
 		if exists {
@@ -401,7 +401,7 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		hashedPassword, err := utils.HashPassword(req.NewPassword)
 		if err != nil {
 			log.Printf("Erreur hachage mot de passe: %v", err)
-			utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+			utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 			return
 		}
 
@@ -420,7 +420,7 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	updatedUser, err := h.userRepo.FindByEmail(req.Email)
 	if err != nil || updatedUser == nil {
 		log.Printf("Erreur récupération utilisateur mis à jour: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
