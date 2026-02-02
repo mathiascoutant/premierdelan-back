@@ -139,7 +139,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		User:  *user,
 	}
 
-	log.Printf("✓ Nouvel utilisateur inscrit: %s (ID: %s)", user.Email, user.ID.Hex())
+	log.Println("Nouvel utilisateur inscrit")
 
 	utils.RespondJSON(w, http.StatusCreated, response)
 }
@@ -250,7 +250,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		User:  *user,
 	}
 
-	log.Printf("✓ Utilisateur connecté: %s (ID: %s)", user.Email, user.ID.Hex())
+	log.Println("Utilisateur connecté")
 	utils.RespondJSON(w, http.StatusOK, response)
 }
 
@@ -406,7 +406,7 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		}
 
 		updateData["password"] = hashedPassword
-		log.Printf("✅ Changement de mot de passe pour %s", userEmail)
+		log.Println("Changement de mot de passe effectué")
 	}
 
 	// Mettre à jour l'utilisateur
@@ -424,7 +424,7 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("✅ Profil mis à jour: %s", updatedUser.Email)
+	log.Println("Profil mis à jour")
 
 	// Réponse
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{

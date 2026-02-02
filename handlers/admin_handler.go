@@ -183,7 +183,7 @@ func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("✓ Utilisateur supprimé: ID %s", userID.Hex())
+	log.Println("Utilisateur supprimé")
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Utilisateur supprimé",
@@ -284,7 +284,7 @@ func (h *AdminHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("✓ Événement créé: %s (ID: %s)", event.Titre, event.ID.Hex())
+	log.Printf("Événement créé: %s", event.Titre)
 	utils.RespondJSON(w, http.StatusCreated, map[string]interface{}{
 		"success":   true,
 		"message":   "Événement créé avec succès",
@@ -364,7 +364,7 @@ func (h *AdminHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("✓ Événement modifié: %s (ID: %s)", updatedEvent.Titre, eventID.Hex())
+	log.Printf("Événement modifié: %s", updatedEvent.Titre)
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"success":   true,
 		"message":   "Événement modifié",
@@ -394,7 +394,7 @@ func (h *AdminHandler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("✓ Événement supprimé: ID %s", eventID.Hex())
+	log.Println("Événement supprimé")
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Événement supprimé",
@@ -607,7 +607,7 @@ func (h *AdminHandler) GenerateCodeSoiree(w http.ResponseWriter, r *http.Request
 	// Générer un code unique (l'admin l'utilisera lors de la création d'un événement)
 	code := generateRandomCode(10)
 
-	log.Printf("✓ Code soirée généré: %s", code)
+	log.Println("Code soirée généré")
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"code":       code,

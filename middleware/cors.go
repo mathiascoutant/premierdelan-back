@@ -3,6 +3,7 @@ package middleware
 import (
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"strings"
 )
 
@@ -19,43 +20,30 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
 			// Cela permet aux apps mobiles de fonctionner même sans origine
 			if origin == "" {
 				allowed = true
-				// Pour les requêtes sans origine, on peut définir * ou ne rien définir
-				// Mais on définit quand même les en-têtes pour permettre les requêtes
-				w.Header().Set("Access-Control-Allow-Origin", "*")
+				w.Header().Set(constants.HeaderAccessControlAllowOrigin, "*")
 			} else if allowed {
-				// Si l'origine est autorisée, l'utiliser explicitement
-				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set(constants.HeaderAccessControlAllowOrigin, origin)
 			} else {
-				// Si l'origine n'est pas autorisée, on la refuse mais on log pour le débogage
-				log.Printf("⚠️  CORS: Origine non autorisée: %s (URI: %s %s)", origin, r.Method, r.URL.Path)
-				// On définit quand même les en-têtes pour permettre au client de voir l'erreur
-				w.Header().Set("Access-Control-Allow-Origin", origin)
+				log.Printf("CORS: origine non autorisée (URI: %s %s)", r.Method, r.URL.Path)
+				w.Header().Set(constants.HeaderAccessControlAllowOrigin, origin)
 			}
 
-			// Toujours définir les en-têtes CORS nécessaires
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, ngrok-skip-browser-warning")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Max-Age", "3600")
 			w.Header().Set("Access-Control-Expose-Headers", "Content-Type, Authorization")
 
-			// Gérer les requêtes OPTIONS (preflight)
 			if r.Method == http.MethodOptions {
-				if allowed || origin == "" {
-					w.WriteHeader(http.StatusNoContent)
-				} else {
-					// Même si l'origine n'est pas autorisée, on répond avec 200 pour éviter les erreurs CORS
-					// Le vrai problème sera géré par le frontend
-					w.WriteHeader(http.StatusNoContent)
-				}
+				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 
 			// Pour les requêtes non-OPTIONS, continuer seulement si l'origine est autorisée ou si pas d'origine
 			if !allowed && origin != "" {
-				log.Printf("⚠️  CORS: Origine non autorisée: %s (URI: %s %s)", origin, r.Method, r.URL.Path)
+				log.Printf("CORS: origine non autorisée (URI: %s %s)", r.Method, r.URL.Path)
 				w.WriteHeader(http.StatusForbidden)
-				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set(constants.HeaderContentType, constants.HeaderApplicationJSON)
 				_, _ = w.Write([]byte(`{"error":"Forbidden","message":"Origine non autorisée"}`))
 				return
 			}

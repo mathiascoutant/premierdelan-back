@@ -28,7 +28,7 @@ if command -v govulncheck &> /dev/null; then
 else
     # Vérifier si Go bin est dans le PATH
     GOPATH=$(go env GOPATH)
-    if [ -f "$GOPATH/bin/govulncheck" ]; then
+    if [[ -f "$GOPATH/bin/govulncheck" ]]; then
         echo "✅ govulncheck installé dans $GOPATH/bin/govulncheck"
         echo ""
         echo "⚠️  Le répertoire Go bin n'est pas dans votre PATH"

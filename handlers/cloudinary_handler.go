@@ -65,11 +65,11 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 
 	// Log du Content-Type pour debugging
 	contentType := r.Header.Get("Content-Type")
-	log.Printf("📋 Content-Type reçu: %s", contentType)
+	log.Println("Content-Type reçu")
 
 	// Vérifier que le Content-Type est bien multipart/form-data
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
-		log.Printf("❌ Content-Type invalide: %s (attendu: multipart/form-data)", contentType)
+		log.Println("Content-Type invalide (attendu: multipart/form-data)")
 		utils.RespondError(w, http.StatusBadRequest, "Le Content-Type doit être multipart/form-data. Assurez-vous de ne pas définir explicitement le Content-Type côté frontend lors de l'envoi de FormData.")
 		return
 	}
@@ -112,7 +112,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	log.Printf("📤 Upload photo de profil pour %s (%s, %d bytes)", userEmail, fileContentType, header.Size)
+	log.Printf("Upload photo de profil (%d bytes)", header.Size)
 
 	// Récupérer l'utilisateur
 	user, err := h.userRepo.FindByEmail(userEmail)
@@ -130,7 +130,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	log.Printf("✅ Upload Cloudinary réussi: %s", cloudinaryURL)
+	log.Println("Upload Cloudinary réussi")
 
 	// Mettre à jour la base de données
 	updateData := map[string]interface{}{
@@ -151,7 +151,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	log.Printf("✅ Photo de profil mise à jour: %s", userEmail)
+	log.Println("Photo de profil mise à jour")
 
 	// Réponse
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
@@ -230,8 +230,8 @@ func (h *CloudinaryHandler) uploadToCloudinary(file multipart.File, userEmail, f
 
 	// Lire la réponse
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		log.Printf("❌ Cloudinary error: %s", string(bodyBytes))
+		_, _ = io.ReadAll(resp.Body)
+		log.Printf("Cloudinary error: %d", resp.StatusCode)
 		return "", fmt.Errorf("cloudinary returned status %d", resp.StatusCode)
 	}
 

@@ -71,7 +71,7 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	log.Printf("✓ Nouvel abonnement créé pour: %s", req.UserID)
+	log.Println("Nouvel abonnement créé")
 	utils.RespondSuccess(w, "Abonnement créé avec succès", subscription)
 }
 
@@ -97,7 +97,7 @@ func (h *NotificationHandler) Unsubscribe(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	log.Printf("✓ Abonnement supprimé: %s", req.Endpoint)
+	log.Println("Abonnement supprimé")
 	utils.RespondSuccess(w, "Désabonnement réussi", nil)
 }
 
@@ -178,30 +178,26 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 		})
 
 		if err != nil {
-			log.Printf("❌ Erreur lors de l'envoi de la notification à %s: %v", sub.UserID, err)
+			log.Printf("Erreur envoi notification: %v", err)
 			failed++
 
 			// Si l'endpoint n'est plus valide (410 Gone), supprimer l'abonnement
 			if resp != nil && resp.StatusCode == 410 {
-				log.Printf("🗑️  Suppression de l'abonnement invalide: %s", sub.Endpoint)
+				log.Println("Suppression abonnement invalide")
 				_ = h.subscriptionRepo.Delete(sub.Endpoint)
 			}
 			continue
 		}
 
 		if resp.StatusCode == 201 || resp.StatusCode == 200 {
-			log.Printf("✓ Notification envoyée à %s", sub.UserID)
+			log.Println("Notification envoyée")
 			sent++
 		} else {
-			// Lire le corps de la réponse pour voir l'erreur exacte
-			bodyBytes := make([]byte, 0)
 			if resp != nil && resp.Body != nil {
-				bodyBytes, _ = io.ReadAll(resp.Body)
+				_, _ = io.ReadAll(resp.Body)
 			}
-			log.Printf("⚠️  Réponse inattendue pour %s: %d - Body: %s", sub.UserID, resp.StatusCode, string(bodyBytes))
-			log.Printf("🔍 Endpoint: %s", sub.Endpoint)
-			log.Printf("🔍 VAPID Subject: %s", h.vapidSubject)
-			log.Printf("🔍 VAPID Public Key: %s", h.vapidPublicKey[:50]+"...")
+			log.Printf("Réponse inattendue: %d", resp.StatusCode)
+			log.Println("VAPID config utilisée")
 			failed++
 		}
 

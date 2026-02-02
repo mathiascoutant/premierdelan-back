@@ -195,7 +195,7 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 		"photos_count": int(totalMedias),
 	})
 
-	log.Printf("✓ Média ajouté: %s (%s) par %s", req.Filename, req.Type, req.UserEmail)
+	log.Printf("Média ajouté: %s (%s)", req.Filename, req.Type)
 
 	// NOUVEAU: Envoyer notification de galerie
 	go h.sendGalleryNotification(eventID, req.UserEmail, userName, req.URL)
@@ -271,7 +271,7 @@ func (h *MediaHandler) DeleteMedia(w http.ResponseWriter, r *http.Request) {
 		"photos_count": int(totalMedias),
 	})
 
-	log.Printf("✓ Média supprimé: %s par %s", media.Filename, claims.Email)
+	log.Printf("Média supprimé: %s", media.Filename)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"message":  "Média supprimé avec succès",
@@ -296,13 +296,13 @@ func (h *MediaHandler) sendGalleryNotification(eventID primitive.ObjectID, userE
 	}
 
 	if len(participants) == 0 {
-		log.Printf("ℹ️  Aucun participant trouvé pour l'événement %s", eventID.Hex())
+		log.Println("Aucun participant trouvé pour l'événement")
 		return
 	}
 
-	// Générer l'URL de preview avec flou
-	previewURL := h.generatePreviewURL(mediaURL)
-	log.Printf("🖼️  URL preview générée: %s", previewURL)
+	// Générer l'URL de preview avec flou (utilisée dans notificationData si besoin)
+	_ = h.generatePreviewURL(mediaURL)
+	log.Println("URL preview générée")
 
 	// Construire le message de notification
 	title := "Nouveau contenu ajouté"
@@ -326,7 +326,7 @@ func (h *MediaHandler) sendGalleryNotification(eventID primitive.ObjectID, userE
 		go h.cleanupInvalidTokens(failedTokens)
 	}
 
-	log.Printf("📱 Notification galerie envoyée: %s - %s - %d succès, %d échecs", userName, event.Titre, successCount, failedCount)
+	log.Printf("Notification galerie envoyée: %d succès, %d échecs", successCount, failedCount)
 }
 
 // getEventParticipants récupère les participants d'un événement (exclut l'utilisateur qui a ajouté)
@@ -347,7 +347,7 @@ func (h *MediaHandler) getEventParticipants(eventID primitive.ObjectID, excludeU
 		// Récupérer les tokens FCM de l'utilisateur depuis la collection fcm_tokens
 		tokens, err := h.fcmTokenRepo.FindByUserID(inscription.UserEmail)
 		if err != nil {
-			log.Printf("⚠️  Erreur récupération tokens FCM pour %s: %v", inscription.UserEmail, err)
+			log.Printf("Erreur récupération tokens FCM: %v", err)
 			continue
 		}
 
@@ -359,7 +359,7 @@ func (h *MediaHandler) getEventParticipants(eventID primitive.ObjectID, excludeU
 		}
 	}
 
-	log.Printf("📱 Participants trouvés: %d tokens pour l'événement %s", len(participants), eventID.Hex())
+	log.Printf("Participants trouvés: %d tokens pour l'événement", len(participants))
 	return participants, nil
 }
 
@@ -393,8 +393,8 @@ func (h *MediaHandler) generatePreviewURL(originalURL string) string {
 
 // cleanupInvalidTokens nettoie les tokens FCM invalides
 func (h *MediaHandler) cleanupInvalidTokens(failedTokens []string) {
-	for _, token := range failedTokens {
-		log.Printf("🧹 Nettoyage token invalide: %s", token)
+	for range failedTokens {
+		log.Println("Nettoyage token invalide")
 		// Ici on pourrait supprimer le token de la base de données
 		// Pour l'instant on log juste
 	}

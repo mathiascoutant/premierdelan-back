@@ -167,7 +167,7 @@ func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Re
 	// Recharger l'événement pour avoir les données à jour
 	event, _ = h.eventRepo.FindByID(eventID)
 
-	log.Printf("✓ Nouvelle inscription: %s à l'événement %s (%d personnes)", req.UserEmail, event.Titre, req.NombrePersonnes)
+	log.Printf("Nouvelle inscription à l'événement (%d personnes)", req.NombrePersonnes)
 
 	// Notifier les admins
 	go h.notifyAdminsNewInscription(req.UserEmail, event, req.NombrePersonnes)
@@ -345,7 +345,7 @@ func (h *InscriptionHandler) UpdateInscription(w http.ResponseWriter, r *http.Re
 	// Recharger l'événement
 	event, _ = h.eventRepo.FindByID(eventID)
 
-	log.Printf("✓ Inscription modifiée: %s (diff: %+d personnes)", req.UserEmail, difference)
+	log.Printf("Inscription modifiée (diff: %+d personnes)", difference)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"message":     "Inscription modifiée",
@@ -422,7 +422,7 @@ func (h *InscriptionHandler) DeleteInscription(w http.ResponseWriter, r *http.Re
 		event, _ = h.eventRepo.FindByID(eventID)
 	}
 
-	log.Printf("✓ Désinscription: %s (%d personnes libérées)", req.UserEmail, nombrePersonnes)
+	log.Printf("Désinscription (%d personnes libérées)", nombrePersonnes)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"message":                  "Désinscription réussie",
@@ -592,7 +592,7 @@ func (h *InscriptionHandler) DeleteInscriptionAdmin(w http.ResponseWriter, r *ht
 		event, _ = h.eventRepo.FindByID(eventID)
 	}
 
-	log.Printf("✓ Inscription supprimée par admin: %s (%d personnes)", inscription.UserEmail, nombrePersonnes)
+	log.Printf("Inscription supprimée par admin (%d personnes)", nombrePersonnes)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"message":                  "Inscription supprimée avec succès",
@@ -660,9 +660,6 @@ func (h *InscriptionHandler) DeleteAccompagnant(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Récupérer le nom de l'accompagnant avant suppression
-	accompagnantName := fmt.Sprintf("%s %s", inscription.Accompagnants[index].Firstname, inscription.Accompagnants[index].Lastname)
-
 	// Retirer l'accompagnant du tableau
 	inscription.Accompagnants = append(
 		inscription.Accompagnants[:index],
@@ -694,7 +691,7 @@ func (h *InscriptionHandler) DeleteAccompagnant(w http.ResponseWriter, r *http.R
 		event, _ = h.eventRepo.FindByID(eventID)
 	}
 
-	log.Printf("✓ Accompagnant supprimé par admin: %s de l'inscription %s", accompagnantName, inscription.UserEmail)
+	log.Println("Accompagnant supprimé par admin")
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"message":     "Accompagnant supprimé avec succès",
@@ -715,7 +712,7 @@ func (h *InscriptionHandler) notifyAdminsNewInscription(userEmail string, event 
 	// Récupérer l'utilisateur qui s'inscrit
 	user, err := h.userRepo.FindByEmail(userEmail)
 	if err != nil || user == nil {
-		log.Printf("⚠️  Impossible de récupérer l'utilisateur %s", userEmail)
+		log.Println("Impossible de récupérer l'utilisateur")
 		return
 	}
 
@@ -806,7 +803,7 @@ func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Req
 		// Récupérer l'événement
 		event, err := h.eventRepo.FindByID(inscription.EventID)
 		if err != nil {
-			log.Printf("Erreur récupération événement %s: %v", inscription.EventID.Hex(), err)
+			log.Printf("Erreur récupération événement: %v", err)
 			continue // Passer à l'inscription suivante
 		}
 
@@ -868,7 +865,7 @@ func (h *InscriptionHandler) VerifyCode(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	log.Printf("🔍 Vérification du code: %s", req.CodeSoiree)
+	log.Println("Vérification du code soirée")
 
 	// Vérifier si le code existe et est valide
 	isValid, err := h.codeRepo.IsCodeValid(req.CodeSoiree)
@@ -879,13 +876,13 @@ func (h *InscriptionHandler) VerifyCode(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if isValid {
-		log.Printf("✅ Code valide: %s", req.CodeSoiree)
+		log.Println("Code valide")
 		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 			"valid":   true,
 			"message": "Code d'accès valide",
 		})
 	} else {
-		log.Printf("❌ Code invalide: %s", req.CodeSoiree)
+		log.Println("Code invalide")
 		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 			"valid":   false,
 			"message": "Code d'accès invalide ou inexistant",

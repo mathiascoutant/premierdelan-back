@@ -98,7 +98,7 @@ func (h *GalleryNotificationHandler) SendGalleryNotification(w http.ResponseWrit
 		return
 	}
 
-	log.Printf("📱 Envoi notification galerie: %s - %d médias - %s", req.UserName, req.MediaCount, req.EventTitle)
+	log.Printf("Envoi notification galerie: %d médias", req.MediaCount)
 
 	// 1. Récupérer l'événement
 	event, err := h.eventRepo.FindByID(eventObjID)
@@ -117,7 +117,7 @@ func (h *GalleryNotificationHandler) SendGalleryNotification(w http.ResponseWrit
 	}
 
 	if len(participants) == 0 {
-		log.Printf("ℹ️  Aucun participant trouvé pour l'événement %s", eventID)
+		log.Println("Aucun participant trouvé pour l'événement")
 		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 			"success":            true,
 			"notifications_sent": 0,
@@ -128,7 +128,7 @@ func (h *GalleryNotificationHandler) SendGalleryNotification(w http.ResponseWrit
 
 	// 3. Générer l'URL de preview avec flou
 	previewURL := h.generatePreviewURL(req.MediaPreviewURL)
-	log.Printf("🖼️  URL preview générée: %s", previewURL)
+	log.Println("URL preview générée")
 
 	// 4. Construire le message de notification
 	title := "Nouveau contenu ajouté"
@@ -182,7 +182,7 @@ func (h *GalleryNotificationHandler) getEventParticipants(eventID primitive.Obje
 		// Récupérer les tokens FCM de l'utilisateur depuis la collection fcm_tokens
 		tokens, err := h.fcmTokenRepo.FindByUserID(inscription.UserEmail)
 		if err != nil {
-			log.Printf("⚠️  Erreur récupération tokens FCM pour %s: %v", inscription.UserEmail, err)
+			log.Printf("Erreur récupération tokens FCM: %v", err)
 			continue
 		}
 
@@ -194,7 +194,7 @@ func (h *GalleryNotificationHandler) getEventParticipants(eventID primitive.Obje
 		}
 	}
 
-	log.Printf("📱 Participants trouvés: %d tokens pour l'événement %s", len(participants), eventID.Hex())
+	log.Printf("Participants trouvés: %d tokens pour l'événement", len(participants))
 	return participants, nil
 }
 
@@ -236,8 +236,8 @@ func (h *GalleryNotificationHandler) buildNotificationMessage(userName string, m
 
 // cleanupInvalidTokens nettoie les tokens FCM invalides
 func (h *GalleryNotificationHandler) cleanupInvalidTokens(failedTokens []string) {
-	for _, token := range failedTokens {
-		log.Printf("🧹 Nettoyage token invalide: %s", token)
+	for range failedTokens {
+		log.Println("Nettoyage token invalide")
 		// Ici on pourrait supprimer le token de la base de données
 		// Pour l'instant on log juste
 	}

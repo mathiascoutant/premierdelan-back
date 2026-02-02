@@ -91,7 +91,7 @@ func (h *FCMHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("✓ Token FCM supprimé: %s...", req.FCMToken[:20])
+	log.Println("Token FCM supprimé")
 	utils.RespondSuccess(w, "Désabonnement réussi", nil)
 }
 
@@ -150,7 +150,7 @@ func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
 		if err := h.tokenRepo.Delete(failedToken); err != nil {
 			log.Printf("⚠️  Erreur lors de la suppression du token invalide: %v", err)
 		} else {
-			log.Printf("🗑️  Token invalide supprimé: %s...", failedToken[:20])
+			log.Println("Token invalide supprimé")
 		}
 	}
 
@@ -228,6 +228,6 @@ func (h *FCMHandler) SendToUser(w http.ResponseWriter, r *http.Request) {
 		FailedTokens: failedTokens,
 	}
 
-	log.Printf("📊 Notifications envoyées à %s: %d succès, %d échecs", req.UserID, success, failed)
+	log.Printf("Notifications envoyées: %d succès, %d échecs", success, failed)
 	utils.RespondSuccess(w, "Notifications envoyées", response)
 }

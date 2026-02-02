@@ -26,6 +26,7 @@ const (
 
 // En-têtes HTTP
 const (
-	HeaderContentType     = "Content-Type"
-	HeaderApplicationJSON = "application/json"
+	HeaderContentType              = "Content-Type"
+	HeaderApplicationJSON         = "application/json"
+	HeaderAccessControlAllowOrigin = "Access-Control-Allow-Origin"
 )

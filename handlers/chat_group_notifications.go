@@ -53,7 +53,7 @@ func (h *ChatGroupHandler) sendGroupInvitationNotification(group *models.ChatGro
 	// Envoyer via WebSocket (JSON direct)
 	h.wsHub.SendToUser(invitation.InvitedUser, payload)
 
-	log.Printf("📨 Notification WebSocket envoyée: group_invitation à %s", invitation.InvitedUser)
+	log.Println("Notification WebSocket envoyée: group_invitation")
 }
 
 // sendGroupInvitationFCM envoie une notification FCM d'invitation
@@ -86,7 +86,7 @@ func (h *ChatGroupHandler) sendGroupInvitationFCM(group *models.ChatGroup, invit
 		}
 	}
 
-	log.Printf("📱 Notification FCM envoyée: group_invitation à %s", invitedUser.Email)
+	log.Println("Notification FCM envoyée: group_invitation")
 }
 
 // notifyInvitationAccepted notifie l'admin que l'invitation a été acceptée
@@ -104,7 +104,7 @@ func (h *ChatGroupHandler) notifyInvitationAccepted(invitation *models.ChatGroup
 
 	h.wsHub.SendToUser(invitation.InvitedBy, payload)
 
-	log.Printf("📨 Notification: invitation acceptée par %s (groupe: %s)", user.Email, group.Name)
+	log.Printf("Notification: invitation acceptée (groupe: %s)", group.Name)
 }
 
 // notifyInvitationRejected notifie l'admin que l'invitation a été refusée
@@ -122,7 +122,7 @@ func (h *ChatGroupHandler) notifyInvitationRejected(invitation *models.ChatGroup
 
 	h.wsHub.SendToUser(invitation.InvitedBy, payload)
 
-	log.Printf("📨 Notification: invitation refusée par %s (groupe: %s)", user.Email, group.Name)
+	log.Printf("Notification: invitation refusée (groupe: %s)", group.Name)
 }
 
 // broadcastMemberJoined diffuse à tous les membres qu'un nouveau membre a rejoint
@@ -154,11 +154,11 @@ func (h *ChatGroupHandler) broadcastMemberJoined(group *models.ChatGroup, user *
 	// Envoyer à tous les membres (JSON direct)
 	// ✅ member.ID est maintenant l'email (corrigé dans GetMembers)
 	for _, member := range members {
-		log.Printf("📤 Envoi WS member_joined à %s", member.ID)
+		log.Println("Envoi WS member_joined")
 		h.wsHub.SendToUser(member.ID, payload) // ✅ Utiliser ID (qui est l'email)
 	}
 
-	log.Printf("📨 Notification diffusée: member_joined dans groupe %s", group.Name)
+	log.Printf("Notification diffusée: member_joined dans groupe %s", group.Name)
 }
 
 // broadcastGroupMessage diffuse un nouveau message à tous les membres connectés du groupe
@@ -179,11 +179,11 @@ func (h *ChatGroupHandler) broadcastGroupMessage(groupID primitive.ObjectID, mes
 	// Envoyer à TOUS les membres (y compris l'expéditeur) pour affichage correct
 	// ✅ member.ID est maintenant l'email (corrigé dans GetMembers)
 	for _, member := range members {
-		log.Printf("📤 Envoi WS new_group_message à %s", member.ID)
+		log.Println("Envoi WS new_group_message")
 		h.wsHub.SendToUser(member.ID, payload) // ✅ Utiliser ID (qui est l'email)
 	}
 
-	log.Printf("📨 Message diffusé dans le groupe %s", groupID.Hex())
+	log.Printf("Message diffusé dans le groupe %s", groupID.Hex())
 }
 
 // sendGroupMessageFCM envoie une notification FCM pour un nouveau message
@@ -255,7 +255,7 @@ func (h *ChatGroupHandler) broadcastMessagesRead(groupID primitive.ObjectID, use
 	// ✅ member.ID est maintenant l'email (corrigé dans GetMembers)
 	for _, member := range members {
 		if member.ID != userID { // ✅ Comparer avec ID (qui est maintenant l'email)
-			log.Printf("📤 Envoi WS messages_read à %s", member.ID)
+			log.Println("Envoi WS messages_read")
 			h.wsHub.SendToUser(member.ID, payload) // ✅ Utiliser ID (qui est l'email)
 		}
 	}

@@ -109,7 +109,7 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 			utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la vérification du créateur")
 			return
 		}
-		log.Printf("✓ Créateur ajouté comme membre admin du groupe %s", group.ID.Hex())
+		log.Println("Créateur ajouté comme membre admin du groupe")
 	} else {
 		log.Printf("⚠️ Le créateur est déjà membre du groupe (cas improbable)")
 	}
@@ -119,7 +119,7 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		// Vérifier que l'utilisateur existe
 		user, err := h.userRepo.FindByEmail(memberID)
 		if err != nil || user == nil {
-			log.Printf("Utilisateur non trouvé: %s", memberID)
+			log.Println("Utilisateur non trouvé")
 			continue
 		}
 
@@ -179,7 +179,7 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	log.Printf("✓ Groupe créé: %s par %s", group.Name, claims.UserID)
+	log.Printf("Groupe créé: %s", group.Name)
 	utils.RespondSuccess(w, "Groupe créé avec succès", map[string]interface{}{
 		"id":           group.ID.Hex(),
 		"name":         group.Name,
@@ -295,7 +295,7 @@ func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request)
 	h.sendGroupInvitationNotification(group, invitation, user)
 	h.sendGroupInvitationFCM(group, user)
 
-	log.Printf("✓ Invitation envoyée: %s -> %s (groupe: %s)", claims.Email, req.UserID, group.Name)
+	log.Printf("Invitation envoyée (groupe: %s)", group.Name)
 	utils.RespondSuccess(w, "Invitation envoyée", map[string]interface{}{
 		"invitation_id": invitation.ID.Hex(),
 	})
@@ -437,7 +437,7 @@ func (h *ChatGroupHandler) acceptInvitation(w http.ResponseWriter, invitation *m
 	// Notifier l'admin qui a invité
 	h.notifyInvitationAccepted(invitation, user, group)
 
-	log.Printf("✓ Invitation acceptée: %s a rejoint %s", userID, group.Name)
+	log.Printf("Invitation acceptée (groupe: %s)", group.Name)
 	utils.RespondSuccess(w, "Invitation acceptée", map[string]interface{}{
 		"group": map[string]interface{}{
 			"id":   group.ID.Hex(),
@@ -461,7 +461,7 @@ func (h *ChatGroupHandler) rejectInvitation(w http.ResponseWriter, invitation *m
 	// Notifier UNIQUEMENT l'admin qui a invité (silencieux)
 	h.notifyInvitationRejected(invitation, user, group)
 
-	log.Printf("✓ Invitation refusée: %s a refusé %s", userID, group.Name)
+	log.Printf("Invitation refusée (groupe: %s)", group.Name)
 	utils.RespondSuccess(w, "Invitation refusée", nil)
 }
 
@@ -591,11 +591,11 @@ func (h *ChatGroupHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
 	// Envoyer à tous les membres (JSON direct)
 	// ✅ member.ID est maintenant l'email (corrigé dans GetMembers)
 	for _, member := range members {
-		log.Printf("📤 Envoi WS group_member_left à %s", member.ID)
+		log.Println("Envoi WS group_member_left")
 		h.wsHub.SendToUser(member.ID, payload) // ✅ Utiliser ID (qui est l'email)
 	}
 
-	log.Printf("✓ %s a quitté le groupe %s", claims.Email, group.Name)
+	log.Printf("Utilisateur a quitté le groupe %s", group.Name)
 	utils.RespondSuccess(w, "Vous avez quitté le groupe", nil)
 }
 
@@ -680,7 +680,7 @@ func (h *ChatGroupHandler) CancelInvitation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	log.Printf("✓ Invitation annulée: %s", invitationID.Hex())
+	log.Println("Invitation annulée")
 	utils.RespondSuccess(w, "Invitation annulée", nil)
 }
 
@@ -743,12 +743,12 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	// Récupérer les infos de l'expéditeur (utiliser l'email normalisé)
 	sender, err := h.userRepo.FindByEmail(normalizedEmail)
 	if err != nil {
-		log.Printf("❌ Erreur récupération expéditeur %s (normalisé: %s): %v", claims.Email, normalizedEmail, err)
+		log.Printf("Erreur récupération expéditeur: %v", err)
 	}
 	if sender == nil {
-		log.Printf("⚠️ Expéditeur %s (normalisé: %s) non trouvé en base de données", claims.Email, normalizedEmail)
+		log.Println("Expéditeur non trouvé en base de données")
 	} else {
-		log.Printf("✅ Expéditeur trouvé: %s %s (%s)", sender.Firstname, sender.Lastname, sender.Email)
+		log.Println("Expéditeur trouvé")
 	}
 
 	messageWithSender := models.GroupMessageWithSender{
@@ -771,9 +771,9 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 			ProfilePicture:  sender.ProfileImageURL,
 			ProfileImageURL: sender.ProfileImageURL,
 		}
-		log.Printf("✅ Infos expéditeur ajoutées au message: %s %s", sender.Firstname, sender.Lastname)
+		log.Println("Infos expéditeur ajoutées au message")
 	} else {
-		log.Printf("⚠️ Aucune info expéditeur disponible pour %s", claims.Email)
+		log.Println("Aucune info expéditeur disponible")
 	}
 
 	// Diffuser via WebSocket
@@ -785,7 +785,7 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		h.sendGroupMessageFCM(group, sender, message)
 	}
 
-	log.Printf("✓ Message envoyé dans le groupe %s par %s", groupID.Hex(), claims.Email)
+	log.Printf("Message envoyé dans le groupe %s", groupID.Hex())
 	utils.RespondSuccess(w, "Message envoyé", messageWithSender)
 }
 
@@ -817,7 +817,7 @@ func (h *ChatGroupHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !isMember {
-		log.Printf("❌ User %s n'est PAS membre du groupe %s", claims.Email, groupID.Hex())
+		log.Printf("User n'est pas membre du groupe %s", groupID.Hex())
 		utils.RespondError(w, http.StatusForbidden, constants.ErrNotGroupMember)
 		return
 	}
@@ -926,7 +926,7 @@ func (h *ChatGroupHandler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 	// Notifier les autres membres via WebSocket
 	h.broadcastMessagesRead(groupID, claims.Email)
 
-	log.Printf("✓ Messages marqués comme lus dans le groupe %s par %s", groupID.Hex(), claims.Email)
+	log.Printf("Messages marqués comme lus dans le groupe %s", groupID.Hex())
 	utils.RespondSuccess(w, "Messages marqués comme lus", nil)
 }
 

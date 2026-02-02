@@ -250,8 +250,8 @@ func (h *EventTrailerHandler) deleteVideoFromCloudinary(publicID string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		log.Printf("⚠️  Cloudinary delete error: %s", string(bodyBytes))
+		_, _ = io.ReadAll(resp.Body)
+		log.Printf("Cloudinary delete error: %d", resp.StatusCode)
 		return fmt.Errorf("cloudinary delete returned status %d", resp.StatusCode)
 	}
 
