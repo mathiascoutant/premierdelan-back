@@ -102,6 +102,18 @@ cd /chemin/vers/back
 ./deploy.sh main  # pour la branche main (production)
 ```
 
+## SonarQube (analyse qualité + couverture)
+
+Un workflow dédié (`sonarqube.yml`) s'exécute à chaque push sur dev.
+
+**Secrets à ajouter :**
+- `SONAR_TOKEN` : Token depuis SonarQube > Mon compte > Sécurité
+- `SONAR_HOST_URL` : `https://sonarcloud.io` (ou l'URL de ton instance)
+
+La couverture de tests est générée via `go test -coverprofile=coverage.out`.
+
+---
+
 ## Vérifier le statut
 
 - **GitHub** : onglet **Actions** du dépôt
