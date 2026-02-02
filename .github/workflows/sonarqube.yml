@@ -43,5 +43,4 @@ jobs:
           args: >
             -Dsonar.projectKey=premierdelan-back
             -Dsonar.organization=mathiascoutant-1
-            -Dsonar.branch.name=${{ github.ref_name }}
             -Dsonar.go.coverage.reportPaths=coverage.out
