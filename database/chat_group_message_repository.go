@@ -77,17 +77,17 @@ func (r *ChatGroupMessageRepository) FindByGroupID(groupID primitive.ObjectID, l
 
 	// Pipeline d'agrégation pour joindre les infos de l'expéditeur
 	pipeline := []bson.M{
-		{"$match": filter},
+		{BSONMatch: filter},
 		{"$sort": bson.M{"created_at": -1}},
 		{"$limit": limit},
 		// Lookup conditionnnel : ne pas joindre si c'est un message système
 		{
-			"$lookup": bson.M{
+			BSONLookup: bson.M{
 				"from": "users",
 				"let":  bson.M{"sender_id": "$sender_id", "msg_type": "$message_type"},
 				"pipeline": []bson.M{
 					{
-						"$match": bson.M{
+						BSONMatch: bson.M{
 							"$expr": bson.M{
 								"$and": []bson.M{
 									{"$eq": []interface{}{"$email", "$$sender_id"}},
@@ -160,7 +160,7 @@ func (r *ChatGroupMessageRepository) GetLastMessageByGroup(groupID primitive.Obj
 	defer cancel()
 
 	pipeline := []bson.M{
-		{"$match": bson.M{"group_id": groupID}},
+		{BSONMatch: bson.M{"group_id": groupID}},
 		{"$sort": bson.M{"created_at": -1}},
 		{"$limit": 1},
 		{
@@ -169,7 +169,7 @@ func (r *ChatGroupMessageRepository) GetLastMessageByGroup(groupID primitive.Obj
 				"let":  bson.M{"sender_id": "$sender_id", "msg_type": "$message_type"},
 				"pipeline": []bson.M{
 					{
-						"$match": bson.M{
+						BSONMatch: bson.M{
 							"$expr": bson.M{
 								"$and": []bson.M{
 									{"$eq": []interface{}{"$email", "$$sender_id"}},
@@ -251,7 +251,9 @@ func (r *ChatGroupMessageRepository) MarkAsRead(groupID primitive.ObjectID, user
 	}
 
 	if err == nil {
-		update["$set"].(bson.M)["last_read_message_id"] = lastMessage.ID
+		if set, ok := update["$set"].(bson.M); ok {
+			set["last_read_message_id"] = lastMessage.ID
+		}
 	}
 
 	opts2 := options.Update().SetUpsert(true)

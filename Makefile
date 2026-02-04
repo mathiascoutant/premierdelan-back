@@ -1,4 +1,4 @@
-.PHONY: run build clean install dev test deps-check deps-update deps-vuln
+.PHONY: run build clean install dev test deps-check deps-update deps-vuln quality
 
 # Variables
 BINARY_NAME=backend
@@ -34,6 +34,21 @@ clean:
 test:
 	@echo "🧪 Exécution des tests..."
 	$(GO) test -v ./...
+
+# Qualité : exécute vet, lint et test
+quality:
+	@echo "🔍 Contrôle qualité du code..."
+	@$(GO) vet ./...
+	@echo "✓ go vet OK"
+	@GOLANGCI=$$(command -v golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint"); \
+	if [ -x "$$GOLANGCI" ]; then \
+		$$GOLANGCI run && echo "✓ golangci-lint OK"; \
+	else \
+		echo "⚠️  golangci-lint non installé (optionnel): go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+	fi
+	@$(GO) test ./... -count=1
+	@echo "✓ Tests OK"
+	@echo "✅ Contrôle qualité terminé"
 
 # Gestion des dépendances
 deps-check:
@@ -84,7 +99,15 @@ vet:
 
 lint:
 	@echo "🔍 Analyse du code avec golangci-lint..."
-	golangci-lint run
+	@GOLANGCI=$$(command -v golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint"); \
+	if [ -x "$$GOLANGCI" ]; then \
+		$$GOLANGCI run; \
+	else \
+		echo "⚠️  golangci-lint non installé"; \
+		echo "   Installation: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		echo "   Puis: export PATH=\$$PATH:$$(go env GOPATH)/bin"; \
+		exit 1; \
+	fi
 
 # Base de données
 db-create:
@@ -114,3 +137,4 @@ help:
 	@echo "  make fmt              - Formater le code"
 	@echo "  make vet              - Vérifier le code"
 	@echo "  make lint             - Analyser le code"
+	@echo "  make quality          - Vet + Lint + Tests"

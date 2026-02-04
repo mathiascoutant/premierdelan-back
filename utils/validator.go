@@ -57,16 +57,15 @@ func ValidatePhone(phone string) error {
 	phone = strings.ReplaceAll(phone, " ", "")
 	phone = strings.ReplaceAll(phone, ".", "")
 	phone = strings.ReplaceAll(phone, "-", "")
-	
+
 	if phone == "" {
 		return ValidationError{Field: "telephone", Message: "le numéro de téléphone est requis"}
 	}
-	
+
 	// Accepter les formats français courants
 	if !phoneRegex.MatchString(phone) && len(phone) < 10 {
 		return ValidationError{Field: "telephone", Message: "format de téléphone invalide"}
 	}
-	
+
 	return nil
 }
-

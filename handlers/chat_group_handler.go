@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
@@ -50,20 +51,20 @@ func NewChatGroupHandler(
 // CreateGroup crée un nouveau groupe
 func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	// Récupérer l'utilisateur authentifié
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	var req models.CreateGroupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -81,7 +82,7 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.groupRepo.Create(group); err != nil {
 		log.Printf("Erreur création groupe: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la création du groupe")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrCreateGroup)
 		return
 	}
 
@@ -97,7 +98,7 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 
 		if err := h.groupRepo.AddMember(member); err != nil {
 			log.Printf("❌ Erreur ajout créateur comme membre: %v", err)
-			utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de l'ajout du créateur")
+			utils.RespondError(w, http.StatusInternalServerError, constants.ErrAddCreator)
 			return
 		}
 
@@ -105,10 +106,10 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		isMember, err := h.groupRepo.IsMember(group.ID, claims.Email)
 		if err != nil || !isMember {
 			log.Printf("❌ Le créateur n'a pas été ajouté comme membre (vérification échouée)")
-			utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la vérification du créateur")
+			utils.RespondError(w, http.StatusInternalServerError, constants.ErrCheckCreator)
 			return
 		}
-		log.Printf("✓ Créateur ajouté comme membre admin du groupe %s", group.ID.Hex())
+		log.Println("Créateur ajouté comme membre admin du groupe")
 	} else {
 		log.Printf("⚠️ Le créateur est déjà membre du groupe (cas improbable)")
 	}
@@ -118,7 +119,7 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		// Vérifier que l'utilisateur existe
 		user, err := h.userRepo.FindByEmail(memberID)
 		if err != nil || user == nil {
-			log.Printf("Utilisateur non trouvé: %s", memberID)
+			log.Println("Utilisateur non trouvé")
 			continue
 		}
 
@@ -178,7 +179,7 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	log.Printf("✓ Groupe créé: %s par %s", group.Name, claims.UserID)
+	log.Println("Groupe créé")
 	utils.RespondSuccess(w, "Groupe créé avec succès", map[string]interface{}{
 		"id":           group.ID.Hex(),
 		"name":         group.Name,
@@ -190,14 +191,13 @@ func (h *ChatGroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 
 // GetGroups récupère tous les groupes de l'utilisateur
 func (h *ChatGroupHandler) GetGroups(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
@@ -205,7 +205,7 @@ func (h *ChatGroupHandler) GetGroups(w http.ResponseWriter, r *http.Request) {
 	groups, err := h.groupRepo.GetUserGroups(claims.Email, h.messageRepo.Collection())
 	if err != nil {
 		log.Printf("Erreur récupération groupes: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -217,13 +217,13 @@ func (h *ChatGroupHandler) GetGroups(w http.ResponseWriter, r *http.Request) {
 // InviteToGroup invite un utilisateur dans un groupe
 func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
@@ -231,27 +231,27 @@ func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request)
 	vars := mux.Vars(r)
 	groupID, err := primitive.ObjectIDFromHex(vars["group_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID de groupe invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidGroupID)
 		return
 	}
 
 	var req models.InviteToGroupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Vérifier que l'utilisateur est membre du groupe (tous les membres peuvent inviter)
 	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
 	if err != nil || !isMember {
-		utils.RespondError(w, http.StatusForbidden, "Seuls les membres peuvent inviter")
+		utils.RespondError(w, http.StatusForbidden, constants.ErrInviteMembersOnly)
 		return
 	}
 
 	// Vérifier que le groupe existe
 	group, err := h.groupRepo.FindByID(groupID)
 	if err != nil || group == nil {
-		utils.RespondError(w, http.StatusNotFound, "Groupe non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrGroupNotFound)
 		return
 	}
 
@@ -265,14 +265,14 @@ func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request)
 	// Vérifier que l'utilisateur n'est pas déjà membre
 	isAlreadyMember, _ := h.groupRepo.IsMember(groupID, req.UserID)
 	if isAlreadyMember {
-		utils.RespondError(w, http.StatusConflict, "Cet utilisateur est déjà membre")
+		utils.RespondError(w, http.StatusConflict, constants.ErrUserAlreadyMember)
 		return
 	}
 
 	// Vérifier qu'il n'y a pas déjà une invitation en attente
 	hasPending, _ := h.invitationRepo.HasPendingInvitation(groupID, req.UserID)
 	if hasPending {
-		utils.RespondError(w, http.StatusConflict, "Une invitation est déjà en attente")
+		utils.RespondError(w, http.StatusConflict, constants.ErrInvitationPending)
 		return
 	}
 
@@ -286,7 +286,7 @@ func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request)
 
 	if err := h.invitationRepo.Create(invitation); err != nil {
 		log.Printf("Erreur création invitation: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -294,7 +294,7 @@ func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request)
 	h.sendGroupInvitationNotification(group, invitation, user)
 	h.sendGroupInvitationFCM(group, user)
 
-	log.Printf("✓ Invitation envoyée: %s -> %s (groupe: %s)", claims.Email, req.UserID, group.Name)
+	log.Printf("Invitation envoyée (groupe: %s)", group.Name)
 	utils.RespondSuccess(w, "Invitation envoyée", map[string]interface{}{
 		"invitation_id": invitation.ID.Hex(),
 	})
@@ -302,14 +302,13 @@ func (h *ChatGroupHandler) InviteToGroup(w http.ResponseWriter, r *http.Request)
 
 // GetPendingInvitations récupère les invitations en attente de l'utilisateur
 func (h *ChatGroupHandler) GetPendingInvitations(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
@@ -317,7 +316,7 @@ func (h *ChatGroupHandler) GetPendingInvitations(w http.ResponseWriter, r *http.
 	invitations, err := h.invitationRepo.FindPendingByUser(claims.Email)
 	if err != nil {
 		log.Printf("Erreur récupération invitations: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -329,13 +328,13 @@ func (h *ChatGroupHandler) GetPendingInvitations(w http.ResponseWriter, r *http.
 // RespondToInvitation répond à une invitation (accepter/refuser)
 func (h *ChatGroupHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
@@ -343,13 +342,13 @@ func (h *ChatGroupHandler) RespondToInvitation(w http.ResponseWriter, r *http.Re
 	vars := mux.Vars(r)
 	invitationID, err := primitive.ObjectIDFromHex(vars["invitation_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID d'invitation invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvitationInvalidID)
 		return
 	}
 
 	var req models.RespondToGroupInvitationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -362,26 +361,26 @@ func (h *ChatGroupHandler) RespondToInvitation(w http.ResponseWriter, r *http.Re
 	// Récupérer l'invitation
 	invitation, err := h.invitationRepo.FindByID(invitationID)
 	if err != nil || invitation == nil {
-		utils.RespondError(w, http.StatusNotFound, "Invitation non trouvée")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrInvitationNotFound)
 		return
 	}
 
 	// Vérifier que c'est bien l'utilisateur invité (invited_user en DB est un email)
 	if invitation.InvitedUser != claims.Email {
-		utils.RespondError(w, http.StatusForbidden, "Cette invitation ne vous est pas destinée")
+		utils.RespondError(w, http.StatusForbidden, constants.ErrInvitationNotForYou)
 		return
 	}
 
 	// Vérifier que l'invitation est en attente
 	if invitation.Status != "pending" {
-		utils.RespondError(w, http.StatusConflict, "Cette invitation a déjà été traitée")
+		utils.RespondError(w, http.StatusConflict, constants.ErrInvitationAlreadyDone)
 		return
 	}
 
 	// Récupérer le groupe
 	group, err := h.groupRepo.FindByID(invitation.GroupID)
 	if err != nil || group == nil {
-		utils.RespondError(w, http.StatusNotFound, "Groupe non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrGroupNotFound)
 		return
 	}
 
@@ -398,7 +397,7 @@ func (h *ChatGroupHandler) acceptInvitation(w http.ResponseWriter, invitation *m
 	// Mettre à jour l'invitation
 	if err := h.invitationRepo.UpdateStatus(invitation.ID, "accepted"); err != nil {
 		log.Printf("Erreur mise à jour invitation: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -411,7 +410,7 @@ func (h *ChatGroupHandler) acceptInvitation(w http.ResponseWriter, invitation *m
 
 	if err := h.groupRepo.AddMember(member); err != nil {
 		log.Printf("Erreur ajout membre: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -436,7 +435,7 @@ func (h *ChatGroupHandler) acceptInvitation(w http.ResponseWriter, invitation *m
 	// Notifier l'admin qui a invité
 	h.notifyInvitationAccepted(invitation, user, group)
 
-	log.Printf("✓ Invitation acceptée: %s a rejoint %s", userID, group.Name)
+	log.Printf("Invitation acceptée (groupe: %s)", group.Name)
 	utils.RespondSuccess(w, "Invitation acceptée", map[string]interface{}{
 		"group": map[string]interface{}{
 			"id":   group.ID.Hex(),
@@ -450,7 +449,7 @@ func (h *ChatGroupHandler) rejectInvitation(w http.ResponseWriter, invitation *m
 	// Mettre à jour l'invitation
 	if err := h.invitationRepo.UpdateStatus(invitation.ID, "rejected"); err != nil {
 		log.Printf("Erreur mise à jour invitation: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -460,34 +459,33 @@ func (h *ChatGroupHandler) rejectInvitation(w http.ResponseWriter, invitation *m
 	// Notifier UNIQUEMENT l'admin qui a invité (silencieux)
 	h.notifyInvitationRejected(invitation, user, group)
 
-	log.Printf("✓ Invitation refusée: %s a refusé %s", userID, group.Name)
+	log.Printf("Invitation refusée (groupe: %s)", group.Name)
 	utils.RespondSuccess(w, "Invitation refusée", nil)
 }
 
 // GetGroupMembers récupère les membres d'un groupe
 func (h *ChatGroupHandler) GetGroupMembers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	vars := mux.Vars(r)
 	groupID, err := primitive.ObjectIDFromHex(vars["group_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID de groupe invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidGroupID)
 		return
 	}
 
 	// Vérifier que l'utilisateur est membre (user_id en DB est un email)
 	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
 	if err != nil || !isMember {
-		utils.RespondError(w, http.StatusForbidden, "Vous n'êtes pas membre de ce groupe")
+		utils.RespondError(w, http.StatusForbidden, constants.ErrNotGroupMember)
 		return
 	}
 
@@ -495,7 +493,7 @@ func (h *ChatGroupHandler) GetGroupMembers(w http.ResponseWriter, r *http.Reques
 	members, err := h.groupRepo.GetMembers(groupID)
 	if err != nil {
 		log.Printf("Erreur récupération membres: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -514,34 +512,34 @@ func (h *ChatGroupHandler) GetGroupMembers(w http.ResponseWriter, r *http.Reques
 // LeaveGroup permet à un utilisateur de quitter un groupe
 func (h *ChatGroupHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	vars := mux.Vars(r)
 	groupID, err := primitive.ObjectIDFromHex(vars["group_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID de groupe invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidGroupID)
 		return
 	}
 
 	// Vérifier que l'utilisateur est membre (user_id en DB est un email)
 	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
 	if err != nil || !isMember {
-		utils.RespondError(w, http.StatusForbidden, "Vous n'êtes pas membre de ce groupe")
+		utils.RespondError(w, http.StatusForbidden, constants.ErrNotGroupMember)
 		return
 	}
 
 	// Récupérer le groupe
 	group, err := h.groupRepo.FindByID(groupID)
 	if err != nil || group == nil {
-		utils.RespondError(w, http.StatusNotFound, "Groupe non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrGroupNotFound)
 		return
 	}
 
@@ -555,7 +553,7 @@ func (h *ChatGroupHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
 	// Retirer l'utilisateur du groupe
 	if err := h.groupRepo.RemoveMember(groupID, claims.Email); err != nil {
 		log.Printf("Erreur suppression membre: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -590,38 +588,37 @@ func (h *ChatGroupHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
 	// Envoyer à tous les membres (JSON direct)
 	// ✅ member.ID est maintenant l'email (corrigé dans GetMembers)
 	for _, member := range members {
-		log.Printf("📤 Envoi WS group_member_left à %s", member.ID)
+		log.Println("Envoi WS group_member_left")
 		h.wsHub.SendToUser(member.ID, payload) // ✅ Utiliser ID (qui est l'email)
 	}
 
-	log.Printf("✓ %s a quitté le groupe %s", claims.Email, group.Name)
+	log.Printf("Utilisateur a quitté le groupe %s", group.Name)
 	utils.RespondSuccess(w, "Vous avez quitté le groupe", nil)
 }
 
 // GetGroupPendingInvitations récupère les invitations en attente d'un groupe (admin seulement)
 func (h *ChatGroupHandler) GetGroupPendingInvitations(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	vars := mux.Vars(r)
 	groupID, err := primitive.ObjectIDFromHex(vars["group_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID de groupe invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidGroupID)
 		return
 	}
 
 	// Vérifier que l'utilisateur est membre (tous les membres peuvent voir les invitations)
 	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
 	if err != nil || !isMember {
-		utils.RespondError(w, http.StatusForbidden, "Seuls les membres peuvent voir les invitations")
+		utils.RespondError(w, http.StatusForbidden, constants.ErrInvitationsMembersOnly)
 		return
 	}
 
@@ -629,7 +626,7 @@ func (h *ChatGroupHandler) GetGroupPendingInvitations(w http.ResponseWriter, r *
 	invitations, err := h.invitationRepo.FindPendingByGroup(groupID)
 	if err != nil {
 		log.Printf("Erreur récupération invitations: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -640,85 +637,84 @@ func (h *ChatGroupHandler) GetGroupPendingInvitations(w http.ResponseWriter, r *
 
 // CancelInvitation annule une invitation (admin seulement)
 func (h *ChatGroupHandler) CancelInvitation(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodDelete) {
 		return
 	}
 
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	vars := mux.Vars(r)
 	invitationID, err := primitive.ObjectIDFromHex(vars["invitation_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID d'invitation invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvitationInvalidID)
 		return
 	}
 
 	// Récupérer l'invitation
 	invitation, err := h.invitationRepo.FindByID(invitationID)
 	if err != nil || invitation == nil {
-		utils.RespondError(w, http.StatusNotFound, "Invitation non trouvée")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrInvitationNotFound)
 		return
 	}
 
 	// Vérifier que l'utilisateur est admin du groupe
 	isAdmin, err := h.groupRepo.IsAdmin(invitation.GroupID, claims.UserID)
 	if err != nil || !isAdmin {
-		utils.RespondError(w, http.StatusForbidden, "Seuls les admins peuvent annuler des invitations")
+		utils.RespondError(w, http.StatusForbidden, constants.ErrInvitationsAdminCancel)
 		return
 	}
 
 	// Supprimer l'invitation
 	if err := h.invitationRepo.Delete(invitationID); err != nil {
 		log.Printf("Erreur suppression invitation: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
-	log.Printf("✓ Invitation annulée: %s", invitationID.Hex())
+	log.Println("Invitation annulée")
 	utils.RespondSuccess(w, "Invitation annulée", nil)
 }
 
 // SendMessage envoie un message dans un groupe
 func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	vars := mux.Vars(r)
 	groupID, err := primitive.ObjectIDFromHex(vars["group_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID de groupe invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidGroupID)
 		return
 	}
 
 	var req models.SendGroupMessageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Valider
 	if req.Content == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Le contenu est requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMessageContentRequired)
 		return
 	}
 
 	// Vérifier que l'utilisateur est membre (user_id en DB est un email)
 	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
 	if err != nil || !isMember {
-		utils.RespondError(w, http.StatusForbidden, "Vous n'êtes pas membre de ce groupe")
+		utils.RespondError(w, http.StatusForbidden, constants.ErrNotGroupMember)
 		return
 	}
 
@@ -735,19 +731,19 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.messageRepo.Create(message); err != nil {
 		log.Printf("Erreur création message: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
 	// Récupérer les infos de l'expéditeur (utiliser l'email normalisé)
 	sender, err := h.userRepo.FindByEmail(normalizedEmail)
 	if err != nil {
-		log.Printf("❌ Erreur récupération expéditeur %s (normalisé: %s): %v", claims.Email, normalizedEmail, err)
+		log.Printf("Erreur récupération expéditeur: %v", err)
 	}
 	if sender == nil {
-		log.Printf("⚠️ Expéditeur %s (normalisé: %s) non trouvé en base de données", claims.Email, normalizedEmail)
+		log.Println("Expéditeur non trouvé en base de données")
 	} else {
-		log.Printf("✅ Expéditeur trouvé: %s %s (%s)", sender.Firstname, sender.Lastname, sender.Email)
+		log.Println("Expéditeur trouvé")
 	}
 
 	messageWithSender := models.GroupMessageWithSender{
@@ -770,9 +766,9 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 			ProfilePicture:  sender.ProfileImageURL,
 			ProfileImageURL: sender.ProfileImageURL,
 		}
-		log.Printf("✅ Infos expéditeur ajoutées au message: %s %s", sender.Firstname, sender.Lastname)
+		log.Println("Infos expéditeur ajoutées au message")
 	} else {
-		log.Printf("⚠️ Aucune info expéditeur disponible pour %s", claims.Email)
+		log.Println("Aucune info expéditeur disponible")
 	}
 
 	// Diffuser via WebSocket
@@ -784,27 +780,26 @@ func (h *ChatGroupHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		h.sendGroupMessageFCM(group, sender, message)
 	}
 
-	log.Printf("✓ Message envoyé dans le groupe %s par %s", groupID.Hex(), claims.Email)
+	log.Printf("Message envoyé dans le groupe %s", groupID.Hex())
 	utils.RespondSuccess(w, "Message envoyé", messageWithSender)
 }
 
 // GetMessages récupère les messages d'un groupe
 func (h *ChatGroupHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	vars := mux.Vars(r)
 	groupID, err := primitive.ObjectIDFromHex(vars["group_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID de groupe invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidGroupID)
 		return
 	}
 
@@ -812,12 +807,12 @@ func (h *ChatGroupHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
 	if err != nil {
 		log.Printf("❌ Erreur IsMember: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 	if !isMember {
-		log.Printf("❌ User %s n'est PAS membre du groupe %s", claims.Email, groupID.Hex())
-		utils.RespondError(w, http.StatusForbidden, "Vous n'êtes pas membre de ce groupe")
+		log.Printf("User n'est pas membre du groupe %s", groupID.Hex())
+		utils.RespondError(w, http.StatusForbidden, constants.ErrNotGroupMember)
 		return
 	}
 
@@ -847,7 +842,7 @@ func (h *ChatGroupHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	messages, err := h.messageRepo.FindByGroupID(groupID, limit, before)
 	if err != nil {
 		log.Printf("❌ Erreur récupération messages: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -891,60 +886,59 @@ func (h *ChatGroupHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 // MarkAsRead marque les messages d'un groupe comme lus
 func (h *ChatGroupHandler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	vars := mux.Vars(r)
 	groupID, err := primitive.ObjectIDFromHex(vars["group_id"])
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID de groupe invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidGroupID)
 		return
 	}
 
 	// Vérifier que l'utilisateur est membre (user_id en DB est un email)
 	isMember, err := h.groupRepo.IsMember(groupID, claims.Email)
 	if err != nil || !isMember {
-		utils.RespondError(w, http.StatusForbidden, "Vous n'êtes pas membre de ce groupe")
+		utils.RespondError(w, http.StatusForbidden, constants.ErrNotGroupMember)
 		return
 	}
 
 	// Marquer comme lu
 	if err := h.messageRepo.MarkAsRead(groupID, claims.Email); err != nil {
 		log.Printf("Erreur marquage comme lu: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
 	// Notifier les autres membres via WebSocket
 	h.broadcastMessagesRead(groupID, claims.Email)
 
-	log.Printf("✓ Messages marqués comme lus dans le groupe %s par %s", groupID.Hex(), claims.Email)
+	log.Printf("Messages marqués comme lus dans le groupe %s", groupID.Hex())
 	utils.RespondSuccess(w, "Messages marqués comme lus", nil)
 }
 
 // SearchUsers recherche des utilisateurs (pour inviter)
 func (h *ChatGroupHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	query := r.URL.Query().Get("q")
 	if len(query) < 2 {
-		utils.RespondError(w, http.StatusBadRequest, "La recherche doit contenir au moins 2 caractères")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrSearchMinChars)
 		return
 	}
 
@@ -960,7 +954,7 @@ func (h *ChatGroupHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.userRepo.SearchUsers(query, limit, claims.UserID)
 	if err != nil {
 		log.Printf("Erreur recherche utilisateurs: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 

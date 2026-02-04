@@ -32,10 +32,9 @@ type CreateMediaRequest struct {
 
 // MediasResponse représente la réponse de liste des médias
 type MediasResponse struct {
-	EventID      string  `json:"event_id"`
-	TotalMedias  int     `json:"total_medias"`
-	TotalImages  int     `json:"total_images"`
-	TotalVideos  int     `json:"total_videos"`
-	Medias       []Media `json:"medias"`
+	EventID     string  `json:"event_id"`
+	TotalMedias int     `json:"total_medias"`
+	TotalImages int     `json:"total_images"`
+	TotalVideos int     `json:"total_videos"`
+	Medias      []Media `json:"medias"`
 }
-

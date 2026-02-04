@@ -1,0 +1,45 @@
+# Analyse SonarQube avec couverture de tests
+# Déclenché à chaque push sur main uniquement
+#
+# Secrets requis:
+#   SONAR_TOKEN    - Généré dans SonarQube > Mon compte > Sécurité
+#   SONAR_HOST_URL - https://sonarcloud.io (ou l'URL de ton instance)
+
+name: SonarQube
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Déclenchement manuel depuis GitHub Actions
+
+jobs:
+  sonarqube:
+    name: Analyse SonarQube
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: go.sum
+
+      - name: Tests avec couverture
+        run: go test ./... -coverprofile=coverage.out -covermode=atomic
+
+      - name: Analyse SonarQube
+        uses: SonarSource/sonarqube-scan-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=premierdelan-back
+            -Dsonar.organization=mathiascoutant-1
+            -Dsonar.go.coverage.reportPaths=coverage.out

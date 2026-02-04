@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/models"
 	"premier-an-backend/utils"
@@ -33,14 +34,13 @@ func NewNotificationHandler(db *mongo.Database, vapidPublicKey, vapidPrivateKey,
 
 // Subscribe permet à un utilisateur de s'abonner aux notifications
 func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
 	var req models.SubscribeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -48,7 +48,7 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 	existing, err := h.subscriptionRepo.FindByEndpoint(req.Subscription.Endpoint)
 	if err != nil {
 		log.Printf("Erreur lors de la vérification de l'abonnement: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -66,18 +66,17 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 
 	if err := h.subscriptionRepo.Create(subscription); err != nil {
 		log.Printf("Erreur lors de la création de l'abonnement: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la création de l'abonnement")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrSubscriptionCreate)
 		return
 	}
 
-	log.Printf("✓ Nouvel abonnement créé pour: %s", req.UserID)
+	log.Println("Nouvel abonnement créé")
 	utils.RespondSuccess(w, "Abonnement créé avec succès", subscription)
 }
 
 // Unsubscribe permet à un utilisateur de se désabonner
 func (h *NotificationHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -86,30 +85,29 @@ func (h *NotificationHandler) Unsubscribe(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	if err := h.subscriptionRepo.Delete(req.Endpoint); err != nil {
 		log.Printf("Erreur lors de la suppression de l'abonnement: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
-	log.Printf("✓ Abonnement supprimé: %s", req.Endpoint)
+	log.Println("Abonnement supprimé")
 	utils.RespondSuccess(w, "Désabonnement réussi", nil)
 }
 
 // SendTestNotification envoie une notification de test à tous les abonnés
 func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
 	var req models.NotificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -117,13 +115,13 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 	subscriptions, err := h.subscriptionRepo.FindAll()
 	if err != nil {
 		log.Printf("Erreur lors de la récupération des abonnements: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
 	if len(subscriptions) == 0 {
 		utils.RespondSuccess(w, "Aucun abonné trouvé", map[string]interface{}{
-			"sent": 0,
+			"sent":  0,
 			"total": 0,
 		})
 		return
@@ -134,7 +132,7 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 	if title == "" {
 		title = "Nouvelle notification"
 	}
-	
+
 	message := req.Message
 	if message == "" {
 		message = "Vous avez reçu une nouvelle notification"
@@ -151,7 +149,7 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		log.Printf("Erreur lors de la création du payload: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -177,30 +175,26 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 		})
 
 		if err != nil {
-			log.Printf("❌ Erreur lors de l'envoi de la notification à %s: %v", sub.UserID, err)
+			log.Printf("Erreur envoi notification: %v", err)
 			failed++
-			
+
 			// Si l'endpoint n'est plus valide (410 Gone), supprimer l'abonnement
 			if resp != nil && resp.StatusCode == 410 {
-				log.Printf("🗑️  Suppression de l'abonnement invalide: %s", sub.Endpoint)
+				log.Println("Suppression abonnement invalide")
 				_ = h.subscriptionRepo.Delete(sub.Endpoint)
 			}
 			continue
 		}
 
 		if resp.StatusCode == 201 || resp.StatusCode == 200 {
-			log.Printf("✓ Notification envoyée à %s", sub.UserID)
+			log.Println("Notification envoyée")
 			sent++
 		} else {
-			// Lire le corps de la réponse pour voir l'erreur exacte
-			bodyBytes := make([]byte, 0)
 			if resp != nil && resp.Body != nil {
-				bodyBytes, _ = io.ReadAll(resp.Body)
+				_, _ = io.ReadAll(resp.Body)
 			}
-			log.Printf("⚠️  Réponse inattendue pour %s: %d - Body: %s", sub.UserID, resp.StatusCode, string(bodyBytes))
-			log.Printf("🔍 Endpoint: %s", sub.Endpoint)
-			log.Printf("🔍 VAPID Subject: %s", h.vapidSubject)
-			log.Printf("🔍 VAPID Public Key: %s", h.vapidPublicKey[:50]+"...")
+			log.Printf("Réponse inattendue: %d", resp.StatusCode)
+			log.Println("VAPID config utilisée")
 			failed++
 		}
 
@@ -220,8 +214,7 @@ func (h *NotificationHandler) SendTestNotification(w http.ResponseWriter, r *htt
 
 // GetVAPIDPublicKey retourne la clé publique VAPID
 func (h *NotificationHandler) GetVAPIDPublicKey(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -229,4 +222,3 @@ func (h *NotificationHandler) GetVAPIDPublicKey(w http.ResponseWriter, r *http.R
 		"publicKey": h.vapidPublicKey,
 	})
 }
-

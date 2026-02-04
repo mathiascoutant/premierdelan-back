@@ -62,4 +62,3 @@ func ValidateToken(tokenString string, secret string) (*Claims, error) {
 
 	return claims, nil
 }
-

@@ -50,7 +50,7 @@ func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 
 	var user models.User
 	err := r.collection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
-	
+
 	if err == mongo.ErrNoDocuments {
 		return nil, nil
 	}
@@ -69,7 +69,7 @@ func (r *UserRepository) FindByID(id primitive.ObjectID) (*models.User, error) {
 
 	var user models.User
 	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&user)
-	
+
 	if err == mongo.ErrNoDocuments {
 		return nil, nil
 	}
@@ -161,7 +161,7 @@ func (r *UserRepository) UpdateLastSeen(userID primitive.ObjectID) error {
 		bson.M{"_id": userID},
 		bson.M{"$set": bson.M{"last_seen": now}},
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("erreur mise à jour last_seen: %w", err)
 	}

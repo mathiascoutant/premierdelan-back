@@ -43,16 +43,15 @@ func DecodeVAPIDPrivateKey(privateKey string) (*ecdsa.PrivateKey, error) {
 
 	curve := elliptic.P256()
 	d := new(big.Int).SetBytes(decoded)
-	
+
 	priv := &ecdsa.PrivateKey{
 		PublicKey: ecdsa.PublicKey{
 			Curve: curve,
 		},
 		D: d,
 	}
-	
+
 	priv.PublicKey.X, priv.PublicKey.Y = curve.ScalarBaseMult(decoded)
-	
+
 	return priv, nil
 }
-

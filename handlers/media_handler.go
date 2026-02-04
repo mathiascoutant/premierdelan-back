@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
@@ -52,23 +53,18 @@ func NewMediaHandler(
 
 // GetMedias retourne tous les médias d'un événement (PUBLIC)
 func (h *MediaHandler) GetMedias(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
 	// Vérifier que l'événement existe
 	event, err := h.eventRepo.FindByID(eventID)
 	if err != nil || event == nil {
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
 		return
 	}
 
@@ -76,7 +72,7 @@ func (h *MediaHandler) GetMedias(w http.ResponseWriter, r *http.Request) {
 	medias, err := h.mediaRepo.FindByEvent(eventID)
 	if err != nil {
 		log.Printf("Erreur récupération médias: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -105,46 +101,41 @@ func (h *MediaHandler) GetMedias(w http.ResponseWriter, r *http.Request) {
 
 // CreateMedia enregistre un média après upload Firebase
 func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
 	// Vérifier que l'événement existe
 	event, err := h.eventRepo.FindByID(eventID)
 	if err != nil || event == nil {
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
 		return
 	}
 
 	// Décoder la requête
 	var req models.CreateMediaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Validations
 	if req.UserEmail == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Email utilisateur requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrUserEmailRequired)
 		return
 	}
 
 	if req.Type != "image" && req.Type != "video" {
-		utils.RespondError(w, http.StatusBadRequest, "Type de média invalide. Utilisez 'image' ou 'video'.")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMediaTypeInvalid)
 		return
 	}
 
 	if req.URL == "" {
-		utils.RespondError(w, http.StatusBadRequest, "URL du média requise")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMediaURLRequired)
 		return
 	}
 
@@ -152,14 +143,14 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 	validURL := strings.HasPrefix(req.URL, "https://firebasestorage.googleapis.com") ||
 		strings.HasPrefix(req.URL, "https://res.cloudinary.com") ||
 		strings.Contains(req.URL, "cloudinary.com")
-	
+
 	if !validURL {
-		utils.RespondError(w, http.StatusBadRequest, "URL de média invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMediaURLInvalid)
 		return
 	}
 
 	if req.Filename == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Nom de fichier requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMediaFileNameRequired)
 		return
 	}
 
@@ -184,17 +175,17 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.mediaRepo.Create(media); err != nil {
 		log.Printf("Erreur création média: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de l'ajout du média")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrAddMedia)
 		return
 	}
 
 	// Mettre à jour le compteur photos_count
 	totalMedias, _ := h.mediaRepo.CountByEvent(eventID)
-	h.eventRepo.Update(eventID, map[string]interface{}{
+	_ = h.eventRepo.Update(eventID, map[string]interface{}{
 		"photos_count": int(totalMedias),
 	})
 
-	log.Printf("✓ Média ajouté: %s (%s) par %s", req.Filename, req.Type, req.UserEmail)
+	log.Println("Média ajouté")
 
 	// NOUVEAU: Envoyer notification de galerie
 	go h.sendGalleryNotification(eventID, req.UserEmail, userName, req.URL)
@@ -207,22 +198,16 @@ func (h *MediaHandler) CreateMedia(w http.ResponseWriter, r *http.Request) {
 
 // DeleteMedia supprime un média
 func (h *MediaHandler) DeleteMedia(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodDelete) {
 		return
 	}
-
-	// Récupérer les IDs depuis l'URL
 	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
-
-	mediaID, err := primitive.ObjectIDFromHex(vars["media_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID média invalide")
+	mediaID, ok := ParseObjectIDVar(w, vars, "media_id", constants.ErrMediaInvalidID)
+	if !ok {
 		return
 	}
 
@@ -230,47 +215,47 @@ func (h *MediaHandler) DeleteMedia(w http.ResponseWriter, r *http.Request) {
 	media, err := h.mediaRepo.FindByID(mediaID)
 	if err != nil {
 		log.Printf("Erreur recherche média: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
 	if media == nil {
-		utils.RespondError(w, http.StatusNotFound, "Média non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrMediaNotFound)
 		return
 	}
 
 	// Vérifier que le média appartient bien à cet événement
 	if media.EventID != eventID {
-		utils.RespondError(w, http.StatusBadRequest, "Ce média n'appartient pas à cet événement")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMediaNotOwned)
 		return
 	}
 
 	// Vérifier que l'utilisateur authentifié est le propriétaire
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non autorisé")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	if media.UserEmail != claims.Email {
-		utils.RespondError(w, http.StatusForbidden, "Vous ne pouvez supprimer que vos propres médias")
+		utils.RespondError(w, http.StatusForbidden, constants.ErrMediaOwnOnly)
 		return
 	}
 
 	// Supprimer le média
 	if err := h.mediaRepo.Delete(mediaID); err != nil {
 		log.Printf("Erreur suppression média: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la suppression")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrDeleteMedia)
 		return
 	}
 
 	// Mettre à jour le compteur photos_count
 	totalMedias, _ := h.mediaRepo.CountByEvent(eventID)
-	h.eventRepo.Update(eventID, map[string]interface{}{
+	_ = h.eventRepo.Update(eventID, map[string]interface{}{
 		"photos_count": int(totalMedias),
 	})
 
-	log.Printf("✓ Média supprimé: %s par %s", media.Filename, claims.Email)
+	log.Printf("Média supprimé: %s", media.Filename)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"message":  "Média supprimé avec succès",
@@ -295,13 +280,13 @@ func (h *MediaHandler) sendGalleryNotification(eventID primitive.ObjectID, userE
 	}
 
 	if len(participants) == 0 {
-		log.Printf("ℹ️  Aucun participant trouvé pour l'événement %s", eventID.Hex())
+		log.Println("Aucun participant trouvé pour l'événement")
 		return
 	}
 
-	// Générer l'URL de preview avec flou
-	previewURL := h.generatePreviewURL(mediaURL)
-	log.Printf("🖼️  URL preview générée: %s", previewURL)
+	// Générer l'URL de preview avec flou (utilisée dans notificationData si besoin)
+	_ = h.generatePreviewURL(mediaURL)
+	log.Println("URL preview générée")
 
 	// Construire le message de notification
 	title := "Nouveau contenu ajouté"
@@ -325,7 +310,7 @@ func (h *MediaHandler) sendGalleryNotification(eventID primitive.ObjectID, userE
 		go h.cleanupInvalidTokens(failedTokens)
 	}
 
-	log.Printf("📱 Notification galerie envoyée: %s - %s - %d succès, %d échecs", userName, event.Titre, successCount, failedCount)
+	log.Printf("Notification galerie envoyée: %d succès, %d échecs", successCount, failedCount)
 }
 
 // getEventParticipants récupère les participants d'un événement (exclut l'utilisateur qui a ajouté)
@@ -346,7 +331,7 @@ func (h *MediaHandler) getEventParticipants(eventID primitive.ObjectID, excludeU
 		// Récupérer les tokens FCM de l'utilisateur depuis la collection fcm_tokens
 		tokens, err := h.fcmTokenRepo.FindByUserID(inscription.UserEmail)
 		if err != nil {
-			log.Printf("⚠️  Erreur récupération tokens FCM pour %s: %v", inscription.UserEmail, err)
+			log.Printf("Erreur récupération tokens FCM: %v", err)
 			continue
 		}
 
@@ -358,7 +343,7 @@ func (h *MediaHandler) getEventParticipants(eventID primitive.ObjectID, excludeU
 		}
 	}
 
-	log.Printf("📱 Participants trouvés: %d tokens pour l'événement %s", len(participants), eventID.Hex())
+	log.Printf("Participants trouvés: %d tokens pour l'événement", len(participants))
 	return participants, nil
 }
 
@@ -392,10 +377,9 @@ func (h *MediaHandler) generatePreviewURL(originalURL string) string {
 
 // cleanupInvalidTokens nettoie les tokens FCM invalides
 func (h *MediaHandler) cleanupInvalidTokens(failedTokens []string) {
-	for _, token := range failedTokens {
-		log.Printf("🧹 Nettoyage token invalide: %s", token)
+	for range failedTokens {
+		log.Println("Nettoyage token invalide")
 		// Ici on pourrait supprimer le token de la base de données
 		// Pour l'instant on log juste
 	}
 }
-

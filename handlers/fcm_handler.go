@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/models"
 	"premier-an-backend/services"
@@ -14,8 +15,8 @@ import (
 
 // FCMHandler gère les requêtes de notifications FCM
 type FCMHandler struct {
-	fcmService  *services.FCMService
-	tokenRepo   *database.FCMTokenRepository
+	fcmService *services.FCMService
+	tokenRepo  *database.FCMTokenRepository
 }
 
 // NewFCMHandler crée une nouvelle instance de FCMHandler
@@ -28,20 +29,19 @@ func NewFCMHandler(db *mongo.Database, fcmService *services.FCMService) *FCMHand
 
 // Subscribe enregistre un token FCM pour un utilisateur
 func (h *FCMHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
 	var req models.FCMSubscribeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Valider les données
 	if req.UserID == "" || req.FCMToken == "" {
-		utils.RespondError(w, http.StatusBadRequest, "user_id et fcm_token sont requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrFCMUserTokenRequired)
 		return
 	}
 
@@ -55,18 +55,17 @@ func (h *FCMHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.tokenRepo.Upsert(token); err != nil {
 		log.Printf("Erreur lors de l'enregistrement du token FCM: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
-	log.Printf("✓ Token FCM enregistré pour: %s (appareil: %s)", req.UserID, req.Device)
+	log.Println("Token FCM enregistré")
 	utils.RespondSuccess(w, "Abonnement FCM réussi", token)
 }
 
 // Unsubscribe supprime un token FCM
 func (h *FCMHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -75,35 +74,34 @@ func (h *FCMHandler) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	if req.FCMToken == "" {
-		utils.RespondError(w, http.StatusBadRequest, "fcm_token est requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrFCMTokenRequired)
 		return
 	}
 
 	if err := h.tokenRepo.Delete(req.FCMToken); err != nil {
 		log.Printf("Erreur lors de la suppression du token: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
-	log.Printf("✓ Token FCM supprimé: %s...", req.FCMToken[:20])
+	log.Println("Token FCM supprimé")
 	utils.RespondSuccess(w, "Désabonnement réussi", nil)
 }
 
 // SendNotification envoie une notification à tous les abonnés
 func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
 	var req models.FCMNotificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -111,7 +109,7 @@ func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
 	allTokens, err := h.tokenRepo.FindAll()
 	if err != nil {
 		log.Printf("Erreur lors de la récupération des tokens: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -135,7 +133,7 @@ func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
 	if title == "" {
 		title = "Nouvelle notification"
 	}
-	
+
 	message := req.Message
 	if message == "" {
 		message = "Vous avez reçu une nouvelle notification"
@@ -149,7 +147,7 @@ func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
 		if err := h.tokenRepo.Delete(failedToken); err != nil {
 			log.Printf("⚠️  Erreur lors de la suppression du token invalide: %v", err)
 		} else {
-			log.Printf("🗑️  Token invalide supprimé: %s...", failedToken[:20])
+			log.Println("Token invalide supprimé")
 		}
 	}
 
@@ -166,19 +164,18 @@ func (h *FCMHandler) SendNotification(w http.ResponseWriter, r *http.Request) {
 
 // SendToUser envoie une notification à un utilisateur spécifique
 func (h *FCMHandler) SendToUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
 	var req models.FCMNotificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	if req.UserID == "" {
-		utils.RespondError(w, http.StatusBadRequest, "user_id est requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrFCMUserIDRequired)
 		return
 	}
 
@@ -186,12 +183,12 @@ func (h *FCMHandler) SendToUser(w http.ResponseWriter, r *http.Request) {
 	userTokens, err := h.tokenRepo.FindByUserID(req.UserID)
 	if err != nil {
 		log.Printf("Erreur lors de la récupération des tokens: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
 	if len(userTokens) == 0 {
-		utils.RespondError(w, http.StatusNotFound, "Aucun token trouvé pour cet utilisateur")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrNoTokenForUser)
 		return
 	}
 
@@ -206,7 +203,7 @@ func (h *FCMHandler) SendToUser(w http.ResponseWriter, r *http.Request) {
 	if title == "" {
 		title = "Nouvelle notification"
 	}
-	
+
 	message := req.Message
 	if message == "" {
 		message = "Vous avez reçu une nouvelle notification"
@@ -227,7 +224,6 @@ func (h *FCMHandler) SendToUser(w http.ResponseWriter, r *http.Request) {
 		FailedTokens: failedTokens,
 	}
 
-	log.Printf("📊 Notifications envoyées à %s: %d succès, %d échecs", req.UserID, success, failed)
+	log.Printf("Notifications envoyées: %d succès, %d échecs", success, failed)
 	utils.RespondSuccess(w, "Notifications envoyées", response)
 }
-

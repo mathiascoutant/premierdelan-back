@@ -7,6 +7,8 @@
 /bin/
 /tmp/
 premier-an-backend
+backend
+test-build
 
 # Test binary
 *.test

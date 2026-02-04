@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
@@ -21,11 +22,11 @@ import (
 
 // EventTrailerHandler gère les trailers vidéo des événements
 type EventTrailerHandler struct {
-	eventRepo       *database.EventRepository
-	cloudName       string
-	uploadPreset    string
-	apiKey          string
-	apiSecret       string
+	eventRepo    *database.EventRepository
+	cloudName    string
+	uploadPreset string
+	apiKey       string
+	apiSecret    string
 }
 
 // NewEventTrailerHandler crée une nouvelle instance
@@ -48,6 +49,49 @@ type CloudinaryVideoUploadResponse struct {
 	Duration  float64 `json:"duration"`
 }
 
+// getEventFromRequest extrait et valide l'événement depuis la requête.
+// Retourne (eventObjID, event, true) ou écrit l'erreur et retourne (zero, nil, false).
+func (h *EventTrailerHandler) getEventFromRequest(w http.ResponseWriter, r *http.Request) (primitive.ObjectID, *models.Event, bool) {
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
+		return primitive.NilObjectID, nil, false
+	}
+	vars := mux.Vars(r)
+	eventID := vars["event_id"]
+	if eventID == "" {
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrEventIDRequired)
+		return primitive.NilObjectID, nil, false
+	}
+	eventObjID, err := primitive.ObjectIDFromHex(eventID)
+	if err != nil {
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
+		return primitive.NilObjectID, nil, false
+	}
+	event, err := h.eventRepo.FindByID(eventObjID)
+	if err != nil {
+		log.Printf("Événement non trouvé: %v", err)
+		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
+		return primitive.NilObjectID, nil, false
+	}
+	return eventObjID, event, true
+}
+
+// decodeTrailerData décode et valide le body JSON du trailer.
+func (h *EventTrailerHandler) decodeTrailerData(w http.ResponseWriter, r *http.Request) (*TrailerDataRequest, bool) {
+	var trailerData TrailerDataRequest
+	if err := json.NewDecoder(r.Body).Decode(&trailerData); err != nil {
+		log.Printf("Erreur décodage JSON trailer: %v", err)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidJSONBody)
+		return nil, false
+	}
+	if trailerData.URL == "" || trailerData.PublicID == "" {
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrTrailerURLRequired)
+		return nil, false
+	}
+	return &trailerData, true
+}
+
 // TrailerDataRequest représente les données du trailer envoyées par le frontend
 type TrailerDataRequest struct {
 	URL          string  `json:"url"`
@@ -61,66 +105,21 @@ type TrailerDataRequest struct {
 // UploadTrailer gère l'ajout d'un trailer vidéo (POST)
 // Le frontend upload directement vers Cloudinary puis envoie les métadonnées ici
 func (h *EventTrailerHandler) UploadTrailer(w http.ResponseWriter, r *http.Request) {
-	// Vérifier la méthode HTTP
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
-
-	// Vérifier que l'utilisateur est authentifié (l'autorisation admin est gérée par le middleware)
-	claims := middleware.GetUserFromContext(r.Context())
-	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+	eventObjID, event, ok := h.getEventFromRequest(w, r)
+	if !ok {
 		return
 	}
-
-	// Récupérer l'ID de l'événement
-	vars := mux.Vars(r)
-	eventID := vars["event_id"]
-
-	if eventID == "" {
-		utils.RespondError(w, http.StatusBadRequest, "ID d'événement requis")
-		return
-	}
-
-	// Convertir en ObjectID
-	eventObjID, err := primitive.ObjectIDFromHex(eventID)
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID d'événement invalide")
-		return
-	}
-
-	// Récupérer l'événement
-	event, err := h.eventRepo.FindByID(eventObjID)
-	if err != nil {
-		log.Printf("❌ Événement non trouvé: %v", err)
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
-		return
-	}
-
-	// Vérifier que l'événement n'a pas déjà un trailer
 	if event.Trailer != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Cet événement a déjà un trailer. Utilisez PUT pour le remplacer.")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrTrailerAlreadyExists)
 		return
 	}
-
-	// Décoder les données JSON du trailer
-	var trailerData TrailerDataRequest
-	if err := json.NewDecoder(r.Body).Decode(&trailerData); err != nil {
-		log.Printf("❌ Erreur décodage JSON: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Données JSON invalides")
+	trailerData, ok := h.decodeTrailerData(w, r)
+	if !ok {
 		return
 	}
-
-	// Validation des champs requis
-	if trailerData.URL == "" || trailerData.PublicID == "" {
-		utils.RespondError(w, http.StatusBadRequest, "URL et public_id sont requis")
-		return
-	}
-
-	log.Printf("📤 Ajout trailer pour événement %s (format: %s, taille: %d bytes)", eventID, trailerData.Format, trailerData.Size)
-
-	// Créer l'objet EventTrailer
 	trailer := &models.EventTrailer{
 		URL:          trailerData.URL,
 		PublicID:     trailerData.PublicID,
@@ -130,24 +129,12 @@ func (h *EventTrailerHandler) UploadTrailer(w http.ResponseWriter, r *http.Reque
 		UploadedAt:   time.Now(),
 		ThumbnailURL: trailerData.ThumbnailURL,
 	}
-
-	log.Printf("✅ Métadonnées trailer reçues: %s", trailer.URL)
-
-	// Mettre à jour l'événement dans la base de données
-	updateData := bson.M{
-		"trailer":    trailer,
-		"updated_at": time.Now(),
-	}
-
+	updateData := bson.M{"trailer": trailer, "updated_at": time.Now()}
 	if err := h.eventRepo.Update(eventObjID, updateData); err != nil {
-		log.Printf("❌ Erreur mise à jour DB: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la mise à jour de l'événement")
+		log.Printf(constants.ErrDBUpdateTrailer, err)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
-
-	log.Printf("✅ Trailer ajouté à l'événement %s", eventID)
-
-	// Réponse
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Trailer ajouté avec succès",
@@ -158,69 +145,23 @@ func (h *EventTrailerHandler) UploadTrailer(w http.ResponseWriter, r *http.Reque
 // ReplaceTrailer gère le remplacement d'un trailer existant (PUT)
 // Le frontend upload directement vers Cloudinary puis envoie les métadonnées ici
 func (h *EventTrailerHandler) ReplaceTrailer(w http.ResponseWriter, r *http.Request) {
-	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPut {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
-
-	// Vérifier que l'utilisateur est authentifié (l'autorisation admin est gérée par le middleware)
-	claims := middleware.GetUserFromContext(r.Context())
-	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+	eventObjID, event, ok := h.getEventFromRequest(w, r)
+	if !ok {
 		return
 	}
-
-	// Récupérer l'ID de l'événement
-	vars := mux.Vars(r)
-	eventID := vars["event_id"]
-
-	if eventID == "" {
-		utils.RespondError(w, http.StatusBadRequest, "ID d'événement requis")
-		return
-	}
-
-	// Convertir en ObjectID
-	eventObjID, err := primitive.ObjectIDFromHex(eventID)
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID d'événement invalide")
-		return
-	}
-
-	// Récupérer l'événement
-	event, err := h.eventRepo.FindByID(eventObjID)
-	if err != nil {
-		log.Printf("❌ Événement non trouvé: %v", err)
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
-		return
-	}
-
-	// Vérifier que l'événement a bien un trailer à remplacer
 	if event.Trailer == nil {
-		utils.RespondError(w, http.StatusNotFound, "Cet événement n'a pas de trailer à remplacer.")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrTrailerNotFoundReplace)
 		return
 	}
-
-	// Sauvegarder l'ancien public_id pour suppression
 	oldPublicID := event.Trailer.PublicID
-
-	// Décoder les données JSON du nouveau trailer
-	var trailerData TrailerDataRequest
-	if err := json.NewDecoder(r.Body).Decode(&trailerData); err != nil {
-		log.Printf("❌ Erreur décodage JSON: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Données JSON invalides")
+	trailerData, ok := h.decodeTrailerData(w, r)
+	if !ok {
 		return
 	}
-
-	// Validation des champs requis
-	if trailerData.URL == "" || trailerData.PublicID == "" {
-		utils.RespondError(w, http.StatusBadRequest, "URL et public_id sont requis")
-		return
-	}
-
-	log.Printf("🔄 Remplacement trailer pour événement %s (format: %s, taille: %d bytes)", eventID, trailerData.Format, trailerData.Size)
-
-	// Créer l'objet EventTrailer
 	newTrailer := &models.EventTrailer{
 		URL:          trailerData.URL,
 		PublicID:     trailerData.PublicID,
@@ -230,31 +171,15 @@ func (h *EventTrailerHandler) ReplaceTrailer(w http.ResponseWriter, r *http.Requ
 		UploadedAt:   time.Now(),
 		ThumbnailURL: trailerData.ThumbnailURL,
 	}
-
-	log.Printf("✅ Nouveau trailer reçu: %s", newTrailer.URL)
-
-	// Supprimer l'ancienne vidéo de Cloudinary
 	if err := h.deleteVideoFromCloudinary(oldPublicID); err != nil {
-		log.Printf("⚠️  Erreur suppression ancien trailer: %v (continuons quand même)", err)
-	} else {
-		log.Printf("✅ Ancien trailer supprimé de Cloudinary")
+		log.Printf("Erreur suppression ancien trailer: %v", err)
 	}
-
-	// Mettre à jour l'événement dans la base de données
-	updateData := bson.M{
-		"trailer":    newTrailer,
-		"updated_at": time.Now(),
-	}
-
+	updateData := bson.M{"trailer": newTrailer, "updated_at": time.Now()}
 	if err := h.eventRepo.Update(eventObjID, updateData); err != nil {
-		log.Printf("❌ Erreur mise à jour DB: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la mise à jour de l'événement")
+		log.Printf(constants.ErrDBUpdateTrailer, err)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
-
-	log.Printf("✅ Trailer remplacé pour l'événement %s", eventID)
-
-	// Réponse
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Trailer remplacé avec succès",
@@ -264,60 +189,21 @@ func (h *EventTrailerHandler) ReplaceTrailer(w http.ResponseWriter, r *http.Requ
 
 // DeleteTrailer gère la suppression d'un trailer (DELETE)
 func (h *EventTrailerHandler) DeleteTrailer(w http.ResponseWriter, r *http.Request) {
-	// Vérifier la méthode HTTP
-	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodDelete) {
 		return
 	}
-
-	// Vérifier que l'utilisateur est authentifié (l'autorisation admin est gérée par le middleware)
-	claims := middleware.GetUserFromContext(r.Context())
-	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+	eventObjID, event, ok := h.getEventFromRequest(w, r)
+	if !ok {
 		return
 	}
-
-	// Récupérer l'ID de l'événement
-	vars := mux.Vars(r)
-	eventID := vars["event_id"]
-
-	if eventID == "" {
-		utils.RespondError(w, http.StatusBadRequest, "ID d'événement requis")
-		return
-	}
-
-	// Convertir en ObjectID
-	eventObjID, err := primitive.ObjectIDFromHex(eventID)
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID d'événement invalide")
-		return
-	}
-
-	// Récupérer l'événement
-	event, err := h.eventRepo.FindByID(eventObjID)
-	if err != nil {
-		log.Printf("❌ Événement non trouvé: %v", err)
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
-		return
-	}
-
-	// Vérifier que l'événement a bien un trailer à supprimer
 	if event.Trailer == nil {
-		utils.RespondError(w, http.StatusNotFound, "Cet événement n'a pas de trailer à supprimer.")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrTrailerNotFoundDelete)
 		return
 	}
-
 	publicID := event.Trailer.PublicID
-	log.Printf("🗑️  Suppression trailer pour événement %s (public_id: %s)", eventID, publicID)
-
-	// Supprimer la vidéo de Cloudinary
 	if err := h.deleteVideoFromCloudinary(publicID); err != nil {
-		log.Printf("⚠️  Erreur suppression Cloudinary: %v (continuons quand même)", err)
-	} else {
-		log.Printf("✅ Trailer supprimé de Cloudinary")
+		log.Printf("Erreur suppression Cloudinary: %v", err)
 	}
-
-	// Mettre à jour l'événement dans la base de données (supprimer le champ trailer)
 	updateData := bson.M{
 		"$unset": bson.M{
 			"trailer": "",
@@ -326,14 +212,10 @@ func (h *EventTrailerHandler) DeleteTrailer(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := h.eventRepo.Update(eventObjID, updateData); err != nil {
-		log.Printf("❌ Erreur mise à jour DB: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la mise à jour de l'événement")
+		log.Printf(constants.ErrDBUpdateTrailer, err)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
-
-	log.Printf("✅ Trailer supprimé de l'événement %s", eventID)
-
-	// Réponse
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Trailer supprimé avec succès",
@@ -366,11 +248,10 @@ func (h *EventTrailerHandler) deleteVideoFromCloudinary(publicID string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		log.Printf("⚠️  Cloudinary delete error: %s", string(bodyBytes))
+		_, _ = io.ReadAll(resp.Body)
+		log.Printf("Cloudinary delete error: %d", resp.StatusCode)
 		return fmt.Errorf("cloudinary delete returned status %d", resp.StatusCode)
 	}
 
 	return nil
 }
-

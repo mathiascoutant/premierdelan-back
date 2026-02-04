@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/models"
 	"premier-an-backend/utils"
@@ -37,21 +38,20 @@ func NewAlertHandler(db *mongo.Database, fcmService interface {
 
 // SendCriticalAlert reçoit et traite une alerte critique du frontend
 func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
 	// Décoder la requête
 	var req models.CriticalAlertRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Validation des champs requis
 	if req.AdminEmail == "" || req.ErrorType == "" || req.ErrorMessage == "" || req.EndpointFailed == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Champs manquants ou invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrAlertFieldsInvalid)
 		return
 	}
 
@@ -78,14 +78,14 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 	// Vérifier que l'admin existe
 	admin, err := h.userRepo.FindByEmail(req.AdminEmail)
 	if err != nil || admin == nil {
-		log.Printf("Admin non trouvé: %s", req.AdminEmail)
-		utils.RespondError(w, http.StatusNotFound, "Administrateur non trouvé")
+		log.Println("Admin non trouvé pour alerte")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrAdminNotFound)
 		return
 	}
 
 	// Vérifier que l'utilisateur est bien admin
 	if admin.Admin != 1 {
-		utils.RespondError(w, http.StatusForbidden, "L'email fourni n'est pas un administrateur")
+		utils.RespondError(w, http.StatusForbidden, constants.ErrNotAdmin)
 		return
 	}
 
@@ -97,7 +97,7 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 
 	if len(fcmTokens) == 0 {
 		// Pas de token FCM, mais on enregistre quand même l'alerte
-		log.Printf("⚠️  Admin %s n'a pas de token FCM", req.AdminEmail)
+		log.Println("Admin sans token FCM pour alerte")
 	}
 
 	// Parser le timestamp
@@ -108,12 +108,12 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 
 	// Créer l'alerte en DB
 	alert := &models.CriticalAlert{
-		AdminEmail:      req.AdminEmail,
-		ErrorType:       req.ErrorType,
-		ErrorMessage:    req.ErrorMessage,
-		EndpointFailed:  req.EndpointFailed,
-		Timestamp:       timestamp,
-		UserAgent:       req.UserAgent,
+		AdminEmail:       req.AdminEmail,
+		ErrorType:        req.ErrorType,
+		ErrorMessage:     req.ErrorMessage,
+		EndpointFailed:   req.EndpointFailed,
+		Timestamp:        timestamp,
+		UserAgent:        req.UserAgent,
 		NotificationSent: false,
 	}
 
@@ -124,8 +124,8 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 	// Si pas de tokens FCM, retourner quand même un succès
 	if len(fcmTokens) == 0 {
 		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
-			"success":          true,
-			"message":          "Alerte enregistrée mais admin sans token FCM",
+			"success":           true,
+			"message":           "Alerte enregistrée mais admin sans token FCM",
 			"notification_sent": false,
 		})
 		return
@@ -142,11 +142,11 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 	body := fmt.Sprintf("%s: %s", getErrorTypeLabel(req.ErrorType), req.ErrorMessage)
 
 	data := map[string]string{
-		"type":        "critical_error",
-		"error_type":  req.ErrorType,
-		"endpoint":    req.EndpointFailed,
-		"timestamp":   req.Timestamp,
-		"user_agent":  req.UserAgent,
+		"type":         "critical_error",
+		"error_type":   req.ErrorType,
+		"endpoint":     req.EndpointFailed,
+		"timestamp":    req.Timestamp,
+		"user_agent":   req.UserAgent,
 		"click_action": "https://mathiascoutant.github.io/premierdelan/maintenance",
 	}
 
@@ -158,14 +158,14 @@ func (h *AlertHandler) SendCriticalAlert(w http.ResponseWriter, r *http.Request)
 		alert.NotificationSent = true
 	}
 
-	log.Printf("🚨 Alerte critique envoyée à %s: %d succès, %d échecs", req.AdminEmail, success, failed)
+	log.Printf("Alerte critique envoyée: %d succès, %d échecs", success, failed)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"success":          true,
-		"message":          "Alerte envoyée à l'administrateur",
+		"success":           true,
+		"message":           "Alerte envoyée à l'administrateur",
 		"notification_sent": success > 0,
-		"tokens_sent":      len(tokens),
-		"success_count":    success,
+		"tokens_sent":       len(tokens),
+		"success_count":     success,
 	})
 }
 
@@ -182,4 +182,3 @@ func getErrorTypeLabel(errorType string) string {
 		return "Erreur Inconnue"
 	}
 }
-

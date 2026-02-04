@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
 	"premier-an-backend/utils"
 
 	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -56,47 +56,42 @@ func NewInscriptionHandler(db *mongo.Database, fcmService interface {
 
 // CreateInscription gère la création d'une inscription
 func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
 	// Décoder la requête
 	var req models.CreateInscriptionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Validations
 	if req.UserEmail == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Email utilisateur requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrUserEmailRequired)
 		return
 	}
 
 	if req.NombrePersonnes < 1 {
-		utils.RespondError(w, http.StatusBadRequest, "Le nombre de personnes doit être au moins 1")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrPersonnesMinOne)
 		return
 	}
 
 	// Vérifier la cohérence nombre_personnes et accompagnants
 	if req.NombrePersonnes-1 != len(req.Accompagnants) {
-		utils.RespondError(w, http.StatusBadRequest, "Le nombre d'accompagnants doit être égal à nombre_personnes - 1")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrAccompagnantsCount)
 		return
 	}
 
 	// Valider les accompagnants
 	for _, acc := range req.Accompagnants {
 		if acc.Firstname == "" || acc.Lastname == "" {
-			utils.RespondError(w, http.StatusBadRequest, "Tous les accompagnants doivent avoir un prénom et un nom")
+			utils.RespondError(w, http.StatusBadRequest, constants.ErrAccompagnantsNames)
 			return
 		}
 	}
@@ -121,12 +116,12 @@ func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Re
 	existingInscription, err := h.inscriptionRepo.FindByEventAndUser(eventID, req.UserEmail)
 	if err != nil {
 		log.Printf("Erreur vérification inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
 	if existingInscription != nil {
-		utils.RespondError(w, http.StatusConflict, "Vous êtes déjà inscrit à cet événement")
+		utils.RespondError(w, http.StatusConflict, constants.ErrAlreadyInscribed)
 		return
 	}
 
@@ -151,7 +146,7 @@ func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Re
 
 	if err := h.inscriptionRepo.Create(inscription); err != nil {
 		log.Printf("Erreur création inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la création de l'inscription")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrCreateInscription)
 		return
 	}
 
@@ -166,7 +161,7 @@ func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Re
 	// Recharger l'événement pour avoir les données à jour
 	event, _ = h.eventRepo.FindByID(eventID)
 
-	log.Printf("✓ Nouvelle inscription: %s à l'événement %s (%d personnes)", req.UserEmail, event.Titre, req.NombrePersonnes)
+	log.Println("Nouvelle inscription à l'événement")
 
 	// Notifier les admins
 	go h.notifyAdminsNewInscription(req.UserEmail, event, req.NombrePersonnes)
@@ -181,16 +176,11 @@ func (h *InscriptionHandler) CreateInscription(w http.ResponseWriter, r *http.Re
 
 // GetInscription récupère l'inscription d'un utilisateur
 func (h *InscriptionHandler) GetInscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
@@ -200,7 +190,7 @@ func (h *InscriptionHandler) GetInscription(w http.ResponseWriter, r *http.Reque
 		// Utiliser l'email du JWT si pas de query param
 		claims := middleware.GetUserFromContext(r.Context())
 		if claims == nil {
-			utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+			utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 			return
 		}
 		userEmail = claims.Email
@@ -210,7 +200,7 @@ func (h *InscriptionHandler) GetInscription(w http.ResponseWriter, r *http.Reque
 	inscription, err := h.inscriptionRepo.FindByEventAndUser(eventID, userEmail)
 	if err != nil {
 		log.Printf("Erreur recherche inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -231,47 +221,42 @@ func (h *InscriptionHandler) GetInscription(w http.ResponseWriter, r *http.Reque
 
 // UpdateInscription modifie une inscription existante
 func (h *InscriptionHandler) UpdateInscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPut) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
 	// Décoder la requête
 	var req models.UpdateInscriptionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Validations
 	if req.UserEmail == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Email utilisateur requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrUserEmailRequired)
 		return
 	}
 
 	if req.NombrePersonnes < 1 {
-		utils.RespondError(w, http.StatusBadRequest, "Le nombre de personnes doit être au moins 1")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrPersonnesMinOne)
 		return
 	}
 
 	// Vérifier la cohérence
 	if req.NombrePersonnes-1 != len(req.Accompagnants) {
-		utils.RespondError(w, http.StatusBadRequest, "Le nombre d'accompagnants doit être égal à nombre_personnes - 1")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrAccompagnantsCount)
 		return
 	}
 
 	// Valider les accompagnants
 	for _, acc := range req.Accompagnants {
 		if acc.Firstname == "" || acc.Lastname == "" {
-			utils.RespondError(w, http.StatusBadRequest, "Tous les accompagnants doivent avoir un prénom et un nom")
+			utils.RespondError(w, http.StatusBadRequest, constants.ErrAccompagnantsNames)
 			return
 		}
 	}
@@ -280,12 +265,12 @@ func (h *InscriptionHandler) UpdateInscription(w http.ResponseWriter, r *http.Re
 	inscription, err := h.inscriptionRepo.FindByEventAndUser(eventID, req.UserEmail)
 	if err != nil {
 		log.Printf("Erreur recherche inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
 	if inscription == nil {
-		utils.RespondError(w, http.StatusNotFound, "Aucune inscription trouvée à modifier")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrInscriptionNoUpdate)
 		return
 	}
 
@@ -329,7 +314,7 @@ func (h *InscriptionHandler) UpdateInscription(w http.ResponseWriter, r *http.Re
 
 	if err := h.inscriptionRepo.Update(inscription); err != nil {
 		log.Printf("Erreur mise à jour inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la modification")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrUpdateInscription)
 		return
 	}
 
@@ -344,7 +329,7 @@ func (h *InscriptionHandler) UpdateInscription(w http.ResponseWriter, r *http.Re
 	// Recharger l'événement
 	event, _ = h.eventRepo.FindByID(eventID)
 
-	log.Printf("✓ Inscription modifiée: %s (diff: %+d personnes)", req.UserEmail, difference)
+	log.Printf("Inscription modifiée (diff: %+d personnes)", difference)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"message":     "Inscription modifiée",
@@ -359,28 +344,23 @@ func (h *InscriptionHandler) UpdateInscription(w http.ResponseWriter, r *http.Re
 
 // DeleteInscription supprime une inscription
 func (h *InscriptionHandler) DeleteInscription(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodDelete) {
 		return
 	}
-
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
 	// Décoder la requête
 	var req models.DesinscriptionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	if req.UserEmail == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Email utilisateur requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrUserEmailRequired)
 		return
 	}
 
@@ -388,7 +368,7 @@ func (h *InscriptionHandler) DeleteInscription(w http.ResponseWriter, r *http.Re
 	inscription, err := h.inscriptionRepo.FindByEventAndUser(eventID, req.UserEmail)
 	if err != nil {
 		log.Printf("Erreur recherche inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -402,7 +382,7 @@ func (h *InscriptionHandler) DeleteInscription(w http.ResponseWriter, r *http.Re
 	// Supprimer l'inscription
 	if err := h.inscriptionRepo.Delete(eventID, req.UserEmail); err != nil {
 		log.Printf("Erreur suppression inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la désinscription")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrDeleteInscription)
 		return
 	}
 
@@ -413,7 +393,7 @@ func (h *InscriptionHandler) DeleteInscription(w http.ResponseWriter, r *http.Re
 		if newInscrits < 0 {
 			newInscrits = 0
 		}
-		h.eventRepo.Update(eventID, map[string]interface{}{
+		_ = h.eventRepo.Update(eventID, map[string]interface{}{
 			"inscrits": newInscrits,
 		})
 
@@ -421,7 +401,7 @@ func (h *InscriptionHandler) DeleteInscription(w http.ResponseWriter, r *http.Re
 		event, _ = h.eventRepo.FindByID(eventID)
 	}
 
-	log.Printf("✓ Désinscription: %s (%d personnes libérées)", req.UserEmail, nombrePersonnes)
+	log.Printf("Désinscription (%d personnes libérées)", nombrePersonnes)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"message":                  "Désinscription réussie",
@@ -436,23 +416,17 @@ func (h *InscriptionHandler) DeleteInscription(w http.ResponseWriter, r *http.Re
 
 // GetInscrits retourne la liste des inscrits (admin uniquement)
 func (h *InscriptionHandler) GetInscrits(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodGet) {
+		return
+	}
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
 
-	// Récupérer l'event_id depuis l'URL
-	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
-		return
-	}
-
-	// Récupérer l'événement
 	event, err := h.eventRepo.FindByID(eventID)
 	if err != nil || event == nil {
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
 		return
 	}
 
@@ -460,7 +434,7 @@ func (h *InscriptionHandler) GetInscrits(w http.ResponseWriter, r *http.Request)
 	inscriptions, err := h.inscriptionRepo.FindByEvent(eventID)
 	if err != nil {
 		log.Printf("Erreur récupération inscriptions: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -529,22 +503,16 @@ func getUserEmailFromContext(r *http.Request) string {
 
 // DeleteInscriptionAdmin permet à un admin de supprimer n'importe quelle inscription
 func (h *InscriptionHandler) DeleteInscriptionAdmin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodDelete) {
 		return
 	}
-
-	// Récupérer les IDs depuis l'URL
 	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
-
-	inscriptionID, err := primitive.ObjectIDFromHex(vars["inscription_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID inscription invalide")
+	inscriptionID, ok2 := ParseObjectIDVar(w, vars, "inscription_id", constants.ErrInscriptionInvalidID)
+	if !ok2 {
 		return
 	}
 
@@ -552,18 +520,18 @@ func (h *InscriptionHandler) DeleteInscriptionAdmin(w http.ResponseWriter, r *ht
 	inscription, err := h.inscriptionRepo.FindByID(inscriptionID)
 	if err != nil {
 		log.Printf("Erreur recherche inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
 	if inscription == nil {
-		utils.RespondError(w, http.StatusNotFound, "Inscription non trouvée")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrInscriptionNotFound)
 		return
 	}
 
 	// Vérifier que l'inscription appartient bien à cet événement
 	if inscription.EventID != eventID {
-		utils.RespondError(w, http.StatusBadRequest, "Cette inscription n'appartient pas à cet événement")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInscriptionNotForEvent)
 		return
 	}
 
@@ -572,7 +540,7 @@ func (h *InscriptionHandler) DeleteInscriptionAdmin(w http.ResponseWriter, r *ht
 	// Supprimer l'inscription
 	if err := h.inscriptionRepo.DeleteByID(inscriptionID); err != nil {
 		log.Printf("Erreur suppression inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la suppression")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrInscriptionDelete)
 		return
 	}
 
@@ -583,7 +551,7 @@ func (h *InscriptionHandler) DeleteInscriptionAdmin(w http.ResponseWriter, r *ht
 		if newInscrits < 0 {
 			newInscrits = 0
 		}
-		h.eventRepo.Update(eventID, map[string]interface{}{
+		_ = h.eventRepo.Update(eventID, map[string]interface{}{
 			"inscrits": newInscrits,
 		})
 
@@ -591,7 +559,7 @@ func (h *InscriptionHandler) DeleteInscriptionAdmin(w http.ResponseWriter, r *ht
 		event, _ = h.eventRepo.FindByID(eventID)
 	}
 
-	log.Printf("✓ Inscription supprimée par admin: %s (%d personnes)", inscription.UserEmail, nombrePersonnes)
+	log.Printf("Inscription supprimée par admin (%d personnes)", nombrePersonnes)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"message":                  "Inscription supprimée avec succès",
@@ -607,30 +575,24 @@ func (h *InscriptionHandler) DeleteInscriptionAdmin(w http.ResponseWriter, r *ht
 
 // DeleteAccompagnant supprime un accompagnant spécifique (admin uniquement)
 func (h *InscriptionHandler) DeleteAccompagnant(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodDelete) {
 		return
 	}
-
-	// Récupérer les paramètres depuis l'URL
 	vars := mux.Vars(r)
-	eventID, err := primitive.ObjectIDFromHex(vars["event_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID événement invalide")
+	eventID, ok := ParseEventID(w, r)
+	if !ok {
 		return
 	}
-
-	inscriptionID, err := primitive.ObjectIDFromHex(vars["inscription_id"])
-	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID inscription invalide")
+	inscriptionID, ok := ParseObjectIDVar(w, vars, "inscription_id", constants.ErrInscriptionInvalidID)
+	if !ok {
 		return
 	}
 
 	indexStr := vars["index"]
 	index := 0
-	_, err = fmt.Sscanf(indexStr, "%d", &index)
+	_, err := fmt.Sscanf(indexStr, "%d", &index)
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Index invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidIndex)
 		return
 	}
 
@@ -638,29 +600,26 @@ func (h *InscriptionHandler) DeleteAccompagnant(w http.ResponseWriter, r *http.R
 	inscription, err := h.inscriptionRepo.FindByID(inscriptionID)
 	if err != nil {
 		log.Printf("Erreur recherche inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
 	if inscription == nil {
-		utils.RespondError(w, http.StatusNotFound, "Inscription non trouvée")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrInscriptionNotFound)
 		return
 	}
 
 	// Vérifier que l'inscription appartient à cet événement
 	if inscription.EventID != eventID {
-		utils.RespondError(w, http.StatusBadRequest, "Cette inscription n'appartient pas à cet événement")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInscriptionNotForEvent)
 		return
 	}
 
 	// Vérifier que l'index est valide
 	if index < 0 || index >= len(inscription.Accompagnants) {
-		utils.RespondError(w, http.StatusBadRequest, "Index d'accompagnant invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidAccompIndex)
 		return
 	}
-
-	// Récupérer le nom de l'accompagnant avant suppression
-	accompagnantName := fmt.Sprintf("%s %s", inscription.Accompagnants[index].Firstname, inscription.Accompagnants[index].Lastname)
 
 	// Retirer l'accompagnant du tableau
 	inscription.Accompagnants = append(
@@ -674,7 +633,7 @@ func (h *InscriptionHandler) DeleteAccompagnant(w http.ResponseWriter, r *http.R
 	// Mettre à jour l'inscription
 	if err := h.inscriptionRepo.Update(inscription); err != nil {
 		log.Printf("Erreur mise à jour inscription: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la suppression")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrInscriptionDelete)
 		return
 	}
 
@@ -685,7 +644,7 @@ func (h *InscriptionHandler) DeleteAccompagnant(w http.ResponseWriter, r *http.R
 		if newInscrits < 0 {
 			newInscrits = 0
 		}
-		h.eventRepo.Update(eventID, map[string]interface{}{
+		_ = h.eventRepo.Update(eventID, map[string]interface{}{
 			"inscrits": newInscrits,
 		})
 
@@ -693,7 +652,7 @@ func (h *InscriptionHandler) DeleteAccompagnant(w http.ResponseWriter, r *http.R
 		event, _ = h.eventRepo.FindByID(eventID)
 	}
 
-	log.Printf("✓ Accompagnant supprimé par admin: %s de l'inscription %s", accompagnantName, inscription.UserEmail)
+	log.Println("Accompagnant supprimé par admin")
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"message":     "Accompagnant supprimé avec succès",
@@ -714,7 +673,7 @@ func (h *InscriptionHandler) notifyAdminsNewInscription(userEmail string, event 
 	// Récupérer l'utilisateur qui s'inscrit
 	user, err := h.userRepo.FindByEmail(userEmail)
 	if err != nil || user == nil {
-		log.Printf("⚠️  Impossible de récupérer l'utilisateur %s", userEmail)
+		log.Println("Impossible de récupérer l'utilisateur")
 		return
 	}
 
@@ -776,15 +735,14 @@ func (h *InscriptionHandler) notifyAdminsNewInscription(userEmail string, event 
 
 // GetMesEvenements retourne la liste des événements auxquels l'utilisateur est inscrit
 func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodGet) {
 		return
 	}
 
 	// Récupérer l'utilisateur depuis le contexte (mis par le middleware Auth)
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
@@ -794,7 +752,7 @@ func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Req
 	inscriptions, err := h.inscriptionRepo.FindByUser(userEmail)
 	if err != nil {
 		log.Printf("Erreur lors de la récupération des inscriptions: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -805,7 +763,7 @@ func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Req
 		// Récupérer l'événement
 		event, err := h.eventRepo.FindByID(inscription.EventID)
 		if err != nil {
-			log.Printf("Erreur récupération événement %s: %v", inscription.EventID.Hex(), err)
+			log.Printf("Erreur récupération événement: %v", err)
 			continue // Passer à l'inscription suivante
 		}
 
@@ -846,8 +804,7 @@ func (h *InscriptionHandler) GetMesEvenements(w http.ResponseWriter, r *http.Req
 
 // VerifyCode vérifie si un code d'accès existe et est valide
 func (h *InscriptionHandler) VerifyCode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -857,34 +814,34 @@ func (h *InscriptionHandler) VerifyCode(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Validation: code requis
 	if req.CodeSoiree == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Le code d'accès est requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrCodeAccessRequired)
 		return
 	}
 
-	log.Printf("🔍 Vérification du code: %s", req.CodeSoiree)
+	log.Println("Vérification du code soirée")
 
 	// Vérifier si le code existe et est valide
 	isValid, err := h.codeRepo.IsCodeValid(req.CodeSoiree)
 	if err != nil {
 		log.Printf("❌ Erreur vérification code: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la vérification du code")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrVerifyCode)
 		return
 	}
 
 	if isValid {
-		log.Printf("✅ Code valide: %s", req.CodeSoiree)
+		log.Println("Code valide")
 		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 			"valid":   true,
 			"message": "Code d'accès valide",
 		})
 	} else {
-		log.Printf("❌ Code invalide: %s", req.CodeSoiree)
+		log.Println("Code invalide")
 		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 			"valid":   false,
 			"message": "Code d'accès invalide ou inexistant",

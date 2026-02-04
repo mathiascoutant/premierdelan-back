@@ -39,10 +39,10 @@ func (r *FCMTokenRepository) Upsert(token *models.FCMToken) error {
 		token.ID = existing.ID
 		token.CreatedAt = existing.CreatedAt
 		token.UpdatedAt = time.Now()
-		
+
 		filter := bson.M{"_id": existing.ID}
 		update := bson.M{"$set": token}
-		
+
 		_, err := r.collection.UpdateOne(ctx, filter, update)
 		return err
 	}
@@ -105,7 +105,7 @@ func (r *FCMTokenRepository) FindByToken(token string) (*models.FCMToken, error)
 
 	var fcmToken models.FCMToken
 	err := r.collection.FindOne(ctx, bson.M{"token": token}).Decode(&fcmToken)
-	
+
 	if err == mongo.ErrNoDocuments {
 		return nil, nil
 	}
@@ -142,4 +142,3 @@ func (r *FCMTokenRepository) DeleteByUserID(userID string) error {
 
 	return nil
 }
-

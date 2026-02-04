@@ -85,9 +85,9 @@ func (r *UserRepository) SearchUsers(query string, limit int, excludeUserID stri
 		"$and": []bson.M{
 			{
 				"$or": []bson.M{
-					{"firstname": bson.M{"$regex": query, "$options": "i"}},
-					{"lastname": bson.M{"$regex": query, "$options": "i"}},
-					{"email": bson.M{"$regex": query, "$options": "i"}},
+					{"firstname": bson.M{BSONRegex: query, BSONOptions: "i"}},
+					{"lastname": bson.M{BSONRegex: query, BSONOptions: "i"}},
+					{"email": bson.M{BSONRegex: query, BSONOptions: "i"}},
 				},
 			},
 			// Exclure l'utilisateur courant

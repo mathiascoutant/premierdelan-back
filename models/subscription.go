@@ -23,7 +23,7 @@ type PushKeys struct {
 
 // SubscribeRequest représente la requête d'abonnement aux notifications
 type SubscribeRequest struct {
-	UserID       string   `json:"user_id"`
+	UserID       string `json:"user_id"`
 	Subscription struct {
 		Endpoint string   `json:"endpoint"`
 		Keys     PushKeys `json:"keys"`
@@ -32,9 +32,9 @@ type SubscribeRequest struct {
 
 // NotificationRequest représente la requête pour envoyer une notification
 type NotificationRequest struct {
-	UserID  string `json:"user_id"`
-	Title   string `json:"title,omitempty"`
-	Message string `json:"message,omitempty"`
+	UserID  string      `json:"user_id"`
+	Title   string      `json:"title,omitempty"`
+	Message string      `json:"message,omitempty"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
@@ -53,4 +53,3 @@ type Action struct {
 	Action string `json:"action"`
 	Title  string `json:"title"`
 }
-

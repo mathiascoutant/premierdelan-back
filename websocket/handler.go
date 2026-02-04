@@ -70,7 +70,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		// Vérifier le type
 		if authMsg["type"] != "authenticate" {
 			log.Println("❌ Premier message doit être 'authenticate'")
-			conn.WriteJSON(map[string]interface{}{
+			_ = conn.WriteJSON(map[string]interface{}{
 				"type":    "error",
 				"message": "Authentification requise",
 			})
@@ -82,7 +82,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		token, ok := authMsg["token"].(string)
 		if !ok || token == "" {
 			log.Println("❌ Token manquant")
-			conn.WriteJSON(map[string]interface{}{
+			_ = conn.WriteJSON(map[string]interface{}{
 				"type":    "error",
 				"message": "Token requis",
 			})
@@ -94,7 +94,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		claims, err := utils.ValidateToken(token, h.jwtSecret)
 		if err != nil {
 			log.Printf("❌ Token invalide: %v", err)
-			conn.WriteJSON(map[string]interface{}{
+			_ = conn.WriteJSON(map[string]interface{}{
 				"type":    "error",
 				"message": "Token invalide ou expiré",
 			})
@@ -106,7 +106,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		client.UserID = claims.UserID
 
 		// Envoyer la confirmation
-		conn.WriteJSON(map[string]interface{}{
+		_ = conn.WriteJSON(map[string]interface{}{
 			"type":    "authenticated",
 			"user_id": client.UserID,
 		})

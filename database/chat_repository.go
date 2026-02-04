@@ -183,7 +183,7 @@ func (r *ChatRepository) GetConversations(ctx context.Context, userID primitive.
 // GetMessages récupère les messages d'une conversation
 func (r *ChatRepository) GetMessages(ctx context.Context, conversationID primitive.ObjectID, userID primitive.ObjectID, limit int) ([]models.Message, error) {
 	filter := bson.M{"conversation_id": conversationID}
-	opts := options.Find().SetSort(bson.D{{"created_at", -1}}).SetLimit(int64(limit))
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}}).SetLimit(int64(limit))
 
 	cursor, err := r.messageCollection.Find(ctx, filter, opts)
 	if err != nil {

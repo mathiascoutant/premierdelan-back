@@ -13,7 +13,7 @@ func Guest(jwtSecret string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Récupérer le token depuis l'en-tête Authorization
 			authHeader := r.Header.Get("Authorization")
-			
+
 			// Si pas de header Authorization, continuer (utilisateur non connecté)
 			if authHeader == "" {
 				next.ServeHTTP(w, r)
@@ -43,4 +43,3 @@ func Guest(jwtSecret string) func(http.Handler) http.Handler {
 		})
 	}
 }
-

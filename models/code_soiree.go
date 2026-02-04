@@ -14,4 +14,3 @@ type CodeSoiree struct {
 	CreatedAt    time.Time          `json:"created_at" bson:"created_at"`
 	Active       bool               `json:"active" bson:"active"`
 }
-

@@ -1,0 +1,71 @@
+# Déploiement automatique sur le VPS OVH à chaque push sur la branche dev
+# Build dans GitHub Actions (évite les 403 Go sur le VPS) + déploiement
+#
+# Secrets requis: VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_DEPLOY_PATH
+
+name: Deploy to VPS (dev)
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    name: Build et déploiement backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: go.sum
+
+      - name: Build
+        run: go build -o backend .
+
+      - name: Sync code (git pull) et copier le binaire
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            echo "📦 Mise à jour du code..."
+            cd "${{ secrets.VPS_DEPLOY_PATH }}"
+            git fetch origin
+            git checkout dev
+            git pull origin dev
+            echo "✅ Code à jour"
+
+      - name: Copier le binaire sur le VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "backend"
+          target: "${{ secrets.VPS_DEPLOY_PATH }}/"
+
+      - name: Redémarrer le service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd "${{ secrets.VPS_DEPLOY_PATH }}"
+            echo "⏹️  Arrêt du service..."
+            sudo systemctl stop backend || true
+            chmod +x backend
+            echo "▶️  Démarrage du service..."
+            sudo systemctl start backend
+            sleep 2
+            sudo systemctl status backend --no-pager -l
+            echo "✅ Déploiement terminé!"

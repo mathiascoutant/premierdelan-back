@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/utils"
@@ -24,8 +25,8 @@ type GalleryNotificationHandler struct {
 	fcmService      interface {
 		SendToAll(tokens []string, title, body string, data map[string]string) (success int, failed int, failedTokens []string)
 	}
-	cloudName       string
-	previewPreset   string
+	cloudName     string
+	previewPreset string
 }
 
 // NewGalleryNotificationHandler crée une nouvelle instance
@@ -58,28 +59,27 @@ type GalleryNotificationRequest struct {
 
 // SendGalleryNotification gère l'envoi de notifications de galerie
 func (h *GalleryNotificationHandler) SendGalleryNotification(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
 	// Authentification requise
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
 	vars := mux.Vars(r)
 	eventID := vars["eventId"]
 	if eventID == "" {
-		utils.RespondError(w, http.StatusBadRequest, "ID d'événement requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrEventIDRequired)
 		return
 	}
 
 	eventObjID, err := primitive.ObjectIDFromHex(eventID)
 	if err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "ID d'événement invalide")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidEventID)
 		return
 	}
 
@@ -87,23 +87,23 @@ func (h *GalleryNotificationHandler) SendGalleryNotification(w http.ResponseWrit
 	var req GalleryNotificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Printf("❌ Erreur décodage JSON: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Données JSON invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Validation des données
 	if req.UserEmail == "" || req.MediaCount <= 0 {
-		utils.RespondError(w, http.StatusBadRequest, "user_email et media_count sont requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrUserEmailMediaCountRequired)
 		return
 	}
 
-	log.Printf("📱 Envoi notification galerie: %s - %d médias - %s", req.UserName, req.MediaCount, req.EventTitle)
+	log.Println("Envoi notification galerie")
 
 	// 1. Récupérer l'événement
 	event, err := h.eventRepo.FindByID(eventObjID)
 	if err != nil || event == nil {
 		log.Printf("❌ Événement non trouvé: %v", err)
-		utils.RespondError(w, http.StatusNotFound, "Événement non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrEventNotFound)
 		return
 	}
 
@@ -111,12 +111,12 @@ func (h *GalleryNotificationHandler) SendGalleryNotification(w http.ResponseWrit
 	participants, err := h.getEventParticipants(eventObjID, req.UserEmail)
 	if err != nil {
 		log.Printf("❌ Erreur récupération participants: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la récupération des participants")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrGetParticipants)
 		return
 	}
 
 	if len(participants) == 0 {
-		log.Printf("ℹ️  Aucun participant trouvé pour l'événement %s", eventID)
+		log.Println("Aucun participant trouvé pour l'événement")
 		utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
 			"success":            true,
 			"notifications_sent": 0,
@@ -127,7 +127,7 @@ func (h *GalleryNotificationHandler) SendGalleryNotification(w http.ResponseWrit
 
 	// 3. Générer l'URL de preview avec flou
 	previewURL := h.generatePreviewURL(req.MediaPreviewURL)
-	log.Printf("🖼️  URL preview générée: %s", previewURL)
+	log.Println("URL preview générée")
 
 	// 4. Construire le message de notification
 	title := "Nouveau contenu ajouté"
@@ -181,7 +181,7 @@ func (h *GalleryNotificationHandler) getEventParticipants(eventID primitive.Obje
 		// Récupérer les tokens FCM de l'utilisateur depuis la collection fcm_tokens
 		tokens, err := h.fcmTokenRepo.FindByUserID(inscription.UserEmail)
 		if err != nil {
-			log.Printf("⚠️  Erreur récupération tokens FCM pour %s: %v", inscription.UserEmail, err)
+			log.Printf("Erreur récupération tokens FCM: %v", err)
 			continue
 		}
 
@@ -193,7 +193,7 @@ func (h *GalleryNotificationHandler) getEventParticipants(eventID primitive.Obje
 		}
 	}
 
-	log.Printf("📱 Participants trouvés: %d tokens pour l'événement %s", len(participants), eventID.Hex())
+	log.Printf("Participants trouvés: %d tokens pour l'événement", len(participants))
 	return participants, nil
 }
 
@@ -235,8 +235,8 @@ func (h *GalleryNotificationHandler) buildNotificationMessage(userName string, m
 
 // cleanupInvalidTokens nettoie les tokens FCM invalides
 func (h *GalleryNotificationHandler) cleanupInvalidTokens(failedTokens []string) {
-	for _, token := range failedTokens {
-		log.Printf("🧹 Nettoyage token invalide: %s", token)
+	for range failedTokens {
+		log.Println("Nettoyage token invalide")
 		// Ici on pourrait supprimer le token de la base de données
 		// Pour l'instant on log juste
 	}
@@ -244,15 +244,14 @@ func (h *GalleryNotificationHandler) cleanupInvalidTokens(failedTokens []string)
 
 // TestGalleryNotification endpoint de test pour les notifications
 func (h *GalleryNotificationHandler) TestGalleryNotification(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
 	// Authentification requise
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Non authentifié")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrNotAuthenticated)
 		return
 	}
 
@@ -273,9 +272,9 @@ func (h *GalleryNotificationHandler) TestGalleryNotification(w http.ResponseWrit
 	body := h.buildNotificationMessage(testData.UserName, testData.MediaCount, testData.EventTitle)
 
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
-		"success":      true,
-		"message":      "Test de notification galerie",
-		"preview_url":  previewURL,
+		"success":     true,
+		"message":     "Test de notification galerie",
+		"preview_url": previewURL,
 		"notification": map[string]string{
 			"title": "Nouveau contenu ajouté",
 			"body":  body,

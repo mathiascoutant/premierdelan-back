@@ -91,8 +91,8 @@ type UserBasicInfo struct {
 	Firstname       string `json:"firstname"`
 	Lastname        string `json:"lastname"`
 	Email           string `json:"email,omitempty"`
-	ProfilePicture  string `json:"profile_picture,omitempty"`  // URL de la photo de profil
-	ProfileImageURL string `json:"profileImageUrl,omitempty"`  // URL de la photo de profil (compatibilité)
+	ProfilePicture  string `json:"profile_picture,omitempty"` // URL de la photo de profil
+	ProfileImageURL string `json:"profileImageUrl,omitempty"` // URL de la photo de profil (compatibilité)
 }
 
 // MessagePreview aperçu d'un message
@@ -121,13 +121,13 @@ type GroupBasicInfo struct {
 
 // GroupWithDetails groupe avec tous les détails pour la liste
 type GroupWithDetails struct {
-	ID           string                 `json:"id"`
-	Name         string                 `json:"name"`
-	CreatedBy    GroupCreatorInfo       `json:"created_by"`
-	MemberCount  int                    `json:"member_count"`
-	UnreadCount  int                    `json:"unread_count"`
-	LastMessage  *GroupLastMessageInfo  `json:"last_message"`
-	CreatedAt    time.Time              `json:"created_at"`
+	ID          string                `json:"id"`
+	Name        string                `json:"name"`
+	CreatedBy   GroupCreatorInfo      `json:"created_by"`
+	MemberCount int                   `json:"member_count"`
+	UnreadCount int                   `json:"unread_count"`
+	LastMessage *GroupLastMessageInfo `json:"last_message"`
+	CreatedAt   time.Time             `json:"created_at"`
 }
 
 // GroupCreatorInfo informations du créateur du groupe
@@ -136,8 +136,8 @@ type GroupCreatorInfo struct {
 	Firstname       string `json:"firstname"`
 	Lastname        string `json:"lastname"`
 	Email           string `json:"email"`
-	ProfilePicture  string `json:"profile_picture,omitempty"`  // URL de la photo de profil
-	ProfileImageURL string `json:"profileImageUrl,omitempty"`  // URL de la photo de profil (compatibilité)
+	ProfilePicture  string `json:"profile_picture,omitempty"` // URL de la photo de profil
+	ProfileImageURL string `json:"profileImageUrl,omitempty"` // URL de la photo de profil (compatibilité)
 }
 
 // GroupLastMessageInfo dernier message du groupe

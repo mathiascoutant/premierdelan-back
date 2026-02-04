@@ -8,6 +8,7 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/utils"
@@ -19,11 +20,11 @@ import (
 
 // CloudinaryHandler gère les uploads vers Cloudinary
 type CloudinaryHandler struct {
-	userRepo      *database.UserRepository
-	cloudName     string
-	uploadPreset  string
-	apiKey        string
-	apiSecret     string
+	userRepo     *database.UserRepository
+	cloudName    string
+	uploadPreset string
+	apiKey       string
+	apiSecret    string
 }
 
 // NewCloudinaryHandler crée une nouvelle instance
@@ -48,15 +49,14 @@ type CloudinaryUploadResponse struct {
 // UploadProfileImage gère l'upload de la photo de profil
 func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
 	// Récupérer l'utilisateur depuis le contexte (mis par le middleware Auth)
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Token d'authentification invalide")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrAuthTokenInvalid)
 		return
 	}
 
@@ -64,19 +64,19 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 
 	// Log du Content-Type pour debugging
 	contentType := r.Header.Get("Content-Type")
-	log.Printf("📋 Content-Type reçu: %s", contentType)
+	log.Println("Content-Type reçu")
 
 	// Vérifier que le Content-Type est bien multipart/form-data
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
-		log.Printf("❌ Content-Type invalide: %s (attendu: multipart/form-data)", contentType)
-		utils.RespondError(w, http.StatusBadRequest, "Le Content-Type doit être multipart/form-data. Assurez-vous de ne pas définir explicitement le Content-Type côté frontend lors de l'envoi de FormData.")
+		log.Println("Content-Type invalide (attendu: multipart/form-data)")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMultipartRequired)
 		return
 	}
 
 	// Parser le formulaire multipart (limite 10 MB)
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		log.Printf("❌ Erreur parsing form: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Erreur lors du parsing du formulaire")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrFormParse)
 		return
 	}
 
@@ -84,7 +84,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 	file, header, err := r.FormFile("profileImage")
 	if err != nil {
 		log.Printf("Erreur récupération fichier: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Aucun fichier fourni")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrNoFileProvided)
 		return
 	}
 	defer file.Close()
@@ -107,17 +107,17 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 	}
 
 	if !isValidType {
-		utils.RespondError(w, http.StatusBadRequest, "Format de fichier non supporté. Formats acceptés : JPEG, PNG, WebP, GIF")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrFileFormatUnsupported)
 		return
 	}
 
-	log.Printf("📤 Upload photo de profil pour %s (%s, %d bytes)", userEmail, fileContentType, header.Size)
+	log.Printf("Upload photo de profil en cours")
 
 	// Récupérer l'utilisateur
 	user, err := h.userRepo.FindByEmail(userEmail)
 	if err != nil || user == nil {
 		log.Printf("Erreur récupération utilisateur: %v", err)
-		utils.RespondError(w, http.StatusNotFound, "Utilisateur non trouvé")
+		utils.RespondError(w, http.StatusNotFound, constants.ErrUserNotFound)
 		return
 	}
 
@@ -125,11 +125,11 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 	cloudinaryURL, err := h.uploadToCloudinary(file, userEmail, header.Filename)
 	if err != nil {
 		log.Printf("Erreur upload Cloudinary: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de l'upload de l'image")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrUploadImage)
 		return
 	}
 
-	log.Printf("✅ Upload Cloudinary réussi: %s", cloudinaryURL)
+	log.Println("Upload Cloudinary réussi")
 
 	// Mettre à jour la base de données
 	updateData := map[string]interface{}{
@@ -138,7 +138,7 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 
 	if err := h.userRepo.UpdateByEmail(userEmail, updateData); err != nil {
 		log.Printf("Erreur mise à jour DB: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la mise à jour du profil")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrUpdateProfile)
 		return
 	}
 
@@ -146,11 +146,11 @@ func (h *CloudinaryHandler) UploadProfileImage(w http.ResponseWriter, r *http.Re
 	updatedUser, err := h.userRepo.FindByEmail(userEmail)
 	if err != nil || updatedUser == nil {
 		log.Printf("Erreur récupération utilisateur mis à jour: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
-	log.Printf("✅ Photo de profil mise à jour: %s", userEmail)
+	log.Println("Photo de profil mise à jour")
 
 	// Réponse
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
@@ -229,8 +229,8 @@ func (h *CloudinaryHandler) uploadToCloudinary(file multipart.File, userEmail, f
 
 	// Lire la réponse
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		log.Printf("❌ Cloudinary error: %s", string(bodyBytes))
+		_, _ = io.ReadAll(resp.Body)
+		log.Printf("Cloudinary error: %d", resp.StatusCode)
 		return "", fmt.Errorf("cloudinary returned status %d", resp.StatusCode)
 	}
 
@@ -241,4 +241,3 @@ func (h *CloudinaryHandler) uploadToCloudinary(file multipart.File, userEmail, f
 
 	return cloudinaryResp.SecureURL, nil
 }
-

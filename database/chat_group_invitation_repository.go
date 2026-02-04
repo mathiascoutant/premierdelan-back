@@ -69,44 +69,44 @@ func (r *ChatGroupInvitationRepository) FindPendingByUser(userID string) ([]mode
 	// Pipeline d'agrégation pour enrichir les invitations
 	pipeline := []bson.M{
 		{
-			"$match": bson.M{
+			BSONMatch: bson.M{
 				"invited_user": userID,
 				"status":       "pending",
 			},
 		},
 		// Joindre avec les groupes
 		{
-			"$lookup": bson.M{
+			BSONLookup: bson.M{
 				"from":         "chat_groups",
 				"localField":   "group_id",
 				"foreignField": "_id",
 				"as":           "group",
 			},
 		},
-		{"$unwind": "$group"},
+		{BSONUnwind: "$group"},
 		// Joindre avec le créateur du groupe (group.created_by est un email)
 		{
-			"$lookup": bson.M{
+			BSONLookup: bson.M{
 				"from":         "users",
 				"localField":   "group.created_by",
 				"foreignField": "email",
 				"as":           "group_creator",
 			},
 		},
-		{"$unwind": bson.M{"path": "$group_creator", "preserveNullAndEmptyArrays": true}},
+		{BSONUnwind: bson.M{"path": "$group_creator", "preserveNullAndEmptyArrays": true}},
 		// Joindre avec l'utilisateur qui a invité (invited_by est un email)
 		{
-			"$lookup": bson.M{
+			BSONLookup: bson.M{
 				"from":         "users",
 				"localField":   "invited_by",
 				"foreignField": "email",
 				"as":           "inviter",
 			},
 		},
-		{"$unwind": bson.M{"path": "$inviter", "preserveNullAndEmptyArrays": true}},
+		{BSONUnwind: bson.M{"path": "$inviter", "preserveNullAndEmptyArrays": true}},
 		// Compter les membres
 		{
-			"$lookup": bson.M{
+			BSONLookup: bson.M{
 				"from":         "chat_group_members",
 				"localField":   "group_id",
 				"foreignField": "group_id",

@@ -8,10 +8,10 @@ import (
 
 // SiteSetting représente un paramètre global du site
 type SiteSetting struct {
-	ID        primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Key       string             `json:"key" bson:"key"`
-	Value     string             `json:"value" bson:"value"`
-	UpdatedAt time.Time          `json:"updated_at" bson:"updated_at"`
+	ID        primitive.ObjectID  `json:"id" bson:"_id,omitempty"`
+	Key       string              `json:"key" bson:"key"`
+	Value     string              `json:"value" bson:"value"`
+	UpdatedAt time.Time           `json:"updated_at" bson:"updated_at"`
 	UpdatedBy *primitive.ObjectID `json:"updated_by,omitempty" bson:"updated_by,omitempty"`
 }
 

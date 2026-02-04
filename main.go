@@ -26,8 +26,8 @@ func main() {
 	}
 
 	// Connexion à MongoDB
-	if err := database.Connect(cfg.MongoURI, cfg.MongoDB); err != nil {
-		log.Fatalf("❌ Erreur de connexion à MongoDB: %v", err)
+	if connErr := database.Connect(cfg.MongoURI, cfg.MongoDB); connErr != nil {
+		log.Fatalf("❌ Erreur de connexion à MongoDB: %v", connErr)
 	}
 	defer database.Close()
 
@@ -59,6 +59,13 @@ func main() {
 
 	// Créer un routeur sans middleware pour WebSocket
 	rawRouter := mux.NewRouter()
+
+	// Définir le préfixe API selon l'environnement
+	apiPrefix := "/api"
+	if cfg.Environment == "development" || cfg.Environment == "dev" {
+		apiPrefix = "/api/dev"
+	}
+	log.Printf("📍 Préfixe API: %s", apiPrefix)
 
 	// Appliquer les middlewares globaux (SAUF pour WebSocket)
 	router.Use(middleware.Logging(slackService))
@@ -129,53 +136,48 @@ func main() {
 
 	// Routes publiques - Compatible avec votre front
 	// Ces routes sont protégées par le middleware Guest (refusent les utilisateurs déjà connectés)
-	router.Handle("/api/inscription", guestMiddleware(http.HandlerFunc(authHandler.Register))).Methods("POST", "OPTIONS")
-	router.Handle("/api/connexion", guestMiddleware(http.HandlerFunc(authHandler.Login))).Methods("POST", "OPTIONS")
+	router.Handle(apiPrefix+"/inscription", guestMiddleware(http.HandlerFunc(authHandler.Register))).Methods("POST", "OPTIONS")
+	router.Handle(apiPrefix+"/connexion", guestMiddleware(http.HandlerFunc(authHandler.Login))).Methods("POST", "OPTIONS")
 
 	// Routes alternatives (pour compatibilité)
-	router.Handle("/api/auth/register", guestMiddleware(http.HandlerFunc(authHandler.Register))).Methods("POST", "OPTIONS")
-	router.Handle("/api/auth/login", guestMiddleware(http.HandlerFunc(authHandler.Login))).Methods("POST", "OPTIONS")
+	router.Handle(apiPrefix+"/auth/register", guestMiddleware(http.HandlerFunc(authHandler.Register))).Methods("POST", "OPTIONS")
+	router.Handle(apiPrefix+"/auth/login", guestMiddleware(http.HandlerFunc(authHandler.Login))).Methods("POST", "OPTIONS")
 
-	// Route de santé (health check)
-	router.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		utils.RespondSuccess(w, "Le serveur fonctionne correctement", map[string]string{
-			"status":   "ok",
-			"env":      cfg.Environment,
-			"database": "MongoDB",
-		})
-	}).Methods("GET")
+	// Route de santé (health check) avec métriques
+	healthHandler := handlers.NewHealthHandler(cfg.Environment)
+	router.HandleFunc(apiPrefix+"/health", healthHandler.Health).Methods("GET")
 
 	// Routes publiques des événements
-	router.HandleFunc("/api/evenements/public", eventHandler.GetPublicEvents).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/evenements/{event_id}", eventHandler.GetPublicEvent).Methods("GET", "OPTIONS")
+	router.HandleFunc(apiPrefix+"/evenements/public", eventHandler.GetPublicEvents).Methods("GET", "OPTIONS")
+	router.HandleFunc(apiPrefix+"/evenements/{event_id}", eventHandler.GetPublicEvent).Methods("GET", "OPTIONS")
 
 	// Routes publiques des médias (galerie)
-	router.HandleFunc("/api/evenements/{event_id}/medias", mediaHandler.GetMedias).Methods("GET", "OPTIONS")
+	router.HandleFunc(apiPrefix+"/evenements/{event_id}/medias", mediaHandler.GetMedias).Methods("GET", "OPTIONS")
 
 	// Route d'alertes critiques (publique - pas d'auth pour permettre les alertes en cas d'erreur)
-	router.HandleFunc("/api/alerts/critical", alertHandler.SendCriticalAlert).Methods("POST", "OPTIONS")
+	router.HandleFunc(apiPrefix+"/alerts/critical", alertHandler.SendCriticalAlert).Methods("POST", "OPTIONS")
 
 	// Route thème global (publique)
-	router.HandleFunc("/api/theme", themeHandler.GetGlobalTheme).Methods("GET", "OPTIONS")
+	router.HandleFunc(apiPrefix+"/theme", themeHandler.GetGlobalTheme).Methods("GET", "OPTIONS")
 
 	// Route de vérification de code d'accès (publique - étape 1 inscription)
-	router.HandleFunc("/api/inscription/verify-code", inscriptionHandler.VerifyCode).Methods("POST", "OPTIONS")
+	router.HandleFunc(apiPrefix+"/inscription/verify-code", inscriptionHandler.VerifyCode).Methods("POST", "OPTIONS")
 
 	// Routes de notifications (publiques)
-	router.HandleFunc("/api/notifications/vapid-public-key", notificationHandler.GetVAPIDPublicKey).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/notifications/subscribe", notificationHandler.Subscribe).Methods("POST", "OPTIONS")
-	router.HandleFunc("/api/notifications/unsubscribe", notificationHandler.Unsubscribe).Methods("POST", "OPTIONS")
+	router.HandleFunc(apiPrefix+"/notifications/vapid-public-key", notificationHandler.GetVAPIDPublicKey).Methods("GET", "OPTIONS")
+	router.HandleFunc(apiPrefix+"/notifications/subscribe", notificationHandler.Subscribe).Methods("POST", "OPTIONS")
+	router.HandleFunc(apiPrefix+"/notifications/unsubscribe", notificationHandler.Unsubscribe).Methods("POST", "OPTIONS")
 
 	// Routes FCM (Firebase Cloud Messaging) - Publiques
-	router.HandleFunc("/api/fcm/vapid-key", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc(apiPrefix+"/fcm/vapid-key", func(w http.ResponseWriter, r *http.Request) {
 		utils.RespondJSON(w, http.StatusOK, map[string]string{
 			"vapidKey": cfg.FCMVAPIDKey,
 		})
 	}).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/fcm/subscribe", fcmHandler.Subscribe).Methods("POST", "OPTIONS")
+	router.HandleFunc(apiPrefix+"/fcm/subscribe", fcmHandler.Subscribe).Methods("POST", "OPTIONS")
 
 	// Routes protégées
-	protected := router.PathPrefix("/api").Subrouter()
+	protected := router.PathPrefix(apiPrefix).Subrouter()
 	protected.Use(middleware.Auth(cfg.JWTSecret))
 
 	// Routes de notifications (VAPID - ancienne méthode, garde pour compatibilité)

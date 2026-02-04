@@ -8,10 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
 	"premier-an-backend/services"
+	"premier-an-backend/utils"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
@@ -54,34 +56,46 @@ func (h *ChatHandler) getUserObjectID(email string) (primitive.ObjectID, error) 
 	return user.ID, nil
 }
 
-// GetConversations récupère les conversations de l'admin connecté
-func (h *ChatHandler) GetConversations(w http.ResponseWriter, r *http.Request) {
-	// Récupérer les claims depuis le contexte
+// requireAuth vérifie l'auth. Retourne (userID, true) ou écrit l'erreur et (zero, false).
+func (h *ChatHandler) requireAuth(w http.ResponseWriter, r *http.Request) (primitive.ObjectID, bool) {
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		http.Error(w, "Token invalide", http.StatusUnauthorized)
-		return
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrInvalidToken)
+		return primitive.NilObjectID, false
 	}
-
-	// Récupérer l'ObjectID de l'utilisateur via son email
 	userID, err := h.getUserObjectID(claims.UserID)
 	if err != nil {
-		log.Printf("Erreur conversion ID: %v", err)
-		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
-		return
+		log.Printf(constants.ErrIDConversion, err)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrUserNotFound)
+		return primitive.NilObjectID, false
 	}
+	return userID, true
+}
 
-	// Vérifier que l'utilisateur est admin
+// requireAdmin vérifie l'auth et le rôle admin. Retourne (userID, true) ou écrit l'erreur et (zero, false).
+func (h *ChatHandler) requireAdmin(w http.ResponseWriter, r *http.Request) (primitive.ObjectID, bool) {
+	userID, ok := h.requireAuth(w, r)
+	if !ok {
+		return primitive.NilObjectID, false
+	}
 	user, err := h.userRepo.FindByID(userID)
 	if err != nil || user.Admin != 1 {
-		http.Error(w, "Accès refusé. Admin uniquement", http.StatusForbidden)
+		utils.RespondError(w, http.StatusForbidden, constants.ErrAdminOnly)
+		return primitive.NilObjectID, false
+	}
+	return userID, true
+}
+
+// GetConversations récupère les conversations de l'admin connecté
+func (h *ChatHandler) GetConversations(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.requireAdmin(w, r)
+	if !ok {
 		return
 	}
-
 	// Récupérer les conversations ET les invitations envoyées
 	conversations, err := h.chatRepo.GetConversationsAndInvitations(r.Context(), userID)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -102,59 +116,38 @@ func (h *ChatHandler) GetConversations(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	response := models.ChatResponse{
+	utils.RespondJSON(w, http.StatusOK, models.ChatResponse{
 		Success: true,
 		Data: map[string]interface{}{
 			"conversations": conversations,
 		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }
 
 // GetMessages récupère les messages d'une conversation
 func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
-	// Récupérer les claims depuis le contexte
-	claims := middleware.GetUserFromContext(r.Context())
-	if claims == nil {
-		http.Error(w, "Token invalide", http.StatusUnauthorized)
+	userID, ok := h.requireAdmin(w, r)
+	if !ok {
 		return
 	}
-
-	// Récupérer l'ObjectID de l'utilisateur via son email
-	userID, err := h.getUserObjectID(claims.UserID)
-	if err != nil {
-		log.Printf("Erreur conversion ID: %v", err)
-		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
-		return
-	}
-
-	// Vérifier que l'utilisateur est admin
-	user, err := h.userRepo.FindByID(userID)
-	if err != nil || user.Admin != 1 {
-		http.Error(w, "Accès refusé. Admin uniquement", http.StatusForbidden)
-		return
-	}
-
 	// Récupérer l'ID de la conversation depuis les paramètres d'URL
 	vars := mux.Vars(r)
 	conversationIDStr := vars["id"]
 	if conversationIDStr == "" {
-		http.Error(w, "ID de conversation requis", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrConvIDRequired)
 		return
 	}
 
 	conversationID, err := primitive.ObjectIDFromHex(conversationIDStr)
 	if err != nil {
-		http.Error(w, "ID de conversation invalide", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidConvID)
 		return
 	}
 
 	// Vérifier que l'utilisateur fait partie de la conversation
 	conversation, err := h.chatRepo.GetConversationByID(r.Context(), conversationID)
 	if err != nil {
-		http.Error(w, "Conversation non trouvée", http.StatusNotFound)
+		utils.RespondError(w, http.StatusNotFound, constants.ErrConvNotFound)
 		return
 	}
 
@@ -168,7 +161,7 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isParticipant {
-		http.Error(w, "Accès refusé à cette conversation", http.StatusForbidden)
+		utils.RespondError(w, http.StatusForbidden, constants.ErrConvAccessDenied)
 		return
 	}
 
@@ -183,7 +176,7 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	// Récupérer les messages (et marquer automatiquement comme distribués)
 	messages, err := h.chatRepo.GetMessages(r.Context(), conversationID, userID, limit)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -202,52 +195,38 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	response := models.ChatResponse{
+	utils.RespondJSON(w, http.StatusOK, models.ChatResponse{
 		Success: true,
 		Data: map[string]interface{}{
 			"messages": messages,
 		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }
 
 // MarkConversationAsRead marque tous les messages d'une conversation comme lus
 func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Request) {
-	// Récupérer les claims depuis le contexte
-	claims := middleware.GetUserFromContext(r.Context())
-	if claims == nil {
-		http.Error(w, "Token invalide", http.StatusUnauthorized)
+	userID, ok := h.requireAuth(w, r)
+	if !ok {
 		return
 	}
-
-	// Récupérer l'ObjectID de l'utilisateur via son email
-	userID, err := h.getUserObjectID(claims.UserID)
-	if err != nil {
-		log.Printf("Erreur conversion ID: %v", err)
-		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
-		return
-	}
-
 	// Récupérer l'ID de la conversation depuis les paramètres d'URL
 	vars := mux.Vars(r)
 	conversationIDStr := vars["id"]
 	if conversationIDStr == "" {
-		http.Error(w, "ID de conversation requis", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrConvIDRequired)
 		return
 	}
 
 	conversationID, err := primitive.ObjectIDFromHex(conversationIDStr)
 	if err != nil {
-		http.Error(w, "ID de conversation invalide", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidConvID)
 		return
 	}
 
 	// Vérifier que l'utilisateur fait partie de la conversation
 	conversation, err := h.chatRepo.GetConversationByID(r.Context(), conversationID)
 	if err != nil {
-		http.Error(w, "Conversation non trouvée", http.StatusNotFound)
+		utils.RespondError(w, http.StatusNotFound, constants.ErrConvNotFound)
 		return
 	}
 
@@ -261,7 +240,7 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 	}
 
 	if !isParticipant {
-		http.Error(w, "Accès refusé à cette conversation", http.StatusForbidden)
+		utils.RespondError(w, http.StatusForbidden, constants.ErrConvAccessDenied)
 		return
 	}
 
@@ -271,15 +250,15 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 	if h.wsHub != nil {
 		senderIDs, err = h.chatRepo.GetSendersOfUnreadMessages(r.Context(), conversationID, userID)
 		if err != nil {
-			// Erreur silencieuse, on continue quand même
+			log.Printf("Erreur récupération expéditeurs: %v", err)
 		}
 	}
 
 	// Marquer les messages comme lus
 	markedCount, err := h.chatRepo.MarkConversationAsRead(r.Context(), conversationID, userID)
 	if err != nil {
-		log.Printf("❌ Erreur marquage lu: %v", err)
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		log.Printf("Erreur marquage lu: %v", err)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -306,59 +285,38 @@ func (h *ChatHandler) MarkConversationAsRead(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	response := models.ChatResponse{
+	utils.RespondJSON(w, http.StatusOK, models.ChatResponse{
 		Success: true,
 		Data: map[string]interface{}{
 			"marked_read": markedCount,
 		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }
 
 // SendMessage envoie un message dans une conversation
 func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
-	// Récupérer les claims depuis le contexte
-	claims := middleware.GetUserFromContext(r.Context())
-	if claims == nil {
-		http.Error(w, "Token invalide", http.StatusUnauthorized)
+	userID, ok := h.requireAdmin(w, r)
+	if !ok {
 		return
 	}
-
-	// Récupérer l'ObjectID de l'utilisateur via son email
-	userID, err := h.getUserObjectID(claims.UserID)
-	if err != nil {
-		log.Printf("Erreur conversion ID: %v", err)
-		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
-		return
-	}
-
-	// Vérifier que l'utilisateur est admin
-	user, err := h.userRepo.FindByID(userID)
-	if err != nil || user.Admin != 1 {
-		http.Error(w, "Accès refusé. Admin uniquement", http.StatusForbidden)
-		return
-	}
-
 	// Récupérer l'ID de la conversation depuis les paramètres d'URL
 	vars := mux.Vars(r)
 	conversationIDStr := vars["id"]
 	if conversationIDStr == "" {
-		http.Error(w, "ID de conversation requis", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrConvIDRequired)
 		return
 	}
 
 	conversationID, err := primitive.ObjectIDFromHex(conversationIDStr)
 	if err != nil {
-		http.Error(w, "ID de conversation invalide", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidConvID)
 		return
 	}
 
 	// Vérifier que l'utilisateur fait partie de la conversation
 	conversation, err := h.chatRepo.GetConversationByID(r.Context(), conversationID)
 	if err != nil {
-		http.Error(w, "Conversation non trouvée", http.StatusNotFound)
+		utils.RespondError(w, http.StatusNotFound, constants.ErrConvNotFound)
 		return
 	}
 
@@ -372,20 +330,20 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isParticipant {
-		http.Error(w, "Accès refusé à cette conversation", http.StatusForbidden)
+		utils.RespondError(w, http.StatusForbidden, constants.ErrConvAccessDenied)
 		return
 	}
 
 	// Parser le body JSON
 	var request models.MessageRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Body JSON invalide", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidJSONBody)
 		return
 	}
 
 	// Validation
 	if strings.TrimSpace(request.Content) == "" {
-		http.Error(w, "Contenu du message requis", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrMessageContentRequired)
 		return
 	}
 
@@ -399,7 +357,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	// Envoyer le message
 	if err := h.chatRepo.SendMessage(r.Context(), message); err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -437,45 +395,23 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	response := models.ChatResponse{
+	utils.RespondJSON(w, http.StatusOK, models.ChatResponse{
 		Success: true,
 		Data: map[string]interface{}{
 			"message": message,
 		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }
 
 // SearchAdmins recherche des administrateurs
 func (h *ChatHandler) SearchAdmins(w http.ResponseWriter, r *http.Request) {
-	// Récupérer les claims depuis le contexte
-	claims := middleware.GetUserFromContext(r.Context())
-	if claims == nil {
-		http.Error(w, "Token invalide", http.StatusUnauthorized)
+	if _, ok := h.requireAdmin(w, r); !ok {
 		return
 	}
-
-	// Récupérer l'ObjectID de l'utilisateur via son email
-	userID, err := h.getUserObjectID(claims.UserID)
-	if err != nil {
-		log.Printf("Erreur conversion ID: %v", err)
-		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
-		return
-	}
-
-	// Vérifier que l'utilisateur est admin
-	user, err := h.userRepo.FindByID(userID)
-	if err != nil || user.Admin != 1 {
-		http.Error(w, "Accès refusé. Admin uniquement", http.StatusForbidden)
-		return
-	}
-
 	// Récupérer les paramètres de recherche
 	query := r.URL.Query().Get("q")
 	if query == "" {
-		http.Error(w, "Paramètre de recherche 'q' requis", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrSearchParamRequired)
 		return
 	}
 
@@ -489,80 +425,61 @@ func (h *ChatHandler) SearchAdmins(w http.ResponseWriter, r *http.Request) {
 	// Rechercher les admins
 	admins, err := h.chatRepo.SearchAdmins(r.Context(), query, limit)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
-	response := models.ChatResponse{
+	utils.RespondJSON(w, http.StatusOK, models.ChatResponse{
 		Success: true,
 		Data: map[string]interface{}{
 			"admins": admins,
 		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }
 
 // SendInvitation envoie une invitation de chat
 func (h *ChatHandler) SendInvitation(w http.ResponseWriter, r *http.Request) {
-	// Récupérer les claims depuis le contexte
-	claims := middleware.GetUserFromContext(r.Context())
-	if claims == nil {
-		http.Error(w, "Token invalide", http.StatusUnauthorized)
+	userID, ok := h.requireAdmin(w, r)
+	if !ok {
 		return
 	}
-
-	// Récupérer l'ObjectID de l'utilisateur via son email
-	userID, err := h.getUserObjectID(claims.UserID)
-	if err != nil {
-		log.Printf("Erreur conversion ID: %v", err)
-		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
-		return
-	}
-
-	// Vérifier que l'utilisateur est admin
-	user, err := h.userRepo.FindByID(userID)
-	if err != nil || user.Admin != 1 {
-		http.Error(w, "Accès refusé. Admin uniquement", http.StatusForbidden)
-		return
-	}
+	user, _ := h.userRepo.FindByID(userID)
 
 	// Parser le body JSON
 	var request models.InvitationRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Body JSON invalide", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidJSONBody)
 		return
 	}
 
 	// Validation
 	if strings.TrimSpace(request.ToUserID) == "" {
-		http.Error(w, "ID utilisateur destinataire requis", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrRecipientIDRequired)
 		return
 	}
 
 	if strings.TrimSpace(request.Message) == "" {
-		http.Error(w, "Message d'invitation requis", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvitationMessageRequired)
 		return
 	}
 
 	// Convertir l'ID du destinataire
 	toUserID, err := primitive.ObjectIDFromHex(request.ToUserID)
 	if err != nil {
-		http.Error(w, "ID utilisateur destinataire invalide", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrRecipientIDInvalid)
 		return
 	}
 
 	// Vérifier que le destinataire est admin
 	toUser, err := h.userRepo.FindByID(toUserID)
 	if err != nil || toUser.Admin != 1 {
-		http.Error(w, "Le destinataire doit être un administrateur", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrRecipientMustBeAdmin)
 		return
 	}
 
 	// Vérifier qu'on ne s'invite pas soi-même
 	if userID == toUserID {
-		http.Error(w, "Vous ne pouvez pas vous inviter vous-même", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrCannotInviteSelf)
 		return
 	}
 
@@ -575,7 +492,7 @@ func (h *ChatHandler) SendInvitation(w http.ResponseWriter, r *http.Request) {
 
 	// Envoyer l'invitation
 	if err := h.chatRepo.CreateInvitation(r.Context(), invitation); err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -606,107 +523,68 @@ func (h *ChatHandler) SendInvitation(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
-	response := models.ChatResponse{
+	utils.RespondJSON(w, http.StatusOK, models.ChatResponse{
 		Success: true,
 		Data: map[string]interface{}{
 			"invitation": invitation,
 		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }
 
 // GetInvitations récupère les invitations reçues
 func (h *ChatHandler) GetInvitations(w http.ResponseWriter, r *http.Request) {
-	// Récupérer les claims depuis le contexte
-	claims := middleware.GetUserFromContext(r.Context())
-	if claims == nil {
-		http.Error(w, "Token invalide", http.StatusUnauthorized)
-		return
-	}
-
-	// Récupérer l'ObjectID de l'utilisateur via son email
-	userID, err := h.getUserObjectID(claims.UserID)
-	if err != nil {
-		log.Printf("Erreur conversion ID: %v", err)
-		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
-		return
-	}
-
-	// Vérifier que l'utilisateur est admin
-	user, err := h.userRepo.FindByID(userID)
-	if err != nil || user.Admin != 1 {
-		http.Error(w, "Accès refusé. Admin uniquement", http.StatusForbidden)
+	userID, ok := h.requireAdmin(w, r)
+	if !ok {
 		return
 	}
 
 	// Récupérer les invitations
 	invitations, err := h.chatRepo.GetInvitations(r.Context(), userID)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
-	response := models.ChatResponse{
+	utils.RespondJSON(w, http.StatusOK, models.ChatResponse{
 		Success: true,
 		Data: map[string]interface{}{
 			"invitations": invitations,
 		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }
 
 // RespondToInvitation répond à une invitation
 func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request) {
-	// Récupérer les claims depuis le contexte
-	claims := middleware.GetUserFromContext(r.Context())
-	if claims == nil {
-		http.Error(w, "Token invalide", http.StatusUnauthorized)
+	userID, ok := h.requireAdmin(w, r)
+	if !ok {
 		return
 	}
-
-	// Récupérer l'ObjectID de l'utilisateur via son email
-	userID, err := h.getUserObjectID(claims.UserID)
-	if err != nil {
-		log.Printf("Erreur conversion ID: %v", err)
-		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
-		return
-	}
-
-	// Vérifier que l'utilisateur est admin
-	user, err := h.userRepo.FindByID(userID)
-	if err != nil || user.Admin != 1 {
-		http.Error(w, "Accès refusé. Admin uniquement", http.StatusForbidden)
-		return
-	}
+	user, _ := h.userRepo.FindByID(userID)
 
 	// Récupérer l'ID de l'invitation depuis les paramètres d'URL
 	vars := mux.Vars(r)
 	invitationIDStr := vars["id"]
 	if invitationIDStr == "" {
-		http.Error(w, "ID d'invitation requis", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvitationIDRequired)
 		return
 	}
 
 	invitationID, err := primitive.ObjectIDFromHex(invitationIDStr)
 	if err != nil {
-		http.Error(w, "ID d'invitation invalide", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvitationInvalidID)
 		return
 	}
 
 	// Parser le body JSON
 	var request models.InvitationResponse
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Body JSON invalide", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidJSONBody)
 		return
 	}
 
 	// Validation
 	if request.Action != "accept" && request.Action != "reject" {
-		http.Error(w, "Action invalide. Doit être 'accept' ou 'reject'", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrActionAcceptReject)
 		return
 	}
 
@@ -714,14 +592,14 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 	var invitation models.ChatInvitation
 	err = h.chatRepo.InvitationCollection.FindOne(r.Context(), bson.M{"_id": invitationID}).Decode(&invitation)
 	if err != nil {
-		http.Error(w, "Invitation non trouvée", http.StatusNotFound)
+		utils.RespondError(w, http.StatusNotFound, constants.ErrInvitationNotFound)
 		return
 	}
 
 	// Répondre à l'invitation
 	conversation, err := h.chatRepo.RespondToInvitation(r.Context(), invitationID, request.Action)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -775,73 +653,52 @@ func (h *ChatHandler) RespondToInvitation(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	response := models.ChatResponse{
+	utils.RespondJSON(w, http.StatusOK, models.ChatResponse{
 		Success: true,
 		Data: map[string]interface{}{
 			"conversation": conversation,
 		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }
 
 // SendChatNotification envoie une notification de chat
 func (h *ChatHandler) SendChatNotification(w http.ResponseWriter, r *http.Request) {
-	// Récupérer les claims depuis le contexte
-	claims := middleware.GetUserFromContext(r.Context())
-	if claims == nil {
-		http.Error(w, "Token invalide", http.StatusUnauthorized)
-		return
-	}
-
-	// Récupérer l'ObjectID de l'utilisateur via son email
-	userID, err := h.getUserObjectID(claims.UserID)
-	if err != nil {
-		log.Printf("Erreur conversion ID: %v", err)
-		http.Error(w, "Utilisateur introuvable", http.StatusBadRequest)
-		return
-	}
-
-	// Vérifier que l'utilisateur est admin
-	user, err := h.userRepo.FindByID(userID)
-	if err != nil || user.Admin != 1 {
-		http.Error(w, "Accès refusé. Admin uniquement", http.StatusForbidden)
+	if _, ok := h.requireAdmin(w, r); !ok {
 		return
 	}
 
 	// Parser le body JSON
 	var request models.ChatNotificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "Body JSON invalide", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidJSONBody)
 		return
 	}
 
 	// Validation
 	if strings.TrimSpace(request.ToUserID) == "" {
-		http.Error(w, "ID utilisateur destinataire requis", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrRecipientIDRequired)
 		return
 	}
 
 	if strings.TrimSpace(request.Type) == "" {
-		http.Error(w, "Type de notification requis", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrNotificationTypeRequired)
 		return
 	}
 
 	if strings.TrimSpace(request.Title) == "" {
-		http.Error(w, "Titre requis", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrTitleRequired)
 		return
 	}
 
 	if strings.TrimSpace(request.Body) == "" {
-		http.Error(w, "Corps du message requis", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrBodyRequired)
 		return
 	}
 
 	// Convertir l'ID du destinataire
 	toUserID, err := primitive.ObjectIDFromHex(request.ToUserID)
 	if err != nil {
-		http.Error(w, "ID utilisateur destinataire invalide", http.StatusBadRequest)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrRecipientIDInvalid)
 		return
 	}
 
@@ -850,7 +707,7 @@ func (h *ChatHandler) SendChatNotification(w http.ResponseWriter, r *http.Reques
 		// Récupérer l'utilisateur destinataire pour obtenir son email
 		toUser, err := h.userRepo.FindByID(toUserID)
 		if err != nil {
-			http.Error(w, "Utilisateur destinataire non trouvé", http.StatusNotFound)
+			utils.RespondError(w, http.StatusNotFound, constants.ErrRecipientNotFound)
 			return
 		}
 
@@ -876,13 +733,10 @@ func (h *ChatHandler) SendChatNotification(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	response := models.ChatResponse{
+	utils.RespondJSON(w, http.StatusOK, models.ChatResponse{
 		Success: true,
 		Message: "Notification envoyée avec succès",
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }
 
 // sendMessageNotification envoie une notification pour un nouveau message
@@ -940,12 +794,8 @@ func (h *ChatHandler) sendMessageNotification(conversation *models.Conversation,
 
 				// Envoyer à tous les tokens du participant
 				for _, token := range fcmTokens {
-					err := h.fcmService.SendToToken(token.Token, title, body, fcmData)
-					if err != nil {
-					} else {
-					}
+					_ = h.fcmService.SendToToken(token.Token, title, body, fcmData)
 				}
-			} else {
 			}
 		}
 	}
@@ -985,7 +835,7 @@ func (h *ChatHandler) sendInvitationNotification(invitation *models.ChatInvitati
 		}
 		// Envoyer à tous les tokens du destinataire
 		for _, token := range fcmTokens {
-			h.fcmService.SendToToken(token.Token, title, body, fcmData)
+			_ = h.fcmService.SendToToken(token.Token, title, body, fcmData)
 		}
 	}
 }
@@ -1024,7 +874,7 @@ func (h *ChatHandler) sendAcceptedInvitationNotification(invitation *models.Chat
 		}
 		// Envoyer à tous les tokens du demandeur
 		for _, token := range fcmTokens {
-			h.fcmService.SendToToken(token.Token, title, body, fcmData)
+			_ = h.fcmService.SendToToken(token.Token, title, body, fcmData)
 		}
 	}
 }

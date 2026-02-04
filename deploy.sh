@@ -1,11 +1,14 @@
 #!/bin/bash
 
 # Script de déploiement pour le backend
-# Usage: ./deploy.sh
+# Usage: ./deploy.sh [branche]
+#   branche: main (défaut) ou dev
 
 set -e  # Arrêter en cas d'erreur
 
-echo "🔄 Déploiement du backend..."
+BRANCH="${1:-main}"
+
+echo "🔄 Déploiement du backend (branche: $BRANCH)..."
 
 # Arrêter le service
 echo "⏹️  Arrêt du service backend..."
@@ -15,15 +18,18 @@ sudo systemctl stop backend || echo "⚠️  Service déjà arrêté"
 cd "$(dirname "$0")"
 
 # Récupérer les dernières modifications
-echo "📥 Récupération des modifications depuis Git..."
-git pull origin main
+echo "📥 Récupération des modifications depuis Git (origin $BRANCH)..."
+git fetch origin
+git checkout "$BRANCH"
+git pull origin "$BRANCH"
 
-# Compiler le projet
+# Compiler le projet (GOPROXY=direct évite 403 sur certains VPS OVH)
 echo "🔨 Compilation du projet..."
+export GOPROXY=direct
 go build -o backend .
 
 # Vérifier que la compilation a réussi
-if [ ! -f "./backend" ]; then
+if [[ ! -f "./backend" ]]; then
     echo "❌ Erreur: La compilation a échoué"
     exit 1
 fi

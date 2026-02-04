@@ -51,7 +51,7 @@ for pkg in "go.mongodb.org/mongo-driver" "github.com/golang-jwt/jwt/v5" "github.
     current=$(go list -m -f '{{.Version}}' "$pkg" 2>/dev/null || echo "N/A")
     latest=$(go list -m -u -f '{{if .Update}}{{.Update.Version}}{{else}}{{.Version}}{{end}}' "$pkg" 2>/dev/null || echo "N/A")
     
-    if [ "$current" != "$latest" ] && [ "$latest" != "N/A" ]; then
+    if [[ "$current" != "$latest" && "$latest" != "N/A" ]]; then
         status="⚠️ Mise à jour disponible"
     else
         status="✅ À jour"
@@ -71,7 +71,7 @@ EOF
 # Vérifier les vulnérabilités si govulncheck est installé
 GOVULNCHECK_CMD=$(command -v govulncheck 2>/dev/null || echo "$(go env GOPATH)/bin/govulncheck")
 
-if [ -f "$GOVULNCHECK_CMD" ] || command -v govulncheck &> /dev/null; then
+if [[ -f "$GOVULNCHECK_CMD" ]] || command -v govulncheck &> /dev/null; then
     echo "Analyse des vulnérabilités en cours..."
     cat >> "$REPORT_FILE" << EOF
 ### Résultats govulncheck
@@ -119,9 +119,9 @@ EOF
 # Analyser les vulnérabilités critiques
 GOVULNCHECK_CMD=$(command -v govulncheck 2>/dev/null || echo "$(go env GOPATH)/bin/govulncheck")
 
-if [ -f "$GOVULNCHECK_CMD" ] || command -v govulncheck &> /dev/null; then
+if [[ -f "$GOVULNCHECK_CMD" ]] || command -v govulncheck &> /dev/null; then
     vuln_count=$($GOVULNCHECK_CMD ./... 2>&1 | grep -c "Found" || echo "0")
-    if [ "$vuln_count" -gt 0 ]; then
+    if [[ "$vuln_count" -gt 0 ]]; then
         cat >> "$REPORT_FILE" << EOF
 🚨 **Vulnérabilités détectées** : Des vulnérabilités ont été identifiées. Action immédiate requise :
    - Consulter les détails dans la section "Analyse des Vulnérabilités"

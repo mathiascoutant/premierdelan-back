@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"premier-an-backend/constants"
 	"premier-an-backend/database"
 	"premier-an-backend/middleware"
 	"premier-an-backend/models"
@@ -43,22 +44,20 @@ func NewAuthHandler(db *mongo.Database, jwtSecret string, fcmService interface {
 // Register gère l'inscription d'un nouvel utilisateur
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
 	// Décoder la requête
 	var req models.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("❌ Erreur parsing JSON inscription: %v", err)
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		log.Printf("Erreur parsing JSON inscription: %v", err)
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Logger les données reçues pour débogage
-	log.Printf("📥 Inscription reçue - Code: '%s', Email: '%s', Prénom: '%s', Nom: '%s'", 
-		req.CodeSoiree, req.Email, req.Firstname, req.Lastname)
+	log.Println("Inscription reçue")
 
 	// Valider les données
 	if err := h.validateRegisterRequest(&req); err != nil {
@@ -67,30 +66,30 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Vérifier que le code soirée existe et est actif
-	log.Printf("🔍 Vérification du code soirée: '%s'", req.CodeSoiree)
+	log.Println("Vérification du code soirée")
 	codeValid, err := h.codeSoireeRepo.IsCodeValid(req.CodeSoiree)
 	if err != nil {
-		log.Printf("❌ Erreur lors de la vérification du code soirée '%s': %v", req.CodeSoiree, err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		log.Printf("Erreur lors de la vérification du code soirée: %v", err)
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 	if !codeValid {
-		log.Printf("❌ Code soirée invalide ou inactif: '%s'", req.CodeSoiree)
-		utils.RespondError(w, http.StatusBadRequest, "Code de soirée invalide ou inactif")
+		log.Println("Code soirée invalide ou inactif")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrCodeInvalidOrInactive)
 		return
 	}
-	
-	log.Printf("✅ Code soirée valide: '%s'", req.CodeSoiree)
+
+	log.Println("Code soirée valide")
 
 	// Vérifier si l'email existe déjà
 	exists, err := h.userRepo.EmailExists(req.Email)
 	if err != nil {
 		log.Printf("Erreur lors de la vérification de l'email: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 	if exists {
-		utils.RespondError(w, http.StatusConflict, "Cet email est déjà utilisé")
+		utils.RespondError(w, http.StatusConflict, constants.ErrEmailAlreadyUsed)
 		return
 	}
 
@@ -98,7 +97,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
 		log.Printf("Erreur lors du hachage du mot de passe: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -115,7 +114,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.userRepo.Create(user); err != nil {
 		log.Printf("Erreur lors de la création de l'utilisateur: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la création du compte")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrCreateAccount)
 		return
 	}
 
@@ -129,7 +128,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	token, err := utils.GenerateToken(user.Email, user.Email, h.jwtSecret)
 	if err != nil {
 		log.Printf("Erreur lors de la génération du token: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -139,7 +138,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		User:  *user,
 	}
 
-	log.Printf("✓ Nouvel utilisateur inscrit: %s (ID: %s)", user.Email, user.ID.Hex())
+	log.Println("Nouvel utilisateur inscrit")
 
 	utils.RespondJSON(w, http.StatusCreated, response)
 }
@@ -198,15 +197,14 @@ func (h *AuthHandler) notifyAdminsNewUser(user *models.User) {
 // Login gère la connexion d'un utilisateur
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
-	if r.Method != http.MethodPost {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+	if !RequireMethod(w, r, http.MethodPost) {
 		return
 	}
 
 	// Décoder la requête
 	var req models.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
@@ -221,18 +219,18 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.userRepo.FindByEmail(email)
 	if err != nil {
 		log.Printf("Erreur lors de la recherche de l'utilisateur: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
 	if user == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Email ou mot de passe incorrect")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrLoginInvalid)
 		return
 	}
 
 	// Vérifier le mot de passe
 	if !utils.CheckPassword(user.Password, req.Password) {
-		utils.RespondError(w, http.StatusUnauthorized, "Email ou mot de passe incorrect")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrLoginInvalid)
 		return
 	}
 
@@ -240,7 +238,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	token, err := utils.GenerateToken(user.Email, user.Email, h.jwtSecret)
 	if err != nil {
 		log.Printf("Erreur lors de la génération du token: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
@@ -250,7 +248,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		User:  *user,
 	}
 
-	log.Printf("✓ Utilisateur connecté: %s (ID: %s)", user.Email, user.ID.Hex())
+	log.Println("Utilisateur connecté")
 	utils.RespondJSON(w, http.StatusOK, response)
 }
 
@@ -295,14 +293,14 @@ func (h *AuthHandler) validateLoginRequest(req *models.LoginRequest) error {
 func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	// Vérifier la méthode HTTP
 	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Méthode non autorisée")
+		utils.RespondError(w, http.StatusMethodNotAllowed, constants.ErrMethodNotAllowed)
 		return
 	}
 
 	// Récupérer l'utilisateur depuis le contexte (mis par le middleware Auth)
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
-		utils.RespondError(w, http.StatusUnauthorized, "Token d'authentification invalide")
+		utils.RespondError(w, http.StatusUnauthorized, constants.ErrAuthTokenInvalid)
 		return
 	}
 
@@ -320,13 +318,13 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Données invalides")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrInvalidData)
 		return
 	}
 
 	// Validation des champs obligatoires
 	if req.Firstname == "" || req.Lastname == "" || req.Email == "" {
-		utils.RespondError(w, http.StatusBadRequest, "Le prénom, nom et email sont requis")
+		utils.RespondError(w, http.StatusBadRequest, constants.ErrFirstLastEmailRequired)
 		return
 	}
 
@@ -344,11 +342,11 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		exists, err := h.userRepo.EmailExists(req.Email)
 		if err != nil {
 			log.Printf("Erreur vérification email: %v", err)
-			utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+			utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 			return
 		}
 		if exists {
-			utils.RespondError(w, http.StatusBadRequest, "Cet email est déjà utilisé par un autre compte")
+			utils.RespondError(w, http.StatusBadRequest, constants.ErrEmailAlreadyUsed)
 			return
 		}
 	}
@@ -371,29 +369,29 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Gestion du changement de mot de passe
 	hasPasswordFields := req.CurrentPassword != "" || req.NewPassword != "" || req.ConfirmPassword != ""
-	
+
 	if hasPasswordFields {
 		// Validation : tous les champs de mot de passe requis
 		if req.CurrentPassword == "" || req.NewPassword == "" || req.ConfirmPassword == "" {
-			utils.RespondError(w, http.StatusBadRequest, "Pour changer de mot de passe, veuillez remplir tous les champs requis")
+			utils.RespondError(w, http.StatusBadRequest, constants.ErrPasswordFieldsRequired)
 			return
 		}
 
 		// Validation : les nouveaux mots de passe correspondent
 		if req.NewPassword != req.ConfirmPassword {
-			utils.RespondError(w, http.StatusBadRequest, "Les mots de passe ne correspondent pas")
+			utils.RespondError(w, http.StatusBadRequest, constants.ErrPasswordMismatch)
 			return
 		}
 
 		// Validation : longueur minimale du nouveau mot de passe
 		if len(req.NewPassword) < 8 {
-			utils.RespondError(w, http.StatusBadRequest, "Le nouveau mot de passe doit contenir au moins 8 caractères")
+			utils.RespondError(w, http.StatusBadRequest, constants.ErrPasswordMinLength)
 			return
 		}
 
 		// Vérifier le mot de passe actuel
 		if !utils.CheckPassword(req.CurrentPassword, user.Password) {
-			utils.RespondError(w, http.StatusBadRequest, "Le mot de passe actuel est incorrect")
+			utils.RespondError(w, http.StatusBadRequest, constants.ErrPasswordCurrentWrong)
 			return
 		}
 
@@ -401,18 +399,18 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		hashedPassword, err := utils.HashPassword(req.NewPassword)
 		if err != nil {
 			log.Printf("Erreur hachage mot de passe: %v", err)
-			utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+			utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 			return
 		}
 
 		updateData["password"] = hashedPassword
-		log.Printf("✅ Changement de mot de passe pour %s", userEmail)
+		log.Println("Changement de mot de passe effectué")
 	}
 
 	// Mettre à jour l'utilisateur
 	if err := h.userRepo.UpdateByEmail(userEmail, updateData); err != nil {
 		log.Printf("Erreur mise à jour utilisateur: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur lors de la mise à jour du profil")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrUpdateProfile)
 		return
 	}
 
@@ -420,11 +418,11 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	updatedUser, err := h.userRepo.FindByEmail(req.Email)
 	if err != nil || updatedUser == nil {
 		log.Printf("Erreur récupération utilisateur mis à jour: %v", err)
-		utils.RespondError(w, http.StatusInternalServerError, "Erreur serveur")
+		utils.RespondError(w, http.StatusInternalServerError, constants.ErrServerError)
 		return
 	}
 
-	log.Printf("✅ Profil mis à jour: %s", updatedUser.Email)
+	log.Println("Profil mis à jour")
 
 	// Réponse
 	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
