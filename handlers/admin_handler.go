@@ -248,6 +248,12 @@ func (h *AdminHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Valider les champs d'adresse obligatoires
+	if req.Adresse == "" || req.CodePostal == "" || req.Ville == "" || req.Pays == "" {
+		utils.RespondError(w, http.StatusBadRequest, "L'adresse, le code postal, la ville et le pays sont obligatoires")
+		return
+	}
+
 	// Créer l'événement
 	event := &models.Event{
 		Titre:       req.Titre,
@@ -255,6 +261,10 @@ func (h *AdminHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		Description: req.Description,
 		Capacite:    req.Capacite,
 		Lieu:        req.Lieu,
+		Adresse:     req.Adresse,
+		CodePostal:  req.CodePostal,
+		Ville:       req.Ville,
+		Pays:        req.Pays,
 		CodeSoiree:  req.CodeSoiree,
 		Statut:      req.Statut,
 	}
@@ -320,6 +330,18 @@ func (h *AdminHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Lieu != "" {
 		update["lieu"] = req.Lieu
+	}
+	if req.Adresse != "" {
+		update["adresse"] = req.Adresse
+	}
+	if req.CodePostal != "" {
+		update["code_postal"] = req.CodePostal
+	}
+	if req.Ville != "" {
+		update["ville"] = req.Ville
+	}
+	if req.Pays != "" {
+		update["pays"] = req.Pays
 	}
 	if req.CodeSoiree != "" {
 		update["code_soiree"] = req.CodeSoiree

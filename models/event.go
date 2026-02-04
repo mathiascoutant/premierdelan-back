@@ -29,6 +29,10 @@ type Event struct {
 	PhotosCount              int                `json:"photos_count" bson:"photos_count"`
 	Statut                   string             `json:"statut" bson:"statut"` // "ouvert", "complet", "annule", "termine", "prochainement"
 	Lieu                     string             `json:"lieu" bson:"lieu"`
+	Adresse                  string             `json:"adresse" bson:"adresse"`
+	CodePostal               string             `json:"code_postal" bson:"code_postal"`
+	Ville                    string             `json:"ville" bson:"ville"`
+	Pays                     string             `json:"pays" bson:"pays"`
 	CodeSoiree               string             `json:"code_soiree" bson:"code_soiree"`
 	DateOuvertureInscription *time.Time         `json:"date_ouverture_inscription,omitempty" bson:"date_ouverture_inscription,omitempty"` // Retour à *time.Time
 	DateFermetureInscription *time.Time         `json:"date_fermeture_inscription,omitempty" bson:"date_fermeture_inscription,omitempty"` // Retour à *time.Time
@@ -45,6 +49,10 @@ type CreateEventRequest struct {
 	Description              string        `json:"description"`
 	Capacite                 int           `json:"capacite"`
 	Lieu                     string        `json:"lieu"`
+	Adresse                  string        `json:"adresse"`
+	CodePostal               string        `json:"code_postal"`
+	Ville                    string        `json:"ville"`
+	Pays                     string        `json:"pays"`
 	CodeSoiree               string        `json:"code_soiree"`
 	Statut                   string        `json:"statut"`
 	DateOuvertureInscription *FlexibleTime `json:"date_ouverture_inscription,omitempty"`
@@ -58,6 +66,10 @@ type UpdateEventRequest struct {
 	Description              string        `json:"description,omitempty"`
 	Capacite                 int           `json:"capacite,omitempty"`
 	Lieu                     string        `json:"lieu,omitempty"`
+	Adresse                  string        `json:"adresse,omitempty"`
+	CodePostal               string        `json:"code_postal,omitempty"`
+	Ville                    string        `json:"ville,omitempty"`
+	Pays                     string        `json:"pays,omitempty"`
 	CodeSoiree               string        `json:"code_soiree,omitempty"`
 	Statut                   string        `json:"statut,omitempty"`
 	DateOuvertureInscription *FlexibleTime `json:"date_ouverture_inscription,omitempty"`
